@@ -1,3 +1,4 @@
+import collections
 import numpy as np
 from pyrep import PyRep
 from pyrep.backend import vrep
@@ -29,9 +30,9 @@ class SawyerRobot(object):
     TARGET_CUBE   = "target_cube"
     # looking downwards from initial position upwards
     LOOK_DOWNWARDS_POSITION = { 
-        2: -1.3, 
+        2: -1.45, 
         4: 1.4, 
-        6: 1.4 
+        6: 1.57 
     }
 
     def __init__(self, pr, move_to_initial_position=True):
@@ -112,30 +113,29 @@ class SawyerRobot(object):
 
         return tip_positions, images
 
+    @staticmethod
+    def add_angles(angles, offset):
+        offset_complete_dict = collections.defaultdict(int)
+        for jn in offset:
+            offset_complete_dict[jn] = offset[jn]
+        # angles contains all joint angles (1 to 7)
+        return { jn: angles[jn] + offset_complete_dict[jn] for jn in angles }
+
+
 
     def run_simulation(
             self,
-            offset_position=[0.0, 0.0, 0.0], 
-            offset_orientation=[0.0, 0.0, 0.0],
-            move_to_start_position=True
+            offset_angles={},
+            move_to_start_angles=True
         ):
 
-        if move_to_start_position:
-            # move to original world position
-            vrep.simSetObjectPosition(self.sawyer_handle, -1, self.absolute_position)
-            vrep.simSetObjectOrientation(self.sawyer_handle, -1, self.absolute_orientation)
+        if move_to_start_angles:
             # move all angles back to original position, as specified by
             # moving to default position and then to looking downwards position
             self.set_angles(self.joint_initial_state)
 
+        self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset_angles))
 
-        sawyer_position = vrep.simGetObjectPosition(self.sawyer_handle, -1)
-        sawyer_orientation = vrep.simGetObjectOrientation(self.sawyer_handle, -1)
-        new_p = sawyer_position + np.asarray(offset_position)
-        new_orient = sawyer_orientation + np.asarray(offset_orientation)
-
-        print("Moving to: {}".format(new_p))
-        self.move_sawyer_to(list(new_p), list(new_orient))
 
         target_cube_position = vrep.simGetObjectPosition(self.target_cube_handle, -1)
         target_cube_position_above = np.array(target_cube_position) + np.array([0.0, 0.0, 0.08])
