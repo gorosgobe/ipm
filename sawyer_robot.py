@@ -97,31 +97,36 @@ class SawyerRobot(object):
             curr_pos = np.array(self.sawyer.get_tip().get_position())
             done = done or np.linalg.norm(curr_pos - prev_pos) < 1e-4
 
+    def get_joint_velocities(self):
+        joint_velocities = [joint.get_joint_velocity() for joint in self.sawyer.joints]
+        return np.asarray(joint_velocities)
+
     def _simulate_path(self, path):
         path.visualize()
         path.set_to_start()
         self.pr.step()
 
-        tip_positions = []
+        tip_positions  = []
+        tip_velocities = []
         images = []
         done = False
         while not done:
             done = path.step()
             self.pr.step()
             tip_positions.append(self.sawyer.get_tip().get_position())
+            jacobian = self.sawyer.get_jacobian()
+            joint_velocities = self.get_joint_velocities()
+            tip_velocity = jacobian.T.dot(joint_velocities)
+            tip_velocities.append(tip_velocity)
             images.append(self.camera.get_image())
 
-        return tip_positions, images
+        return tip_positions, tip_velocities, images
 
     @staticmethod
     def add_angles(angles, offset):
-        offset_complete_dict = collections.defaultdict(int)
-        for jn in offset:
-            offset_complete_dict[jn] = offset[jn]
+        offset_complete_dict = collections.defaultdict(int, offset)
         # angles contains all joint angles (1 to 7)
         return { jn: angles[jn] + offset_complete_dict[jn] for jn in angles }
-
-
 
     def run_simulation(
             self,
@@ -136,10 +141,8 @@ class SawyerRobot(object):
 
         self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset_angles))
 
-
         target_cube_position = vrep.simGetObjectPosition(self.target_cube_handle, -1)
         target_cube_position_above = np.array(target_cube_position) + np.array([0.0, 0.0, 0.08])
         path = self.sawyer.get_path(position=list(target_cube_position_above), euler=[0.0, 0.0, 0.0])
-        tips, images = self._simulate_path(path)
 
-        return tips, images
+        return self._simulate_path(path)

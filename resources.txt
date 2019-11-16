@@ -1,0 +1,3 @@
+Jacobian, end of effector velocity wrt angular joint velocities:
+http://robotics.itee.uq.edu.au/~metr4202/2013/tpl/Chapter%204%20-%20Jacobain%20-%20from%20Khatib%20-%20Introduction%20to%20Robotics.pdf
+
