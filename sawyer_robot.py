@@ -49,14 +49,19 @@ class SawyerRobot(object):
         # Handles for every joint
         self.joint_handles = [vrep.simGetObjectHandle(joint_name) for joint_name in SawyerRobot.JOINTS]
 
-        # Move robot to initial position in simulation
+        # Move robot to initial angle position in simulation
         if move_to_initial_position:
-            self.set_initial_position()
+            self.set_initial_angles()
+
         # Initial angles for all robot joints. If move_to_initial_position, these will be the ones after
         # moving the robot
         self.joint_initial_state = {
             joint_number + 1: vrep.simGetJointPosition(joint_handle) for joint_number, joint_handle in enumerate(self.joint_handles)
         }
+
+        # save initial position and orientation of robot, after the initial position move
+        self.absolute_position    = vrep.simGetObjectPosition(self.sawyer_handle, -1)
+        self.absolute_orientation = vrep.simGetObjectOrientation(self.sawyer_handle, -1)
 
     @staticmethod
     def move_joint(joint_handle, target_angle):
@@ -74,7 +79,7 @@ class SawyerRobot(object):
             raise Exception("Joint number should be between 1 and 7")
         return self.joint_handles[joint_number - 1]
 
-    def set_initial_position(self):
+    def set_initial_angles(self):
         self.set_angles(SawyerRobot.LOOK_DOWNWARDS_POSITION)
 
     def set_angles(self, angles):
@@ -112,13 +117,17 @@ class SawyerRobot(object):
             self,
             offset_position=[0.0, 0.0, 0.0], 
             offset_orientation=[0.0, 0.0, 0.0],
-            move_to_initial_position=True
+            move_to_start_position=True
         ):
 
-        if move_to_initial_position:
+        if move_to_start_position:
+            # move to original world position
+            vrep.simSetObjectPosition(self.sawyer_handle, -1, self.absolute_position)
+            vrep.simSetObjectOrientation(self.sawyer_handle, -1, self.absolute_orientation)
             # move all angles back to original position, as specified by
             # moving to default position and then to looking downwards position
             self.set_angles(self.joint_initial_state)
+
 
         sawyer_position = vrep.simGetObjectPosition(self.sawyer_handle, -1)
         sawyer_orientation = vrep.simGetObjectOrientation(self.sawyer_handle, -1)
