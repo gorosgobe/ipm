@@ -98,8 +98,7 @@ class SawyerRobot(object):
             done = done or np.linalg.norm(curr_pos - prev_pos) < 1e-4
 
     def get_joint_velocities(self):
-        joint_velocities = [joint.get_joint_velocity() for joint in self.sawyer.joints]
-        return np.asarray(joint_velocities)
+        return np.asarray(self.sawyer.get_joint_velocities())
 
     def _simulate_path(self, path):
         path.visualize()

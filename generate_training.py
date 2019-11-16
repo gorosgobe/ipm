@@ -6,7 +6,6 @@ import csv
 import cv2
 import numpy as np
 from pyrep import PyRep
-from pyrep.backend import vrep
 from pyrep.errors import ConfigurationPathError
 from os.path import join, dirname, abspath
 
@@ -25,9 +24,9 @@ def save_images_and_tip_velocities(images, demonstration_num, tip_velocities, ti
     save_images(images=images, format_str=format_str, prefix=prefix)
 
     with open(tip_velocity_file, "a", newline='') as f:
-        writer = csv.writer(f, delimiter=' ', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        writer = csv.writer(f)
         for idx, vel in enumerate(tip_velocities):
-            writer.writerow([ format_str.format(prefix, idx), vel])
+            writer.writerow([ format_str.format(prefix, idx), *vel])
 
 
 pr = PyRep()
