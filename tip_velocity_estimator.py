@@ -1,13 +1,20 @@
-import cv2
-import numpy as np
-import torch
-from torch.utils.data.sampler import SubsetRandomSampler
-from torch.utils.data import DataLoader
-import torchvision
-import pandas as pd
 import os
+import time
+
+import cv2
 import imageio
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+import torchvision
+from ignite.engine import (Events, create_supervised_evaluator,
+                           create_supervised_trainer)
+from ignite.handlers import EarlyStopping
+from ignite.metrics import Loss
+from torch.utils.data import DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
+
 
 class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
     def __init__(self, csv, root_dir, resize=None, transform=None):
@@ -43,12 +50,12 @@ class Network(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super(Network, self).__init__()
         self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=10, kernel_size=3, stride=1, padding=1)
-        self.pool1 = torch.nn.MaxPool2d(kernel_size=4, stride=4)
+        self.pool1 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv2 = torch.nn.Conv2d(in_channels=10, out_channels=15, kernel_size=3, stride=1, padding=1)
         self.pool2 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv3 = torch.nn.Conv2d(in_channels=15, out_channels=20, kernel_size=3, stride=1, padding=1)
         self.pool3 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc_size = 20 * int(image_width * image_height / (16**2))
+        self.fc_size = 20 * int(image_width * image_height / (8**2))
         self.fc1 = torch.nn.Linear(in_features=self.fc_size, out_features=100)
         self.fc2 = torch.nn.Linear(in_features=100, out_features=3)
 
@@ -74,14 +81,93 @@ class TipVelocityEstimator(object):
         self.network = Network(128, 96)
         self.optimiser = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
         self.loss_func = torch.nn.MSELoss()
+        self.trainer = self._create_trainer()
+        self.evaluator = self._create_evaluator()
+        # set in train()
+        self.train_data_loader = None
+        self.val_loader = None
+        self.training_losses = []
+        self.validation_losses = []
+
+    def train(self, data_loader, max_epochs, validate_epochs=10, val_loader=None):
+        """
+        validate_epochs: After how many epochs do we want to 
+        validate our model against the validation dataset
+        """
+        self.train_data_loader = data_loader
+        self.validate_epochs   = validate_epochs
+        self.val_loader        = val_loader
+        return self.trainer.run(data_loader, max_epochs)
+
+    def get_network(self):
+        return self.network
+
+    @staticmethod
+    def prepare_batch(batch, device, non_blocking):
+        return batch["image"], batch["tip_velocities"]
+
+    def epoch_started(self):
+        def static_epoch_started(trainer):
+            print("Epoch {}".format(trainer.state.epoch))
+
+        return static_epoch_started
+
+    def epoch_completed(self):
+        def static_epoch_completed(trainer):
+            self.evaluator.run(self.train_data_loader)
+            metrics = self.evaluator.state.metrics
+            loss = metrics["loss"]
+            self.training_losses.append((trainer.state.epoch, loss))
+            print("Epoch {}, training loss {}".format(trainer.state.epoch, loss))
+
+        return static_epoch_completed
+
+    def epoch_validate(self):
+        def static_epoch_validate(trainer):
+            if self.val_loader is not None and trainer.state.epoch % self.validate_epochs == 0:
+                # validate against validation dataset
+                self.evaluator.run(self.val_loader)
+                metrics = self.evaluator.state.metrics
+                loss = metrics["loss"]
+                self.validation_losses.append((trainer.state.epoch, loss))
+                print("Validation loss for epoch {}: {}".format(trainer.state.epoch, loss))
+
+        return static_epoch_validate
+
+    def _create_trainer(self):
+        trainer = create_supervised_trainer(
+            self.network, 
+            self.optimiser, 
+            self.loss_func,
+            prepare_batch=TipVelocityEstimator.prepare_batch
+        )
+        trainer.add_event_handler(Events.EPOCH_STARTED, self.epoch_started())
+        trainer.add_event_handler(Events.EPOCH_COMPLETED, self.epoch_completed())
+        trainer.add_event_handler(Events.EPOCH_COMPLETED, self.epoch_validate())
+        return trainer
+
+    def _create_evaluator(self, early_stopping=True, patience=10):
+        evaluator = create_supervised_evaluator(self.network, metrics={
+            "loss": Loss(self.loss_func)
+        }, prepare_batch=TipVelocityEstimator.prepare_batch)
         
-    def train(self, batch, velocities):
-        self.optimiser.zero_grad()
-        output = self.network.forward(batch)
-        loss = self.loss_func(output, velocities)
-        loss.backward()
-        self.optimiser.step()
-        return loss
+        if early_stopping:
+
+            def score_function(engine):
+                val_loss = engine.state.metrics["loss"]
+                return -val_loss
+
+            early_stopping = EarlyStopping(
+                patience=patience, 
+                score_function=score_function, 
+                trainer=self.trainer
+            )
+            evaluator.add_event_handler(Events.COMPLETED, early_stopping)
+
+        return evaluator
+
+    def save(self, path):
+        torch.save(self.network.state_dict(), path)
 
     def predict(self, batch):
         return self.network.forward(batch)
@@ -104,67 +190,31 @@ if __name__ == "__main__":
         transform=preprocessing_transforms
     )
 
-    # for i in range(len(dataset)):
-    #     sample = dataset[i]
-    #     print(i, sample["image"].shape, sample["tip_velocities"].shape)
+    batch_size = 50
 
-    batch_size = 20
-    training_ratio     = 0.9
-    #validation_ratio   = (1 - training_ratio) / 2
-    test_ratio         = 1 - training_ratio
+    n_training_samples = int(0.9 * len(dataset))
+    n_test_samples     = len(dataset) - n_training_samples
 
-    n_training_samples = int(0.8 * len(dataset))
-    train_sampler      = SubsetRandomSampler(np.arange(n_training_samples, dtype=np.int64))
-
-    n_test_samples     = int(0.2 * len(dataset))
-    test_sampler       = SubsetRandomSampler(np.arange(n_test_samples, dtype=np.int64))
-
-    train_data_loader  = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler, num_workers=2)
-    test_data_loader   = DataLoader(dataset, batch_size=1, sampler=test_sampler)
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [n_training_samples, n_test_samples])
+    train_data_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    test_data_loader   = DataLoader(test_dataset, batch_size=4, shuffle=True)
 
     tip_velocity_estimator = TipVelocityEstimator(batch_size=batch_size, learning_rate=0.0001)
-
-    losses = []
-    # TODO: actually validation losses, need to add validation set
-    test_losses = []
-    num_epochs = 150
-    validation_checkpoint = 10
-
-    for epoch in range(1, num_epochs + 1):
-        loss_total = 0.0
-        count = 0
-        for batch_index, sampled_batch in enumerate(train_data_loader):
-            images = sampled_batch["image"]
-            velocities = sampled_batch["tip_velocities"]
-            loss = tip_velocity_estimator.train(images, velocities)
-            loss_total += loss.item()
-            count += 1
-
-        avg_loss_epoch = loss_total / count
-        losses.append(avg_loss_epoch)
-        print("Epoch {}: train loss {}".format(epoch, avg_loss_epoch))
-
-        if epoch % validation_checkpoint == 0:
-            total_test_loss = 0.0
-            count = 0
-            for _, batch in enumerate(test_data_loader):
-                images = batch["image"]
-                velocities = batch["tip_velocities"]
-                #print(velocities)
-                #print("----" * 6)
-                predicted_velocities = tip_velocity_estimator.predict(images)
-                #print(predicted_velocities)
-                total_test_loss += tip_velocity_estimator.loss_func(predicted_velocities, velocities)
-                count += 1
-
-            avg_test_loss = total_test_loss / count
-            print("Prediction loss: {}".format(avg_test_loss))
-            test_losses.append((epoch, avg_test_loss))
-
-    plt.plot(range(1, num_epochs + 1), losses, label="Train loss")
-    epochs, test_loss_values = zip(*test_losses)
-    plt.plot(epochs, test_loss_values, label="Validation loss")
+    tip_velocity_estimator.train(
+        train_data_loader, 
+        max_epochs=150, # or stop early with patience 5
+        validate_epochs=1, 
+        val_loader=test_data_loader
+    )
+    
+    training_epochs, training_losses = zip(*tip_velocity_estimator.training_losses)
+    plt.plot(training_epochs, training_losses, label="Train loss")
+    validation_epochs, validation_losses = zip(*tip_velocity_estimator.validation_losses)
+    plt.plot(validation_epochs, validation_losses, label="Validation loss")
     plt.xlabel("Epochs")
     plt.ylabel("MSE loss")
     plt.legend()
     plt.show()
+    # save the model
+    t = int(time.time())
+    tip_velocity_estimator.save("models/model{}.pt".format(t))
