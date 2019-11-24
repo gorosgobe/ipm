@@ -34,12 +34,12 @@ pr.launch(SCENE_FILE, headless=True)
 pr.start()
 
 # Minimum number of training samples we want to generate
-min_samples = 100
+min_samples = 300
 # count of number of training samples so far (image, tip velocity)
 total_count = 0
 # Number of the demonstration
 demonstration_num = 0
-folder = "./data"
+folder = "./datafixedgripper"
 # remove data folder to regenerate data. Alternatively, change this to write to a different folder
 shutil.rmtree(folder, ignore_errors=True)
 os.mkdir(folder)
@@ -59,7 +59,7 @@ total_count += len(tip_velocities)
 while total_count <= min_samples:
     print("{}/{} samples generated".format(total_count, min_samples))
     demonstration_num += 1
-    offset_angles_list = np.random.uniform(-np.pi / 10, np.pi / 10, size=7)
+    offset_angles_list = np.random.uniform(-np.pi / 20, np.pi / 20, size=7)
     offset_angles      = {idx + 1: angle_offset for idx, angle_offset in enumerate(offset_angles_list)}
     print("Offset angles {}".format(offset_angles_list))
     try:
