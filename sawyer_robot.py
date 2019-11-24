@@ -130,8 +130,14 @@ class SawyerRobot(object):
     def run_simulation(
             self,
             offset_angles={},
-            move_to_start_angles=True
+            move_to_start_angles=True,
+            tip_velocities_zero_end=True
         ):
+        """
+        tip_velocities_zero_end: True if we want the last tip velocity to be zero, otherwise it is 
+        set to the last tip velocity obtained. This is because in our model, we need to determine when to 
+        stop the controller, and this occurs in the last image of the demonstration
+        """
 
         if move_to_start_angles:
             # move all angles back to original position, as specified by
@@ -141,7 +147,9 @@ class SawyerRobot(object):
         self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset_angles))
 
         target_cube_position = vrep.simGetObjectPosition(self.target_cube_handle, -1)
-        target_cube_position_above = np.array(target_cube_position) + np.array([0.0, 0.0, 0.08])
+        target_cube_position_above = np.array(target_cube_position) + np.array([0.0, 0.0, 0.05])
         path = self.sawyer.get_path(position=list(target_cube_position_above), euler=[0.0, 0.0, 0.0])
-
-        return self._simulate_path(path)
+        tip_positions, tip_velocities, images = self._simulate_path(path)
+        if tip_velocities_zero_end:
+            tip_velocities[-1] = [0.0, 0.0, 0.0]
+        return tip_positions, tip_velocities, images
