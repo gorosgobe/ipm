@@ -32,12 +32,12 @@ if __name__ == "__main__":
     with SawyerReachCubeScene(headless=True) as pr:
 
         # Minimum number of training samples we want to generate
-        min_samples = 10
+        min_samples = 4000
         # count of number of training samples so far (image, tip velocity)
         total_count = 0
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./data123"
+        folder = "./datadummyvelocity"
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder
         shutil.rmtree(folder, ignore_errors=True)
         os.mkdir(folder)

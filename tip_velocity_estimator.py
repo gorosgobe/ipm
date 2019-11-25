@@ -21,8 +21,6 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         self.tip_velocities_frame = pd.read_csv(csv) 
         self.root_dir = root_dir
         self.transform = transform
-        # if not None, size we want to resize each image to
-        self.resize = resize
 
     def __len__(self):
         return len(self.tip_velocities_frame)
@@ -33,8 +31,6 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
 
         img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
         image = imageio.imread(img_name)
-        if self.resize:
-            image = cv2.resize(image, dsize=self.resize)
 
         tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
         tip_velocities = np.array(tip_velocities, dtype=np.float32)
@@ -75,10 +71,12 @@ class Network(torch.nn.Module):
         return out_fc2
 
 class TipVelocityEstimator(object):
-    def __init__(self, batch_size, learning_rate):
+    def __init__(self, batch_size, learning_rate, image_size, transforms=None):
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.network = Network(128, 96)
+        self.image_size = image_size
+        width, height = self.image_size
+        self.network = Network(width, height)
         self.optimiser = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
         self.loss_func = torch.nn.MSELoss()
         self.trainer = self._create_trainer()
@@ -88,6 +86,9 @@ class TipVelocityEstimator(object):
         self.val_loader = None
         self.training_losses = []
         self.validation_losses = []
+        self.resize_transform = ResizeTransform(self.image_size)
+        # transformations applied to input, except for initial resize
+        self.transforms = transforms
 
     def train(self, data_loader, max_epochs, validate_epochs=10, val_loader=None):
         """
@@ -166,11 +167,54 @@ class TipVelocityEstimator(object):
 
         return evaluator
 
-    def save(self, path):
-        torch.save(self.network.state_dict(), path)
+    def save(self, path, epoch=-1):
+        torch.save({
+            "model_state_dict": self.network.state_dict(),
+            "optimiser_state_dict": self.optimiser.state_dict(),
+            "epoch": epoch,
+            "batch_size": self.batch_size,
+            "learning_rate": self.learning_rate,
+            "transforms": self.transforms,
+            "image_size": self.image_size
+        }, path)
+
+    def load_parameters(self, state_dict):
+        self.network.load_state_dict(state_dict)
+
+    def load_optimiser_parameters(self, state_dict):
+        self.optimiser.load_state_dict(state_dict)
+
+    @staticmethod
+    def load(path):
+        info = torch.load(path)
+        batch_size    = info["batch_size"]
+        learning_rate = info["learning_rate"]
+        state_dict    = info["model_state_dict"]
+        optimiser_state_dict = info["optimiser_state_dict"]
+        transforms    = info["transforms"]
+        image_size    = info["image_size"]
+
+        estimator = TipVelocityEstimator(batch_size, learning_rate, image_size, transforms)
+        estimator.load_parameters(state_dict)
+        estimator.load_optimiser_parameters(optimiser_state_dict)
+
+        return estimator
+
+    def resize_image(self, image):
+        """
+        Resizes image to size of image controller was trained with
+        """
+        return self.resize_transform(image)
 
     def predict(self, batch):
         return self.network.forward(batch)
+
+class ResizeTransform(object):
+    def __init__(self, size):
+        self.size = size # tuple, like (128, 96)
+
+    def __call__(self, image):
+        return cv2.resize(image, dsize=self.size)
 
 if __name__ == "__main__":
 
@@ -178,15 +222,20 @@ if __name__ == "__main__":
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    preprocessing_transforms = torchvision.transforms.Compose([
+    transforms = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    size = (128, 96)
+    preprocessing_transforms = torchvision.transforms.Compose([
+        ResizeTransform(size), 
+        transforms
     ])
 
     dataset = ImageTipVelocitiesDataset(
-        csv="./data/velocities.csv", 
-        root_dir="./data", 
-        resize=(128, 96), 
+        csv="./datadummyvelocity/velocities.csv", 
+        root_dir="./datadummyvelocity",
         transform=preprocessing_transforms
     )
 
@@ -199,10 +248,17 @@ if __name__ == "__main__":
     train_data_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     test_data_loader   = DataLoader(test_dataset, batch_size=4, shuffle=True)
 
-    tip_velocity_estimator = TipVelocityEstimator(batch_size=batch_size, learning_rate=0.0001)
+    tip_velocity_estimator = TipVelocityEstimator(
+        batch_size=batch_size,
+        learning_rate=0.0001,
+        image_size=(128, 96),
+        # transforms without initial resize, so they can be pickled correctly
+        transforms=transforms
+    
+    )
     tip_velocity_estimator.train(
         train_data_loader, 
-        max_epochs=150, # or stop early with patience 5
+        max_epochs=30, # or stop early with patience 5
         validate_epochs=1, 
         val_loader=test_data_loader
     )

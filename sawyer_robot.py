@@ -56,13 +56,17 @@ class SawyerRobot(object):
 
         # Initial angles for all robot joints. If move_to_initial_position, these will be the ones after
         # moving the robot
-        self.joint_initial_state = {
-            joint_number + 1: vrep.simGetJointPosition(joint_handle) for joint_number, joint_handle in enumerate(self.joint_handles)
-        }
+        self.joint_initial_state = self.get_joint_angles()
 
         # save initial position and orientation of robot, after the initial position move
         self.absolute_position    = vrep.simGetObjectPosition(self.sawyer_handle, -1)
         self.absolute_orientation = vrep.simGetObjectOrientation(self.sawyer_handle, -1)
+
+    def get_joint_angles(self):
+        return { 
+            joint_number + 1: vrep.simGetJointPosition(joint_handle) \
+            for joint_number, joint_handle in enumerate(self.joint_handles)
+        }
 
     @staticmethod
     def move_joint(joint_handle, target_angle):
@@ -116,7 +120,10 @@ class SawyerRobot(object):
             jacobian = self.sawyer.get_jacobian()
             joint_velocities = self.get_joint_velocities()
             tip_velocity = jacobian.T.dot(joint_velocities)
-            tip_velocities.append(tip_velocity)
+            #print("JACOBIAN TIP VELOCITY", tip_velocity)
+            dummy_object_velocity = vrep.simGetObjectVelocity(self.sawyer.get_tip().get_handle())
+            #print("DUMMY VELOCITY", dummy_object_velocity)
+            tip_velocities.append(dummy_object_velocity[0])
             images.append(self.camera.get_image())
 
         return tip_positions, tip_velocities, images
@@ -126,6 +133,54 @@ class SawyerRobot(object):
         offset_complete_dict = collections.defaultdict(int, offset)
         # angles contains all joint angles (1 to 7)
         return { jn: angles[jn] + offset_complete_dict[jn] for jn in angles }
+
+    def get_target_joint_angles_from_tip_velocity(self, tip_velocity):
+        """
+        tip_velocity: tip velocity for which we want the joint angles. Passed as 1-D np array.
+        """
+        jacobian = self.sawyer.get_jacobian().T
+        inv_j_j_t = np.linalg.inv(jacobian.dot(jacobian.T))
+        right_pseudo_inverse = jacobian.T.dot(inv_j_j_t)
+        joint_angles = right_pseudo_inverse.dot(tip_velocity)
+        return {joint_number + 1: offset_angle for joint_number, offset_angle in enumerate(joint_angles)}
+
+
+    def run_controller_simulation(self, controller, offset_angles={}, move_to_start_angles=True):
+        """
+        Executes a simulation, starting from the default position, in a similar way to
+        run_simulation. However, in this case, the controller is used to obtain the tip velocity
+        that needs to be applied given an image. 
+        """
+        if move_to_start_angles:
+            self.set_angles(self.joint_initial_state)
+
+        self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset_angles))
+
+        test_remove = [
+            [0.0008368492126464844,-0.0005003809928894043,-0.04283428192138672],
+            [0.0026053190231323242,-0.0017443299293518066,-0.13728618621826172],
+            [0.006289482116699219,-0.003142058849334717,-0.2448892593383789],
+            [0.009717941284179688,-0.004546940326690674,-0.3558492660522461],
+            [0.012862682342529297,-0.005939006805419922,-0.4637432098388672],
+            [0.01367330551147461,-0.0067937374114990234,-0.5330562591552734],
+            [0.011746883392333984,-0.007005035877227783,-0.5474674701690674]
+        ]
+        images = []
+        done = False
+        count = 0
+        while not done:
+            image = self.camera.get_image()
+            # unnormalized image at original resolution, controller takes care of it
+            tip_velocity = controller.get_tip_velocity(image)
+            print("Tip velocity: ", tip_velocity)
+            step = vrep.simGetSimulationTimeStep() * 10
+            end_position = np.array(self.sawyer.get_tip().get_position()) + np.array(tip_velocity) * step
+            angles = self.sawyer.solve_ik(position=list(end_position), euler=[0.0, 0.0, 0.0])
+            self.set_angles({joint_number + 1: angle for joint_number, angle in enumerate(angles)})
+            count += 1
+            done = done or count == 40
+
+        return images
 
     def run_simulation(
             self,
