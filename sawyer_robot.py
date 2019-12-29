@@ -1,38 +1,40 @@
 import collections
 import numpy as np
 from pyrep import PyRep
-from pyrep.backend import vrep
+from pyrep.backend import sim
 from pyrep.robots.arms.sawyer import Sawyer
 from pyrep.robots.end_effectors.baxter_gripper import BaxterGripper
 
+
 class WristCamera(object):
     VISION_SENSOR = "Sawyer_wristCamera"
+
     def __init__(self):
-        self.vision_sensor_handle = vrep.simGetObjectHandle(WristCamera.VISION_SENSOR)
-        self.resolution = vrep.simGetVisionSensorResolution(self.vision_sensor_handle)
+        self.vision_sensor_handle = sim.simGetObjectHandle(WristCamera.VISION_SENSOR)
+        self.resolution = sim.simGetVisionSensorResolution(self.vision_sensor_handle)
 
     def get_image(self):
-        return vrep.simGetVisionSensorImage(self.vision_sensor_handle, self.resolution)
+        return sim.simGetVisionSensorImage(self.vision_sensor_handle, self.resolution)
+
 
 class SawyerRobot(object):
-
-    SAWYER        = "Sawyer"
-    JOINT1        = "Sawyer_joint1"
-    JOINT2        = "Sawyer_joint2"
-    JOINT3        = "Sawyer_joint3"
-    JOINT4        = "Sawyer_joint4"
-    JOINT5        = "Sawyer_joint5"
-    JOINT6        = "Sawyer_joint6"
-    JOINT7        = "Sawyer_joint7"
-    JOINTS        = [
+    SAWYER = "Sawyer"
+    JOINT1 = "Sawyer_joint1"
+    JOINT2 = "Sawyer_joint2"
+    JOINT3 = "Sawyer_joint3"
+    JOINT4 = "Sawyer_joint4"
+    JOINT5 = "Sawyer_joint5"
+    JOINT6 = "Sawyer_joint6"
+    JOINT7 = "Sawyer_joint7"
+    JOINTS = [
         JOINT1, JOINT2, JOINT3, JOINT4, JOINT5, JOINT6, JOINT7
     ]
-    TARGET_CUBE   = "target_cube"
+    TARGET_CUBE = "target_cube"
     # looking downwards from initial position upwards
-    LOOK_DOWNWARDS_POSITION = { 
-        2: -1.45, 
-        4: 1.4, 
-        6: 1.57 
+    LOOK_DOWNWARDS_POSITION = {
+        2: -1.45,
+        4: 1.4,
+        6: 1.57
     }
 
     def __init__(self, pr, move_to_initial_position=True):
@@ -40,15 +42,15 @@ class SawyerRobot(object):
         pr: PyRep instance, scene must have been launched and simulation 
         must have been started
         """
-        self.pr      = pr
-        self.sawyer  = Sawyer()
+        self.pr = pr
+        self.sawyer = Sawyer()
         self.gripper = BaxterGripper()
         self.tip_velocities = []
-        self.sawyer_handle = vrep.simGetObjectHandle(SawyerRobot.SAWYER)
+        self.sawyer_handle = sim.simGetObjectHandle(SawyerRobot.SAWYER)
         self.camera = WristCamera()
-        self.target_cube_handle = vrep.simGetObjectHandle(SawyerRobot.TARGET_CUBE)
+        self.target_cube_handle = sim.simGetObjectHandle(SawyerRobot.TARGET_CUBE)
         # Handles for every joint
-        self.joint_handles = [vrep.simGetObjectHandle(joint_name) for joint_name in SawyerRobot.JOINTS]
+        self.joint_handles = [sim.simGetObjectHandle(joint_name) for joint_name in SawyerRobot.JOINTS]
 
         # Move robot to initial angle position in simulation
         if move_to_initial_position:
@@ -59,22 +61,22 @@ class SawyerRobot(object):
         self.joint_initial_state = self.get_joint_angles()
 
         # save initial position and orientation of robot, after the initial position move
-        self.absolute_position    = vrep.simGetObjectPosition(self.sawyer_handle, -1)
-        self.absolute_orientation = vrep.simGetObjectOrientation(self.sawyer_handle, -1)
+        self.absolute_position = sim.simGetObjectPosition(self.sawyer_handle, -1)
+        self.absolute_orientation = sim.simGetObjectOrientation(self.sawyer_handle, -1)
 
     def get_joint_angles(self):
-        return { 
-            joint_number + 1: vrep.simGetJointPosition(joint_handle) \
+        return {
+            joint_number + 1: sim.simGetJointPosition(joint_handle) \
             for joint_number, joint_handle in enumerate(self.joint_handles)
         }
 
     @staticmethod
     def move_joint(joint_handle, target_angle):
-        vrep.simSetJointTargetPosition(joint_handle, target_angle)
+        sim.simSetJointTargetPosition(joint_handle, target_angle)
 
     def move_sawyer_to(self, position, orientation):
-        vrep.simSetObjectPosition(self.sawyer_handle, -1, position)
-        vrep.simSetObjectOrientation(self.sawyer_handle, -1, orientation)
+        sim.simSetObjectPosition(self.sawyer_handle, -1, position)
+        sim.simSetObjectOrientation(self.sawyer_handle, -1, orientation)
 
     def get_joint_handle(self, joint_number):
         """
@@ -109,7 +111,7 @@ class SawyerRobot(object):
         path.set_to_start()
         self.pr.step()
 
-        tip_positions  = []
+        tip_positions = []
         tip_velocities = []
         images = []
         done = False
@@ -120,9 +122,9 @@ class SawyerRobot(object):
             jacobian = self.sawyer.get_jacobian()
             joint_velocities = self.get_joint_velocities()
             tip_velocity = jacobian.T.dot(joint_velocities)
-            #print("JACOBIAN TIP VELOCITY", tip_velocity)
-            dummy_object_velocity = vrep.simGetObjectVelocity(self.sawyer.get_tip().get_handle())
-            #print("DUMMY VELOCITY", dummy_object_velocity)
+            # print("JACOBIAN TIP VELOCITY", tip_velocity)
+            dummy_object_velocity = sim.simGetObjectVelocity(self.sawyer.get_tip().get_handle())
+            # print("DUMMY VELOCITY", dummy_object_velocity)
             tip_velocities.append(dummy_object_velocity[0])
             images.append(self.camera.get_image())
 
@@ -132,7 +134,7 @@ class SawyerRobot(object):
     def add_angles(angles, offset):
         offset_complete_dict = collections.defaultdict(int, offset)
         # angles contains all joint angles (1 to 7)
-        return { jn: angles[jn] + offset_complete_dict[jn] for jn in angles }
+        return {jn: angles[jn] + offset_complete_dict[jn] for jn in angles}
 
     def get_target_joint_angles_from_tip_velocity(self, tip_velocity):
         """
@@ -144,7 +146,6 @@ class SawyerRobot(object):
         joint_angles = right_pseudo_inverse.dot(tip_velocity)
         return {joint_number + 1: offset_angle for joint_number, offset_angle in enumerate(joint_angles)}
 
-
     def run_controller_simulation(self, controller, offset_angles={}, move_to_start_angles=True):
         """
         Executes a simulation, starting from the default position, in a similar way to
@@ -152,19 +153,9 @@ class SawyerRobot(object):
         that needs to be applied given an image. 
         """
         if move_to_start_angles:
-            self.set_angles(self.joint_initial_state)
+            self.set_initial_angles()
 
         self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset_angles))
-
-        test_remove = [
-            [0.0008368492126464844,-0.0005003809928894043,-0.04283428192138672],
-            [0.0026053190231323242,-0.0017443299293518066,-0.13728618621826172],
-            [0.006289482116699219,-0.003142058849334717,-0.2448892593383789],
-            [0.009717941284179688,-0.004546940326690674,-0.3558492660522461],
-            [0.012862682342529297,-0.005939006805419922,-0.4637432098388672],
-            [0.01367330551147461,-0.0067937374114990234,-0.5330562591552734],
-            [0.011746883392333984,-0.007005035877227783,-0.5474674701690674]
-        ]
         images = []
         done = False
         count = 0
@@ -172,13 +163,16 @@ class SawyerRobot(object):
             image = self.camera.get_image()
             # unnormalized image at original resolution, controller takes care of it
             tip_velocity = controller.get_tip_velocity(image)
+            print("Count", count, "norm", np.linalg.norm(np.array(tip_velocity)))
             print("Tip velocity: ", tip_velocity)
-            step = vrep.simGetSimulationTimeStep() * 10
+            step = sim.simGetSimulationTimeStep()
             end_position = np.array(self.sawyer.get_tip().get_position()) + np.array(tip_velocity) * step
             angles = self.sawyer.solve_ik(position=list(end_position), euler=[0.0, 0.0, 0.0])
             self.set_angles({joint_number + 1: angle for joint_number, angle in enumerate(angles)})
             count += 1
-            done = done or count == 40
+            dist = np.linalg.norm(np.array(self.sawyer.get_tip().get_position()) - np.array(sim.simGetObjectPosition(self.target_cube_handle, -1)))
+            print("Dist to target cube", dist)
+            done = done or dist < 0.05 or count == 40
 
         return images
 
@@ -187,7 +181,7 @@ class SawyerRobot(object):
             offset_angles={},
             move_to_start_angles=True,
             tip_velocities_zero_end=True
-        ):
+    ):
         """
         tip_velocities_zero_end: True if we want the last tip velocity to be zero, otherwise it is 
         set to the last tip velocity obtained. This is because in our model, we need to determine when to 
@@ -201,7 +195,7 @@ class SawyerRobot(object):
 
         self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset_angles))
 
-        target_cube_position = vrep.simGetObjectPosition(self.target_cube_handle, -1)
+        target_cube_position = sim.simGetObjectPosition(self.target_cube_handle, -1)
         target_cube_position_above = np.array(target_cube_position) + np.array([0.0, 0.0, 0.05])
         path = self.sawyer.get_path(position=list(target_cube_position_above), euler=[0.0, 0.0, 0.0])
         tip_positions, tip_velocities, images = self._simulate_path(path)

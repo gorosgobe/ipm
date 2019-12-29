@@ -1,6 +1,7 @@
 import torch
 from tip_velocity_estimator import TipVelocityEstimator
 
+
 class TipVelocityController(object):
     def __init__(self, model_location):
         self.tip_velocity_estimator = TipVelocityEstimator.load(model_location)
@@ -16,4 +17,3 @@ class TipVelocityController(object):
             tip_velocity = tip_velocity_single_batch[0]
 
         return tip_velocity
-

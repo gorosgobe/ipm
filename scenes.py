@@ -18,9 +18,9 @@ class Scene(object):
         self.pr.stop()
         self.pr.shutdown()
 
-class SawyerReachCubeScene(Scene):
 
+class SawyerReachCubeScene(Scene):
     SCENE_FILE = join(dirname(abspath(__file__)), "scenes/sawyer_reach_cube.ttt")
-    
+
     def __init__(self, headless=True):
         super(SawyerReachCubeScene, self).__init__(SawyerReachCubeScene.SCENE_FILE, headless=headless)
