@@ -6,6 +6,9 @@ class TipVelocityController(object):
     def __init__(self, model_location):
         self.tip_velocity_estimator = TipVelocityEstimator.load(model_location)
 
+    def get_model(self):
+        return self.tip_velocity_estimator
+
     def get_tip_velocity(self, image):
         image = self.tip_velocity_estimator.resize_image(image)
         # apply normalisation and other transforms as required

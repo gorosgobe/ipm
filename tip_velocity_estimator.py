@@ -11,7 +11,7 @@ import torch
 import torchvision
 from ignite.engine import (Events, create_supervised_evaluator,
                            create_supervised_trainer)
-from ignite.handlers import EarlyStopping
+from ignite.handlers import EarlyStopping, ModelCheckpoint
 from ignite.metrics import Loss
 from torch.utils.data import DataLoader, Subset
 
@@ -31,6 +31,13 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
 
     def get_num_demonstrations(self):
         return self.demonstration_metadata["num_demonstrations"]
+
+    @staticmethod
+    def get_split(split_int, total_dems, start):
+        n_split_demonstrations = int(split_int * total_dems)
+        start_split, _ = dataset.get_indices_for_demonstration(start)
+        _, end_split = dataset.get_indices_for_demonstration(start + n_split_demonstrations - 1)
+        return Subset(dataset, np.arange(start_split, end_split + 1)), n_split_demonstrations
 
     def __len__(self):
         return len(self.tip_velocities_frame)
@@ -56,19 +63,18 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
 class Network(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super(Network, self).__init__()
-        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=10, kernel_size=5, stride=1, padding=1)
-        self.batch_norm1 = torch.nn.BatchNorm2d(10)
-        self.pool1 = torch.nn.MaxPool2d(kernel_size=2, stride=4)
-        self.conv2 = torch.nn.Conv2d(in_channels=10, out_channels=15, kernel_size=5, stride=1, padding=1)
-        self.batch_norm2 = torch.nn.BatchNorm2d(15)
+        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=1, padding=1)
+        self.batch_norm1 = torch.nn.BatchNorm2d(64)
+        self.pool1 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=5, stride=1, padding=1)
+        self.batch_norm2 = torch.nn.BatchNorm2d(32)
         self.pool2 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv3 = torch.nn.Conv2d(in_channels=15, out_channels=20, kernel_size=3, stride=1, padding=1)
-        self.batch_norm3 = torch.nn.BatchNorm2d(20)
+        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=1, padding=1)
+        self.batch_norm3 = torch.nn.BatchNorm2d(16)
         self.pool3 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = torch.nn.Linear(in_features=120, out_features=30)
+        self.fc1 = torch.nn.Linear(in_features=384, out_features=64)
         self.dropout = torch.nn.Dropout(0.5)
-        self.fc2 = torch.nn.Linear(in_features=30, out_features=3)
-
+        self.fc2 = torch.nn.Linear(in_features=64, out_features=3)
 
     def forward(self, x):
         batch_size = x.size()[0]
@@ -85,7 +91,8 @@ class Network(torch.nn.Module):
 
 
 class TipVelocityEstimator(object):
-    def __init__(self, batch_size, learning_rate, image_size, transforms=None):
+    def __init__(self, batch_size, learning_rate, image_size, transforms=None, name="model"):
+        self.name = name
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.image_size = image_size
@@ -93,17 +100,25 @@ class TipVelocityEstimator(object):
         self.network = Network(width, height)
         self.optimiser = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
         self.loss_func = torch.nn.MSELoss()
-        self.trainer = self._create_trainer()
-        self.training_evaluator = self._create_evaluator()
-        self.validation_evaluator = self._create_evaluator(early_stopping=True, patience=10)
+
         # set in train()
         self.train_data_loader = None
         self.val_loader = None
+
         self.training_losses = []
         self.validation_losses = []
+        self.best_val_loss = None
+        # used to save space and delete oldest saved model
+        self.best_tmp_model_name = None
+        self.test_loss = None
+
         self.resize_transform = ResizeTransform(self.image_size)
         # transformations applied to input, except for initial resize
         self.transforms = transforms
+
+        self.trainer = self._create_trainer()
+        self.training_evaluator = self._create_evaluator()
+        self.validation_evaluator = self._create_evaluator(early_stopping=True, patience=10)
 
     def train(self, data_loader, max_epochs, validate_epochs=10, val_loader=None):
         """
@@ -147,6 +162,15 @@ class TipVelocityEstimator(object):
                 loss = metrics["loss"]
                 self.validation_losses.append((trainer.state.epoch, loss))
                 print("Validation loss: {}".format(loss))
+                # save according to best validation loss
+
+                if self.best_val_loss is None or (self.best_val_loss is not None and loss < self.best_val_loss):
+                    self.best_val_loss = loss
+                    # only keep the one with best validation loss
+                    if self.best_tmp_model_name is not None:
+                        os.remove(self.best_tmp_model_name)
+                    self.best_tmp_model_name = "models/{}_tmp_val_loss={}.pt".format(name, loss)
+                    self.save(self.best_tmp_model_name)
 
         return static_epoch_validate
 
@@ -181,16 +205,21 @@ class TipVelocityEstimator(object):
 
         return evaluator
 
-    def save(self, path, epoch=-1):
-        torch.save({
+    def get_info(self):
+        return {
             "model_state_dict": self.network.state_dict(),
             "optimiser_state_dict": self.optimiser.state_dict(),
-            "epoch": epoch,
+            "epoch": self.trainer.state.epoch if self.trainer.state is not None else 0,
             "batch_size": self.batch_size,
             "learning_rate": self.learning_rate,
             "transforms": self.transforms,
-            "image_size": self.image_size
-        }, path)
+            "image_size": self.image_size,
+            "test_loss": self.test_loss,
+            "name": self.name
+        }
+
+    def save(self, path):
+        torch.save(self.get_info(), path)
 
     def load_parameters(self, state_dict):
         self.network.load_state_dict(state_dict)
@@ -207,8 +236,12 @@ class TipVelocityEstimator(object):
         optimiser_state_dict = info["optimiser_state_dict"]
         transforms = info["transforms"]
         image_size = info["image_size"]
+        epoch = info["epoch"]
+        name = info["name"]
 
-        estimator = TipVelocityEstimator(batch_size, learning_rate, image_size, transforms)
+        estimator = TipVelocityEstimator(batch_size, learning_rate, image_size, transforms, name)
+        estimator.test_loss = info["test_loss"]
+        estimator.trainer.state.epoch = epoch
         estimator.load_parameters(state_dict)
         estimator.load_optimiser_parameters(optimiser_state_dict)
 
@@ -223,6 +256,12 @@ class TipVelocityEstimator(object):
     def predict(self, batch):
         with torch.no_grad():
             return self.network.forward(batch)
+
+    def evaluate_test(self, test_loader):
+        test_evaluator = self._create_evaluator()
+        test_evaluator.run(test_loader)
+        self.test_loss = test_evaluator.state.metrics["loss"]
+        return self.test_loss
 
 
 class ResizeTransform(object):
@@ -244,10 +283,9 @@ if __name__ == "__main__":
     ])
 
     size = (64, 48)
-    preprocessing_transforms = torchvision.transforms.Compose([\
-        ResizeTransform(size),
-        transforms
-    ])
+    preprocessing_transforms = torchvision.transforms.Compose([ResizeTransform(size),
+                                                               transforms
+                                                               ])
 
     dataset = ImageTipVelocitiesDataset(
         csv="./croppeddatalimitedshift30/velocities.csv",
@@ -256,40 +294,46 @@ if __name__ == "__main__":
         transform=preprocessing_transforms
     )
 
-    batch_size = 32
+    batch_size = 128
 
+    split = [0.8, 0.1, 0.1]
     total_demonstrations = dataset.get_num_demonstrations()
-    n_training_demonstrations = int(0.9 * total_demonstrations)
-    start_train, _ = dataset.get_indices_for_demonstration(0)
-    _, end_train = dataset.get_indices_for_demonstration(n_training_demonstrations - 1)
-    training_demonstrations = Subset(dataset, np.arange(start_train, end_train + 1))
 
-    n_test_demonstrations = total_demonstrations - n_training_demonstrations
-    start_test, _ = dataset.get_indices_for_demonstration(n_training_demonstrations)
-    _, end_test = dataset.get_indices_for_demonstration(n_training_demonstrations + n_test_demonstrations - 1)
-    test_demonstrations = Subset(dataset, np.arange(start_test, end_test + 1))
+    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(split[0], total_demonstrations, 0)
+    val_demonstrations, n_val_dems = ImageTipVelocitiesDataset.get_split(
+        split[1], total_demonstrations, n_training_dems
+    )
+    test_demonstrations, n_test_dems = ImageTipVelocitiesDataset.get_split(
+        split[2], total_demonstrations, n_training_dems + n_val_dems
+    )
 
-    print("Training demonstrations: ", n_training_demonstrations)
-    print("Test demonstrations: ", n_test_demonstrations)
+    print("Training demonstrations: ", n_training_dems, len(training_demonstrations))
+    print("Validation demonstrations: ", n_val_dems, len(val_demonstrations))
+    print("Test demonstrations: ", n_test_dems, len(test_demonstrations))
 
-    train_data_loader = DataLoader(training_demonstrations, batch_size=batch_size, shuffle=True, num_workers=4)
-    test_data_loader = DataLoader(test_demonstrations, batch_size=4, shuffle=True)
+    train_data_loader = DataLoader(training_demonstrations, batch_size=batch_size, num_workers=8, shuffle=True)
+    validation_data_loader = DataLoader(val_demonstrations, batch_size=4, num_workers=8, shuffle=True)
+    test_data_loader = DataLoader(test_demonstrations, batch_size=4, num_workers=8, shuffle=True)
 
+    name = "M1"
     tip_velocity_estimator = TipVelocityEstimator(
         batch_size=batch_size,
         learning_rate=0.0001,
         image_size=size,
         # transforms without initial resize, so they can be pickled correctly
-        transforms=transforms
-
+        transforms=transforms,
+        name=name
     )
+
     tip_velocity_estimator.train(
         train_data_loader,
-        max_epochs=100,  # or stop early with patience 10
+        max_epochs=3,  # or stop early with patience 10
         validate_epochs=1,
-        val_loader=test_data_loader
+        val_loader=validation_data_loader
     )
 
+    test_loss = tip_velocity_estimator.evaluate_test(test_data_loader)
+    print("Test loss: ", test_loss)
     training_epochs, training_losses = zip(*tip_velocity_estimator.training_losses)
     plt.plot(training_epochs, training_losses, label="Train loss")
     validation_epochs, validation_losses = zip(*tip_velocity_estimator.validation_losses)
@@ -299,5 +343,4 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
     # save the model
-    t = int(time.time())
-    tip_velocity_estimator.save("models/model{}.pt".format(t))
+    tip_velocity_estimator.save("models/{}.pt".format(name))
