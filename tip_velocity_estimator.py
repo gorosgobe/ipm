@@ -108,8 +108,8 @@ class TipVelocityEstimator(object):
         self.training_losses = []
         self.validation_losses = []
         self.best_val_loss = None
-        # used to save space and delete oldest saved model
-        self.best_tmp_model_name = None
+        # stores best model
+        self.best_info = None
         self.test_loss = None
 
         self.resize_transform = ResizeTransform(self.image_size)
@@ -166,11 +166,14 @@ class TipVelocityEstimator(object):
 
                 if self.best_val_loss is None or (self.best_val_loss is not None and loss < self.best_val_loss):
                     self.best_val_loss = loss
-                    # only keep the one with best validation loss
-                    if self.best_tmp_model_name is not None:
-                        os.remove(self.best_tmp_model_name)
-                    self.best_tmp_model_name = "models/{}_tmp_val_loss={}.pt".format(name, loss)
-                    self.save(self.best_tmp_model_name)
+                    # store test loss information too
+                    # like this, every saved model has information about its test loss
+                    test_loss = self.evaluate_test(test_data_loader)
+                    self.test_loss = test_loss
+                    print("Test loss: ", test_loss)
+                    # Best model is saved at end of training to minimise number of models saved (not really
+                    # checkpointing)
+                    self.best_info = self.get_info()
 
         return static_epoch_validate
 
@@ -215,11 +218,23 @@ class TipVelocityEstimator(object):
             "transforms": self.transforms,
             "image_size": self.image_size,
             "test_loss": self.test_loss,
-            "name": self.name
+            "name": self.name,
+            "training_losses": self.training_losses,
+            "validation_losses": self.validation_losses
         }
 
-    def save(self, path):
-        torch.save(self.get_info(), path)
+    def save(self, path, info=None):
+        if info is None:
+            torch.save(self.get_info(), path)
+        else:
+            torch.save(info, path)
+
+    def save_best_model(self, path):
+        best_val_loss = self.best_info["validation_losses"][-1][1]
+        best_epoch = self.best_info["epoch"]
+        name = self.best_info["name"]
+        file_name = "{}_{}_{}.pt".format(name, best_epoch, best_val_loss)
+        self.save(os.path.join(path, file_name), self.best_info)
 
     def load_parameters(self, state_dict):
         self.network.load_state_dict(state_dict)
@@ -241,7 +256,14 @@ class TipVelocityEstimator(object):
 
         estimator = TipVelocityEstimator(batch_size, learning_rate, image_size, transforms, name)
         estimator.test_loss = info["test_loss"]
-        estimator.trainer.state.epoch = epoch
+
+        def setup_state(engine):
+            engine.state.epoch = epoch
+        estimator.trainer.add_event_handler(Events.STARTED, setup_state)
+
+        estimator.training_losses = info["training_losses"]
+        estimator.validation_losses = info["validation_losses"]
+
         estimator.load_parameters(state_dict)
         estimator.load_optimiser_parameters(optimiser_state_dict)
 
@@ -260,8 +282,17 @@ class TipVelocityEstimator(object):
     def evaluate_test(self, test_loader):
         test_evaluator = self._create_evaluator()
         test_evaluator.run(test_loader)
-        self.test_loss = test_evaluator.state.metrics["loss"]
-        return self.test_loss
+        return test_evaluator.state.metrics["loss"]
+
+    def plot_train_val_losses(self):
+        training_epochs, training_losses = zip(*self.training_losses)
+        plt.plot(training_epochs, training_losses, label="Train loss")
+        validation_epochs, validation_losses = zip(*self.validation_losses)
+        plt.plot(validation_epochs, validation_losses, label="Validation loss")
+        plt.xlabel("Epochs")
+        plt.ylabel("MSE loss")
+        plt.legend()
+        plt.show()
 
 
 class ResizeTransform(object):
@@ -327,20 +358,11 @@ if __name__ == "__main__":
 
     tip_velocity_estimator.train(
         train_data_loader,
-        max_epochs=3,  # or stop early with patience 10
+        max_epochs=100,  # or stop early with patience 10
         validate_epochs=1,
         val_loader=validation_data_loader
     )
 
-    test_loss = tip_velocity_estimator.evaluate_test(test_data_loader)
-    print("Test loss: ", test_loss)
-    training_epochs, training_losses = zip(*tip_velocity_estimator.training_losses)
-    plt.plot(training_epochs, training_losses, label="Train loss")
-    validation_epochs, validation_losses = zip(*tip_velocity_estimator.validation_losses)
-    plt.plot(validation_epochs, validation_losses, label="Validation loss")
-    plt.xlabel("Epochs")
-    plt.ylabel("MSE loss")
-    plt.legend()
-    plt.show()
-    # save the model
-    tip_velocity_estimator.save("models/{}.pt".format(name))
+    # save_best_model
+    tip_velocity_estimator.save_best_model("models/")
+    tip_velocity_estimator.plot_train_val_losses()
