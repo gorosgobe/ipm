@@ -8,13 +8,13 @@ import numpy as np
 from pyrep.errors import ConfigurationPathError
 
 from sawyer_robot import SawyerRobot
-from scenes import SawyerReachCubeScene
+from scenes import SawyerReachCubeScene, SawyerTextureReachCubeScene
 
 
 def save_images(images, format_str, prefix=""):
     for idx, img in enumerate(images):
         img = cv2.convertScaleAbs(img, alpha=(255.0))
-        cv2.imwrite(format_str.format(prefix, idx), img)
+        cv2.imwrite(format_str.format(prefix, idx), cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
 
 def save_images_and_tip_velocities(images, demonstration_num, tip_velocities, tip_velocity_file, metadata_file):
@@ -58,7 +58,7 @@ def save_images_and_tip_velocities(images, demonstration_num, tip_velocities, ti
 
 if __name__ == "__main__":
 
-    with SawyerReachCubeScene(headless=True) as pr:
+    with SawyerTextureReachCubeScene(headless=True) as pr:
 
         # Minimum number of training samples we want to generate
         min_samples = 4000
@@ -66,7 +66,7 @@ if __name__ == "__main__":
         total_count = 0
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./datalimitedshift30"
+        folder = "./text_datalimitedshift30"
         tip_velocity_file = "velocities.csv"
         metadata_file = "metadata.json"
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder

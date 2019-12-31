@@ -17,13 +17,22 @@ from torch.utils.data import DataLoader, Subset
 
 
 class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
-    def __init__(self, csv, metadata, root_dir, resize=None, transform=None):
+    def __init__(self, csv, metadata, root_dir, resize=None, transform=None, cache_images=True):
         self.tip_velocities_frame = pd.read_csv(csv, header=None)
         self.root_dir = root_dir
         self.transform = transform
         with open(metadata, "r") as m:
             metadata_content = m.read()
         self.demonstration_metadata = json.loads(metadata_content)
+        self.cache_images = cache_images
+        self.cache = {}
+        if self.cache_images:
+            print("Loading images into memory...")
+            # hack to preload all images from cache
+            for i in range(len(self)):
+                self.__getitem__(i)
+                print("Loaded ", i)
+            print("Finished loading.")
 
     def get_indices_for_demonstration(self, d_idx):
         demonstration_data = self.demonstration_metadata["demonstrations"][str(d_idx)]
@@ -47,7 +56,13 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
             idx = idx.tolist()
 
         img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
-        image = imageio.imread(img_name)
+
+        if not self.cache_images:
+            image = imageio.imread(img_name)
+        else:
+            if img_name not in self.cache:
+                self.cache[img_name] = imageio.imread(img_name)
+            image = self.cache[img_name]
 
         tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
         tip_velocities = np.array(tip_velocities, dtype=np.float32)
@@ -72,7 +87,7 @@ class Network(torch.nn.Module):
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=1, padding=1)
         self.batch_norm3 = torch.nn.BatchNorm2d(16)
         self.pool3 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = torch.nn.Linear(in_features=384, out_features=64)
+        self.fc1 = torch.nn.Linear(in_features=2240, out_features=64)
         self.dropout = torch.nn.Dropout(0.5)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=3)
 
@@ -319,9 +334,9 @@ if __name__ == "__main__":
                                                                ])
 
     dataset = ImageTipVelocitiesDataset(
-        csv="./croppeddatalimitedshift30/velocities.csv",
-        metadata="./croppeddatalimitedshift30/metadata.json",
-        root_dir="./croppeddatalimitedshift30",
+        csv="./text_improvedcropdatalimitedshift30/velocities.csv",
+        metadata="./text_improvedcropdatalimitedshift30/metadata.json",
+        root_dir="./text_improvedcropdatalimitedshift30",
         transform=preprocessing_transforms
     )
 
@@ -338,6 +353,9 @@ if __name__ == "__main__":
         split[2], total_demonstrations, n_training_dems + n_val_dems
     )
 
+    # Limited dataset
+    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.4, total_demonstrations, 0)
+
     print("Training demonstrations: ", n_training_dems, len(training_demonstrations))
     print("Validation demonstrations: ", n_val_dems, len(val_demonstrations))
     print("Test demonstrations: ", n_test_dems, len(test_demonstrations))
@@ -346,7 +364,7 @@ if __name__ == "__main__":
     validation_data_loader = DataLoader(val_demonstrations, batch_size=4, num_workers=8, shuffle=True)
     test_data_loader = DataLoader(test_demonstrations, batch_size=4, num_workers=8, shuffle=True)
 
-    name = "M1"
+    name = "M1TLIC"
     tip_velocity_estimator = TipVelocityEstimator(
         batch_size=batch_size,
         learning_rate=0.0001,

@@ -97,11 +97,13 @@ class SawyerRobot(object):
             SawyerRobot.move_joint(self.get_joint_handle(joint_number), angles[joint_number])
 
         done = False
+        count = 0
         while not done:
             prev_pos = np.array(self.sawyer.get_tip().get_position())
             self.pr.step()
+            count += 1
             curr_pos = np.array(self.sawyer.get_tip().get_position())
-            done = done or np.linalg.norm(curr_pos - prev_pos) < 1e-4
+            done = done or np.linalg.norm(curr_pos - prev_pos) < 1e-4 or count == 100
 
     def get_joint_velocities(self):
         return np.asarray(self.sawyer.get_joint_velocities())
@@ -159,22 +161,27 @@ class SawyerRobot(object):
         images = []
         done = False
         count = 0
+        achieved = False
         while not done:
             image = self.camera.get_image()
+            images.append(image)
             # unnormalized image at original resolution, controller takes care of it
             tip_velocity = controller.get_tip_velocity(image)
-            print("Count", count, "norm", np.linalg.norm(np.array(tip_velocity)))
+            print("Count", count)
             print("Tip velocity: ", tip_velocity)
             step = sim.simGetSimulationTimeStep()
             end_position = np.array(self.sawyer.get_tip().get_position()) + np.array(tip_velocity) * step
             angles = self.sawyer.solve_ik(position=list(end_position), euler=[0.0, 0.0, 0.0])
             self.set_angles({joint_number + 1: angle for joint_number, angle in enumerate(angles)})
             count += 1
-            dist = np.linalg.norm(np.array(self.sawyer.get_tip().get_position()) - np.array(sim.simGetObjectPosition(self.target_cube_handle, -1)))
+            dist = np.linalg.norm(np.array(self.sawyer.get_tip().get_position()) - np.array(
+                sim.simGetObjectPosition(self.target_cube_handle, -1)))
             print("Dist to target cube", dist)
-            done = done or dist < 0.05 or count == 40
+            if dist < 0.05:
+                achieved = True
+            done = done or dist < 0.05 or count == 100
 
-        return images
+        return images, achieved
 
     def run_simulation(
             self,

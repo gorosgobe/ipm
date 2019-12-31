@@ -1,22 +1,28 @@
 import torch
 from tip_velocity_estimator import TipVelocityEstimator
 
+
 class IdentityCropper(object):
     def crop(self, image):
         return image
 
-class CenterCropper(object):
-    def __init__(self, half_size_height, half_size_width):
-        self.half_size_height = half_size_height
-        self.half_size_width = half_size_width
+
+class OffsetCropper(object):
+    def __init__(self, cropped_height, cropped_width, offset_height=0, offset_width=0):
+        self.cropped_height = cropped_height
+        self.cropped_width = cropped_width
+        self.offset_height = offset_height
+        self.offset_width = offset_width
 
     def crop(self, image):
         height, width, _ = image.shape
-        center_x = int(width / 2)
-        center_y = int(height / 2)
+        center_x = width // 2 + self.offset_width
+        center_y = height // 2 + self.offset_height
+        half_size_height = self.cropped_height // 2
+        half_size_width = self.cropped_width // 2
         cropped_image = image[
-                        center_y - self.half_size_height:center_y + self.half_size_height,
-                        center_x - self.half_size_width:center_x + self.half_size_width
+                        center_y - half_size_height:center_y + half_size_height,
+                        center_x - half_size_width:center_x + half_size_width
                         ]
         return cropped_image
 
