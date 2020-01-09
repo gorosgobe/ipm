@@ -5,10 +5,12 @@ import shutil
 
 import cv2
 import numpy as np
+from pyrep.backend import sim
 from pyrep.errors import ConfigurationPathError
 
+from camera_robot import CameraRobot
 from sawyer_robot import SawyerRobot
-from scenes import SawyerReachCubeScene, SawyerTextureReachCubeScene
+from scenes import SawyerReachCubeScene, SawyerTextureReachCubeScene, CameraTextureReachCubeScene
 
 
 def save_images(images, format_str, prefix=""):
@@ -17,7 +19,7 @@ def save_images(images, format_str, prefix=""):
         cv2.imwrite(format_str.format(prefix, idx), cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
 
-def save_images_and_tip_velocities(images, demonstration_num, tip_velocities, tip_velocity_file, metadata_file):
+def save_images_and_tip_velocities(images, demonstration_num, tip_positions, tip_velocities, tip_velocity_file, metadata_file):
     format_str = "{}image{}.png"
     prefix = str(demonstration_num)
     save_images(images=images, format_str=format_str, prefix=prefix)
@@ -47,7 +49,8 @@ def save_images_and_tip_velocities(images, demonstration_num, tip_velocities, ti
         data["demonstrations"][demonstration_num] = dict(
             num_tip_velocities=len(tip_velocities),
             start=start,
-            end=start + len(tip_velocities) - 1
+            end=start + len(tip_velocities) - 1,
+            tip_positions=tip_positions
         )
 
         if "num_demonstrations" not in data:
@@ -58,48 +61,52 @@ def save_images_and_tip_velocities(images, demonstration_num, tip_velocities, ti
 
 if __name__ == "__main__":
 
-    with SawyerTextureReachCubeScene(headless=True) as pr:
+    with CameraTextureReachCubeScene(headless=False) as pr:
 
         # Minimum number of training samples we want to generate
-        min_samples = 4000
+        min_samples = 200
         # count of number of training samples so far (image, tip velocity)
         total_count = 0
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./text_datalimitedshift30"
+        folder = "./text_camera"
         tip_velocity_file = "velocities.csv"
         metadata_file = "metadata.json"
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder
         shutil.rmtree(folder, ignore_errors=True)
         os.mkdir(folder)
         os.chdir(folder)
-        sawyer_robot = SawyerRobot(pr)
-        tip_positions, tip_velocities, images = sawyer_robot.run_simulation()
-        save_images_and_tip_velocities(
-            images=images,
-            demonstration_num=demonstration_num,
-            tip_velocities=tip_velocities,
-            tip_velocity_file=tip_velocity_file,
-            metadata_file=metadata_file
-        )
-        total_count += len(tip_velocities)
+        robot = CameraRobot(pr, show_paths=True)
+        target_cube_position = sim.simGetObjectPosition(sim.simGetObjectHandle("target_cube"), -1)
+        target_above_cube = (np.array(target_cube_position) + np.array([0.0, 0.0, 0.05])).tolist()
+        # tip_positions, tip_velocities, images = robot.generate_image_simulation(offset=np.zeros(3), target=target_above_cube)
+        # save_images_and_tip_velocities(
+        #     images=images,
+        #     demonstration_num=demonstration_num,
+        #     tip_positions=tip_positions,
+        #     tip_velocities=tip_velocities,
+        #     tip_velocity_file=tip_velocity_file,
+        #     metadata_file=metadata_file
+        # )
+        # total_count += len(tip_velocities)
 
-        while total_count <= min_samples:
+        while total_count < min_samples:
             print("{}/{} samples generated".format(total_count, min_samples))
-            demonstration_num += 1
-            offset_angles_list = np.random.uniform(-np.pi / 30, np.pi / 30, size=7)
-            offset_angles = {idx + 1: angle_offset for idx, angle_offset in enumerate(offset_angles_list)}
-            print("Offset angles {}".format(offset_angles_list))
+            offset = robot.generate_offset() if total_count > 0 else np.zeros(robot.generate_offset().shape[0])
+            print("Offset {}".format(offset))
             try:
-                tip_positions, tip_velocities, images = sawyer_robot.run_simulation(offset_angles=offset_angles)
+                tip_positions, tip_velocities, images = robot.generate_image_simulation(offset=offset, target=target_above_cube)
+                print(tip_positions[0])
                 save_images_and_tip_velocities(
                     images=images,
                     demonstration_num=demonstration_num,
+                    tip_positions=tip_positions,
                     tip_velocities=tip_velocities,
                     tip_velocity_file=tip_velocity_file,
                     metadata_file=metadata_file
                 )
+                demonstration_num += 1
                 total_count += len(tip_velocities)
             except ConfigurationPathError:
-                print("Error, can not reach object from offset: {}, ignoring...".format(offset_angles))
+                print("Error, can not reach object from offset: {}, ignoring...".format(offset))
                 break

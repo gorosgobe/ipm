@@ -1,21 +1,11 @@
 import collections
+
 import numpy as np
-from pyrep import PyRep
 from pyrep.backend import sim
 from pyrep.robots.arms.sawyer import Sawyer
 from pyrep.robots.end_effectors.baxter_gripper import BaxterGripper
 
-
-class WristCamera(object):
-    VISION_SENSOR = "Sawyer_wristCamera"
-
-    def __init__(self):
-        self.vision_sensor_handle = sim.simGetObjectHandle(WristCamera.VISION_SENSOR)
-        self.resolution = sim.simGetVisionSensorResolution(self.vision_sensor_handle)
-
-    def get_image(self):
-        return sim.simGetVisionSensorImage(self.vision_sensor_handle, self.resolution)
-
+from camera import WristCamera
 
 class SawyerRobot(object):
     SAWYER = "Sawyer"
@@ -148,10 +138,11 @@ class SawyerRobot(object):
         joint_angles = right_pseudo_inverse.dot(tip_velocity)
         return {joint_number + 1: offset_angle for joint_number, offset_angle in enumerate(joint_angles)}
 
-    def run_controller_simulation(self, controller, offset_angles={}, move_to_start_angles=True):
+
+    def run_controller_simulation(self, controller, offset_angles={}, move_to_start_angles=True, target_distance=0.01):
         """
         Executes a simulation, starting from the default position, in a similar way to
-        run_simulation. However, in this case, the controller is used to obtain the tip velocity
+        generate_image_simulation. However, in this case, the controller is used to obtain the tip velocity
         that needs to be applied given an image. 
         """
         if move_to_start_angles:
@@ -162,6 +153,7 @@ class SawyerRobot(object):
         done = False
         count = 0
         achieved = False
+        min_distance = None
         while not done:
             image = self.camera.get_image()
             images.append(image)
@@ -174,18 +166,19 @@ class SawyerRobot(object):
             angles = self.sawyer.solve_ik(position=list(end_position), euler=[0.0, 0.0, 0.0])
             self.set_angles({joint_number + 1: angle for joint_number, angle in enumerate(angles)})
             count += 1
-            dist = np.linalg.norm(np.array(self.sawyer.get_tip().get_position()) - np.array(
-                sim.simGetObjectPosition(self.target_cube_handle, -1)))
+            dist = np.linalg.norm(np.array(self.sawyer.get_tip().get_position()) - self.get_target_reach_cube_position())
             print("Dist to target cube", dist)
-            if dist < 0.05:
+            if dist < target_distance:
                 achieved = True
-            done = done or dist < 0.05 or count == 100
 
-        return images, achieved
+            min_distance = min(dist, min_distance) if min_distance is not None else dist
+            done = done or dist < target_distance or count == 100
 
-    def run_simulation(
+        return images, achieved, min_distance
+
+    def generate_image_simulation(
             self,
-            offset_angles={},
+            offset={},
             move_to_start_angles=True,
             tip_velocities_zero_end=True
     ):
@@ -200,12 +193,22 @@ class SawyerRobot(object):
             # moving to default position and then to looking downwards position
             self.set_angles(self.joint_initial_state)
 
-        self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset_angles))
+        self.set_angles(SawyerRobot.add_angles(self.joint_initial_state, offset))
 
-        target_cube_position = sim.simGetObjectPosition(self.target_cube_handle, -1)
-        target_cube_position_above = np.array(target_cube_position) + np.array([0.0, 0.0, 0.05])
+        target_cube_position_above = self.get_target_reach_cube_position()
         path = self.sawyer.get_path(position=list(target_cube_position_above), euler=[0.0, 0.0, 0.0])
         tip_positions, tip_velocities, images = self._simulate_path(path)
         if tip_velocities_zero_end:
             tip_velocities[-1] = [0.0, 0.0, 0.0]
         return tip_positions, tip_velocities, images
+
+    def get_target_reach_cube_position(self):
+        # 5 cm above target cube is what we want
+        target_cube_position = sim.simGetObjectPosition(self.target_cube_handle, -1)
+        return np.array(target_cube_position) + np.array([0.0, 0.0, 0.05])
+
+    @staticmethod
+    def generate_offset():
+        offset_angles_list = np.random.uniform(-np.pi / 30, np.pi / 30, size=7)
+        offset_angles = {idx + 1: angle_offset for idx, angle_offset in enumerate(offset_angles_list)}
+        return offset_angles

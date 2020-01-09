@@ -39,3 +39,10 @@ class SawyerTextureDistractorsReachCubeScene(Scene):
     def __init__(self, headless=True):
         super(SawyerTextureDistractorsReachCubeScene, self).__init__(SawyerTextureDistractorsReachCubeScene.SCENE_FILE,
                                                                      headless=headless)
+
+
+class CameraTextureReachCubeScene(Scene):
+    SCENE_FILE = join(dirname(abspath(__file__)), "scenes/camera_reach_cube_textures.ttt")
+
+    def __init__(self, headless=True):
+        super(CameraTextureReachCubeScene, self).__init__(CameraTextureReachCubeScene.SCENE_FILE, headless=headless)
