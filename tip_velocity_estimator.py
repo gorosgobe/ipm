@@ -13,6 +13,7 @@ from ignite.engine import (Events, create_supervised_evaluator,
                            create_supervised_trainer)
 from ignite.handlers import EarlyStopping, ModelCheckpoint
 from ignite.metrics import Loss
+from torch.nn.modules.loss import _Loss
 from torch.utils.data import DataLoader, Subset
 
 
@@ -75,6 +76,33 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         return sample
 
 
+class AlignmentLoss(_Loss):
+    def __init__(self):
+        super(AlignmentLoss, self).__init__()
+
+    def forward(self, input, target):
+        # noinspection PyTypeChecker
+        similarity = torch.nn.functional.cosine_similarity(input, target, dim=1, eps=1e-8)
+        clamped = torch.clamp(similarity, -1.0, 1.0)
+        acos = torch.acos(clamped)
+        return torch.mean(acos)
+
+
+class TipVelocityEstimatorLoss(object):
+    def __init__(self):
+        self.mse_loss = torch.nn.MSELoss()
+        self.alignment_loss = AlignmentLoss()
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
+
+    def forward(self, input, target):
+        mse_loss = self.mse_loss(input, target)
+        # alignment loss gives NANs for some reason
+        #alignment_loss = self.alignment_loss(input, target)
+        return mse_loss # + alignment_loss
+
+
 class Network(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super(Network, self).__init__()
@@ -113,8 +141,9 @@ class TipVelocityEstimator(object):
         self.image_size = image_size
         width, height = self.image_size
         self.network = Network(width, height)
+
         self.optimiser = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
-        self.loss_func = torch.nn.MSELoss()
+        self.loss_func = TipVelocityEstimatorLoss()
 
         # set in train()
         self.train_data_loader = None
@@ -274,6 +303,7 @@ class TipVelocityEstimator(object):
 
         def setup_state(engine):
             engine.state.epoch = epoch
+
         estimator.trainer.add_event_handler(Events.STARTED, setup_state)
 
         estimator.training_losses = info["training_losses"]
@@ -328,16 +358,17 @@ if __name__ == "__main__":
         torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
     ])
 
-    size = (64, 48)
+    size = (128, 96)
     preprocessing_transforms = torchvision.transforms.Compose([ResizeTransform(size),
                                                                transforms
                                                                ])
 
     dataset = ImageTipVelocitiesDataset(
-        csv="./text_improvedcropdatalimitedshift30/velocities.csv",
-        metadata="./text_improvedcropdatalimitedshift30/metadata.json",
-        root_dir="./text_improvedcropdatalimitedshift30",
-        transform=preprocessing_transforms
+        csv="./text_camera/velocities.csv",
+        metadata="./text_camera/metadata.json",
+        root_dir="./text_camera",
+        transform=preprocessing_transforms,
+        cache_images=True
     )
 
     batch_size = 128
@@ -354,7 +385,7 @@ if __name__ == "__main__":
     )
 
     # Limited dataset
-    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.4, total_demonstrations, 0)
+    #training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.4, total_demonstrations, 0)
 
     print("Training demonstrations: ", n_training_dems, len(training_demonstrations))
     print("Validation demonstrations: ", n_val_dems, len(val_demonstrations))
@@ -364,7 +395,7 @@ if __name__ == "__main__":
     validation_data_loader = DataLoader(val_demonstrations, batch_size=4, num_workers=8, shuffle=True)
     test_data_loader = DataLoader(test_demonstrations, batch_size=4, num_workers=8, shuffle=True)
 
-    name = "M1TLIC"
+    name = "M2"
     tip_velocity_estimator = TipVelocityEstimator(
         batch_size=batch_size,
         learning_rate=0.0001,

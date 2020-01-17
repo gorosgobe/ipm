@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     with SawyerTextureDistractorsReachCubeScene(headless=True) as pr:
         sawyer_robot = SawyerRobot(pr)
-        model_name = "M1TL4IC"
+        model_name = "M2"
         controller = TipVelocityController("models/{}.pt".format(model_name), OffsetCropper(cropped_height=480 // 2, cropped_width=640 // 2, offset_height=25))
         print(controller.get_model().test_loss)
 
