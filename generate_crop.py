@@ -1,10 +1,9 @@
-import numpy as np
 import cv2
 import pandas as pd
 import os
 import shutil
 
-from controller import OffsetCropper
+from lib.controller import OffsetCropper
 
 if __name__ == '__main__':
     parent_dir = os.getcwd()

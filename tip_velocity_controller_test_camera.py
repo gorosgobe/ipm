@@ -1,14 +1,6 @@
-import cv2
-
-from camera_robot import CameraRobot
-from controller import TipVelocityController, IdentityCropper, OffsetCropper
-from sawyer_robot import SawyerRobot
-from scenes import SawyerReachCubeScene, SawyerTextureReachCubeScene, SawyerTextureDistractorsReachCubeScene, \
-    CameraTextureReachCubeScene
-import numpy as np
-
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
-import os
+from lib.camera_robot import CameraRobot
+from lib.controller import TipVelocityController, IdentityCropper
+from lib.scenes import CameraTextureReachCubeScene
 import json
 import time
 

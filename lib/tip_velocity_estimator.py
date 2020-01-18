@@ -366,7 +366,7 @@ if __name__ == "__main__":
     dataset = ImageTipVelocitiesDataset(
         csv="./text_camera/velocities.csv",
         metadata="./text_camera/metadata.json",
-        root_dir="./text_camera",
+        root_dir="../text_camera",
         transform=preprocessing_transforms,
         cache_images=True
     )

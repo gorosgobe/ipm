@@ -5,13 +5,11 @@ import shutil
 
 import cv2
 import numpy as np
-from pyrep.backend import sim
 from pyrep.errors import ConfigurationPathError
 from pyrep.objects.shape import Shape
 
-from camera_robot import CameraRobot
-from sawyer_robot import SawyerRobot
-from scenes import SawyerReachCubeScene, SawyerTextureReachCubeScene, CameraTextureReachCubeScene
+from lib.camera_robot import CameraRobot
+from lib.scenes import CameraTextureReachCubeScene
 
 
 def save_images(images, format_str, prefix=""):

@@ -1,12 +1,7 @@
-import cv2
+from lib.controller import TipVelocityController, OffsetCropper
+from lib.sawyer_robot import SawyerRobot
+from lib.scenes import SawyerTextureDistractorsReachCubeScene
 
-from controller import TipVelocityController, IdentityCropper, OffsetCropper
-from sawyer_robot import SawyerRobot
-from scenes import SawyerReachCubeScene, SawyerTextureReachCubeScene, SawyerTextureDistractorsReachCubeScene
-import numpy as np
-
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
-import os
 import json
 import time
 

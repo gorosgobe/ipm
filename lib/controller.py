@@ -1,5 +1,5 @@
 import torch
-from tip_velocity_estimator import TipVelocityEstimator
+from lib.tip_velocity_estimator import TipVelocityEstimator
 
 
 class IdentityCropper(object):
@@ -24,6 +24,52 @@ class OffsetCropper(object):
                         center_y - half_size_height:center_y + half_size_height,
                         center_x - half_size_width:center_x + half_size_width
                         ]
+        return cropped_image
+
+
+class TruePixelROI(object):
+    def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object):
+        """
+        :param cropped_height: Height of region to crop
+        :param cropped_width: Width of region to crop
+        :param pixel_position_estimator: object that, given a handle, can compute its screen, pixel position for
+        full resolution of image supplied to "crop"
+        :param target_object: handle of target object, to compute pixel position of
+        """
+        self.cropped_height = cropped_height
+        self.cropped_width = cropped_width
+        self.target_object = target_object
+        self.pixel_position_estimator = pixel_position_estimator
+
+    def crop(self, image):
+        height, width, _ = image.shape
+        pixel, _ = self.pixel_position_estimator.compute_pixel_position(self.target_object.get_handle())
+        center_y, center_x = pixel
+        half_size_height = self.cropped_height // 2
+        half_size_width = self.cropped_width // 2
+
+        dx = 0
+        dy = 0
+        if center_x + half_size_width >= width:
+            dx = -(center_x + half_size_width - width) - 1
+        elif center_x - half_size_width < 0:
+            dx = -(center_x - half_size_width)
+
+        if center_y + half_size_height >= height:
+            dy = -(center_y + half_size_height - height) - 1
+        elif center_y - half_size_height < 0:
+            dy = -(center_y - half_size_height)
+
+        # otherwise, crop lies fully inside the image, dx, dy = 0 apply
+
+        center_x += dx
+        center_y += dy
+
+        cropped_image = image[
+            center_y - half_size_height:center_y + half_size_height + 1,
+            center_x - half_size_width:center_x + half_size_width + 1
+        ]
+
         return cropped_image
 
 
