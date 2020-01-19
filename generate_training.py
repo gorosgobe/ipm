@@ -9,7 +9,8 @@ from pyrep.errors import ConfigurationPathError
 from pyrep.objects.shape import Shape
 
 from lib.camera_robot import CameraRobot
-from lib.scenes import CameraTextureReachCubeScene
+from lib.scenes import CameraTextureReachCubeScene, CameraBackgroundObjectsTextureReachCubeScene, \
+    CameraBackgroundObjectsExtendedTextureReachCubeScene
 
 
 def save_images(images, format_str, prefix=""):
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     seed = 2019
     np.random.seed(seed)
 
-    with CameraTextureReachCubeScene(headless=True) as pr:
+    with CameraBackgroundObjectsExtendedTextureReachCubeScene(headless=True) as pr:
 
         # Minimum number of training samples we want to generate
         min_samples = 4000
@@ -72,7 +73,7 @@ if __name__ == "__main__":
         total_count = 0
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./text_camera_unit"
+        folder = "./text_camera_background_v2"
         tip_velocity_file = "velocities.csv"
         metadata_file = "metadata.json"
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder

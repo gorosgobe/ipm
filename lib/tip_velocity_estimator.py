@@ -160,8 +160,9 @@ class Network(torch.nn.Module):
 
 
 class TipVelocityEstimator(object):
-    def __init__(self, batch_size, learning_rate, image_size, transforms=None, name="model"):
+    def __init__(self, batch_size, learning_rate, image_size, transforms=None, name="model", device=None):
         self.name = name
+        self.device = device
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.image_size = image_size
@@ -205,7 +206,7 @@ class TipVelocityEstimator(object):
 
     @staticmethod
     def prepare_batch(batch, device, non_blocking):
-        return batch["image"], batch["tip_velocities"]
+        return batch["image"].to(device), batch["tip_velocities"].to(device)
 
     def epoch_started(self):
         def static_epoch_started(trainer):
@@ -252,6 +253,7 @@ class TipVelocityEstimator(object):
             self.network,
             self.optimiser,
             self.loss_func,
+            device=self.device,
             prepare_batch=TipVelocityEstimator.prepare_batch
         )
         trainer.add_event_handler(Events.EPOCH_STARTED, self.epoch_started())
@@ -260,7 +262,7 @@ class TipVelocityEstimator(object):
         return trainer
 
     def _create_evaluator(self, early_stopping=False, patience=10):
-        evaluator = create_supervised_evaluator(self.network, metrics={
+        evaluator = create_supervised_evaluator(self.network, device=self.device, metrics={
             "loss": Loss(self.loss_func)
         }, prepare_batch=TipVelocityEstimator.prepare_batch)
 
@@ -381,14 +383,14 @@ if __name__ == "__main__":
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
         size=(128, 96),
-        csv="text_camera_unit/velocities.csv",
-        metadata="text_camera_unit/metadata.json",
-        root_dir="text_camera_unit",
-        initial_pixel_cropper=None, #TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
+        csv="text_camera_background_v2/velocities.csv",
+        metadata="text_camera_background_v2/metadata.json",
+        root_dir="text_camera_background_v2",
+        initial_pixel_cropper=TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
         cache_images=True,
         batch_size=128,
         split=[0.8, 0.1, 0.1],
-        name="M22_unit",
+        name="M3LIC_background_v2",
         learning_rate=0.0001,
         max_epochs=100,
         validate_epochs=1,
@@ -397,6 +399,13 @@ if __name__ == "__main__":
 
     np.random.seed(config["seed"])
     torch.manual_seed(config["seed"])
+
+    # set up GPU if available
+    use_cuda = torch.cuda.is_available()
+    device = torch.device('cuda' if use_cuda else 'cpu')
+    if use_cuda:
+        torch.cuda.manual_seed(config["seed"])
+    print("Using GPU: {}".format(use_cuda))
 
     transforms = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
@@ -428,7 +437,7 @@ if __name__ == "__main__":
     )
 
     # Limited dataset
-    # training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.4, total_demonstrations, 0)
+    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.2, total_demonstrations, 0)
 
     print("Training demonstrations: ", n_training_dems, len(training_demonstrations))
     print("Validation demonstrations: ", n_val_dems, len(val_demonstrations))
@@ -445,7 +454,8 @@ if __name__ == "__main__":
         image_size=config["size"],
         # transforms without initial resize, so they can be pickled correctly
         transforms=transforms,
-        name=config["name"]
+        name=config["name"],
+        device=device
     )
 
     tip_velocity_estimator.train(
@@ -457,4 +467,4 @@ if __name__ == "__main__":
 
     # save_best_model
     tip_velocity_estimator.save_best_model(config["save_to_location"])
-    tip_velocity_estimator.plot_train_val_losses()
+    #tip_velocity_estimator.plot_train_val_losses()
