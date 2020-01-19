@@ -67,12 +67,12 @@ if __name__ == "__main__":
     with CameraTextureReachCubeScene(headless=True) as pr:
 
         # Minimum number of training samples we want to generate
-        min_samples = 200
+        min_samples = 4000
         # count of number of training samples so far (image, tip velocity)
         total_count = 0
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./text_camera1212"
+        folder = "./text_camera_unit"
         tip_velocity_file = "velocities.csv"
         metadata_file = "metadata.json"
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder
@@ -92,7 +92,7 @@ if __name__ == "__main__":
             print("Offset {}".format(offset))
             try:
                 tip_positions, tip_velocities, images, crop_pixels = robot.generate_image_simulation(
-                    offset=offset, target=target_above_cube, target_object=target_cube, draw_center_pixel=True
+                    offset=offset, target=target_above_cube, target_object=target_cube
                 )
                 print(tip_positions[0])
                 save_images_and_tip_velocities(

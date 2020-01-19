@@ -78,7 +78,6 @@ class MovableCamera(Camera):
         path.insert_control_points([current_position, point_towards])
         # relative orientation, at the end of the path
         _, pose = path.get_pose_on_path(1)
-        print("Pose", pose)
         sim.simSetObjectOrientation(self.vision_sensor_handle, path.get_handle(), pose)
 
     def move_along_velocity(self, velocity):

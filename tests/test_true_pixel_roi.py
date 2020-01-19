@@ -28,7 +28,7 @@ class TruePixelRoiTest(unittest.TestCase):
     )
 
     def test_centered_crop_returns_correctly_cropped_section(self):
-        fpe = FakePixelEstimator((2, 3))
+        fpe = FakePixelEstimator((3, 2))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -48,7 +48,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_low_crop_compensates_extreme_height(self):
-        fpe = FakePixelEstimator((80, 3))
+        fpe = FakePixelEstimator((3, 80))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -58,7 +58,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_high_crop_compensates_height(self):
-        fpe = FakePixelEstimator((-1, 3))
+        fpe = FakePixelEstimator((3, -1))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -68,7 +68,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_high_crop_compensates_extreme_height(self):
-        fpe = FakePixelEstimator((-153, 3))
+        fpe = FakePixelEstimator((3, -153))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -78,7 +78,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_right_crop_compensates_width(self):
-        fpe = FakePixelEstimator((2, 5))
+        fpe = FakePixelEstimator((5, 2))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -88,7 +88,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_right_crop_compensates_extreme_width(self):
-        fpe = FakePixelEstimator((2, 56))
+        fpe = FakePixelEstimator((56, 2))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -98,7 +98,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_left_crop_compensates_width(self):
-        fpe = FakePixelEstimator((2, -1))
+        fpe = FakePixelEstimator((-1, 2))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -108,7 +108,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_left_crop_compensates_extreme_width(self):
-        fpe = FakePixelEstimator((2, -37))
+        fpe = FakePixelEstimator((-37, 2))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -118,7 +118,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_low_left_corner_compensates_both_width_and_height(self):
-        fpe = FakePixelEstimator((4, -1))
+        fpe = FakePixelEstimator((-1, 4))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -128,7 +128,7 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
 
     def test_top_right_corner_compensates_both_width_and_height(self):
-        fpe = FakePixelEstimator((-4, 8))
+        fpe = FakePixelEstimator((8, -4))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle())
         crop = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([

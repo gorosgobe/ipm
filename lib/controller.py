@@ -1,5 +1,10 @@
+import time
+
+import cv2
+import numpy as np
 import torch
-from lib.tip_velocity_estimator import TipVelocityEstimator
+
+from lib.camera import Camera
 
 
 class IdentityCropper(object):
@@ -44,7 +49,7 @@ class TruePixelROI(object):
     def crop(self, image):
         height, width, _ = image.shape
         pixel, _ = self.pixel_position_estimator.compute_pixel_position(self.target_object.get_handle())
-        center_y, center_x = pixel
+        center_x, center_y = pixel
         half_size_height = self.cropped_height // 2
         half_size_width = self.cropped_width // 2
 
@@ -66,29 +71,72 @@ class TruePixelROI(object):
         center_y += dy
 
         cropped_image = image[
-            center_y - half_size_height:center_y + half_size_height + 1,
-            center_x - half_size_width:center_x + half_size_width + 1
-        ]
+                        center_y - half_size_height:center_y + half_size_height + 1,
+                        center_x - half_size_width:center_x + half_size_width + 1
+                        ]
 
         return cropped_image
 
 
+# Pixel ROI for training, used to determine what the model sees at training time
+# Pixel is loaded from data, so wrap for interfacing with TruePixelROI
+class LoadedPixelEstimator(object):
+    def __init__(self, pixel):
+        self.pixel = pixel
+
+    def compute_pixel_position(self, handle):
+        return self.pixel, None
+
+
+# To pass in by TrainingPixelROI to TruePixelROI for pixel estimators that return pixel from data,
+# such as LoadedPixelEstimator
+class FakeHandle(object):
+    def get_handle(self):
+        return None
+
+
+class TrainingPixelROI(object):
+    """
+    Region of interest for training, where pixel estimator is just the pixel stored for the image
+    """
+
+    def __init__(self, cropped_height, cropped_width):
+        self.cropped_height = cropped_height
+        self.cropped_width = cropped_width
+
+    def crop(self, image, pixel):
+        loaded_pixel_estimator = LoadedPixelEstimator(pixel)
+        true_pixel_roi = TruePixelROI(self.cropped_height, self.cropped_width, loaded_pixel_estimator, FakeHandle())
+        return true_pixel_roi.crop(image)
+
+
+# Controller that applies transformations and ROI to image at test time, and estimates tip velocity
 class TipVelocityController(object):
-    def __init__(self, tve_model_location, roi_estimator):
-        self.tip_velocity_estimator = TipVelocityEstimator.load(tve_model_location)
+    def __init__(self, tve_model, roi_estimator, debug=False):
+        self.tip_velocity_estimator = tve_model
         self.roi_estimator = roi_estimator
+        self.debug = debug
 
     def get_model(self):
         return self.tip_velocity_estimator
 
     def get_tip_velocity(self, image):
         # select region of interest (manual crop or RL agent)
-        # TODO: this might need to be reordered, TBD
         image = self.roi_estimator.crop(image)
+        if self.debug:
+            Camera.save_image("image1.png", image)
+            time.sleep(1)
         # resizes image
         image = self.tip_velocity_estimator.resize_image(image)
+        if self.debug:
+            Camera.save_image("image2.png", image)
+            time.sleep(1)
         # apply normalisation and other transforms as required
         transformed_image = self.tip_velocity_estimator.transforms(image)
+        if self.debug:
+            Camera.save_image("image3.png", transformed_image.permute(1, 2, 0).numpy())
+            time.sleep(1)
+
         with torch.no_grad():
             image_tensor = torch.unsqueeze(transformed_image, 0)
             # batch with single tip velocity

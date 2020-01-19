@@ -16,12 +16,22 @@ from ignite.metrics import Loss
 from torch.nn.modules.loss import _Loss
 from torch.utils.data import DataLoader, Subset
 
+from lib.controller import TrainingPixelROI
+
 
 class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
-    def __init__(self, csv, metadata, root_dir, resize=None, transform=None, cache_images=True):
+    def __init__(self, csv, metadata, root_dir, transform=None, cache_images=True, initial_pixel_cropper=None, debug=False):
+        # convert to absolute path
+        csv = os.path.abspath(csv)
+        metadata = os.path.abspath(metadata)
+        root_dir = os.path.abspath(root_dir)
+
         self.tip_velocities_frame = pd.read_csv(csv, header=None)
         self.root_dir = root_dir
         self.transform = transform
+        self.initial_pixel_cropper = initial_pixel_cropper
+        self.debug = debug
+
         with open(metadata, "r") as m:
             metadata_content = m.read()
         self.demonstration_metadata = json.loads(metadata_content)
@@ -70,6 +80,23 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
 
         sample = {'image': image, 'tip_velocities': tip_velocities}
 
+        # if dataset is of type crop pixel, crop image using the metadata pixel
+        if self.initial_pixel_cropper is not None:
+            # hack
+            num_demonstration = self.tip_velocities_frame.iloc[idx, 0].split("image")[0]
+            d_data = self.demonstration_metadata["demonstrations"][num_demonstration]
+            pixels = d_data["crop_pixels"]
+            if self.debug:
+                print("Should be #", idx - d_data["start"], "pixel, from", img_name)
+            pixel = pixels[idx - d_data["start"]]
+            sample["image"] = self.initial_pixel_cropper.crop(image, pixel)
+
+        if self.debug:
+            cv2.imshow("Image", sample["image"])
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            print("Size image after crop:", sample["image"].shape)
+
         if self.transform:
             sample["image"] = self.transform(sample["image"])
 
@@ -99,24 +126,23 @@ class TipVelocityEstimatorLoss(object):
     def forward(self, input, target):
         mse_loss = self.mse_loss(input, target)
         # alignment loss gives NANs for some reason
-        #alignment_loss = self.alignment_loss(input, target)
-        return mse_loss # + alignment_loss
+        # alignment_loss = self.alignment_loss(input, target)
+        return mse_loss  # + alignment_loss
 
 
 class Network(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super(Network, self).__init__()
-        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=1, padding=1)
+        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=1, padding=1)
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
         self.pool1 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=5, stride=1, padding=1)
+        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=1, padding=1)
         self.batch_norm2 = torch.nn.BatchNorm2d(32)
         self.pool2 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=1, padding=1)
         self.batch_norm3 = torch.nn.BatchNorm2d(16)
         self.pool3 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = torch.nn.Linear(in_features=2240, out_features=64)
-        self.dropout = torch.nn.Dropout(0.5)
+        self.fc1 = torch.nn.Linear(in_features=1872, out_features=64)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=3)
 
     def forward(self, x):
@@ -129,7 +155,7 @@ class Network(torch.nn.Module):
         out_conv3 = self.pool3.forward(out_conv3)
         out_conv3 = out_conv3.view(batch_size, -1)
         out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
-        out_fc2 = self.fc2.forward(self.dropout.forward(out_fc1))
+        out_fc2 = self.fc2.forward(out_fc1)
         return out_fc2
 
 
@@ -349,69 +375,86 @@ class ResizeTransform(object):
 
 
 if __name__ == "__main__":
-    seed = 2019
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    config = dict(
+        seed=2019,
+        # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
+        # otherwise we would be feeding a higher resolution cropped image
+        # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
+        size=(128, 96),
+        csv="text_camera_unit/velocities.csv",
+        metadata="text_camera_unit/metadata.json",
+        root_dir="text_camera_unit",
+        initial_pixel_cropper=None, #TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
+        cache_images=True,
+        batch_size=128,
+        split=[0.8, 0.1, 0.1],
+        name="M22_unit",
+        learning_rate=0.0001,
+        max_epochs=100,
+        validate_epochs=1,
+        save_to_location="models/"
+    )
+
+    np.random.seed(config["seed"])
+    torch.manual_seed(config["seed"])
 
     transforms = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
     ])
 
-    size = (128, 96)
-    preprocessing_transforms = torchvision.transforms.Compose([ResizeTransform(size),
+    preprocessing_transforms = torchvision.transforms.Compose([ResizeTransform(config["size"]),
                                                                transforms
                                                                ])
 
     dataset = ImageTipVelocitiesDataset(
-        csv="./text_camera/velocities.csv",
-        metadata="./text_camera/metadata.json",
-        root_dir="../text_camera",
+        csv=config["csv"],
+        metadata=config["metadata"],
+        root_dir=config["root_dir"],
+        initial_pixel_cropper=config["initial_pixel_cropper"],
         transform=preprocessing_transforms,
-        cache_images=True
+        cache_images=config["cache_images"],
     )
 
-    batch_size = 128
-
-    split = [0.8, 0.1, 0.1]
     total_demonstrations = dataset.get_num_demonstrations()
 
-    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(split[0], total_demonstrations, 0)
+    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(config["split"][0],
+                                                                                   total_demonstrations, 0)
     val_demonstrations, n_val_dems = ImageTipVelocitiesDataset.get_split(
-        split[1], total_demonstrations, n_training_dems
+        config["split"][1], total_demonstrations, n_training_dems
     )
     test_demonstrations, n_test_dems = ImageTipVelocitiesDataset.get_split(
-        split[2], total_demonstrations, n_training_dems + n_val_dems
+        config["split"][2], total_demonstrations, n_training_dems + n_val_dems
     )
 
     # Limited dataset
-    #training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.4, total_demonstrations, 0)
+    # training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.4, total_demonstrations, 0)
 
     print("Training demonstrations: ", n_training_dems, len(training_demonstrations))
     print("Validation demonstrations: ", n_val_dems, len(val_demonstrations))
     print("Test demonstrations: ", n_test_dems, len(test_demonstrations))
 
-    train_data_loader = DataLoader(training_demonstrations, batch_size=batch_size, num_workers=8, shuffle=True)
+    train_data_loader = DataLoader(training_demonstrations, batch_size=config["batch_size"], num_workers=8,
+                                   shuffle=True)
     validation_data_loader = DataLoader(val_demonstrations, batch_size=4, num_workers=8, shuffle=True)
     test_data_loader = DataLoader(test_demonstrations, batch_size=4, num_workers=8, shuffle=True)
 
-    name = "M2"
     tip_velocity_estimator = TipVelocityEstimator(
-        batch_size=batch_size,
-        learning_rate=0.0001,
-        image_size=size,
+        batch_size=config["batch_size"],
+        learning_rate=config["learning_rate"],
+        image_size=config["size"],
         # transforms without initial resize, so they can be pickled correctly
         transforms=transforms,
-        name=name
+        name=config["name"]
     )
 
     tip_velocity_estimator.train(
         train_data_loader,
-        max_epochs=100,  # or stop early with patience 10
-        validate_epochs=1,
+        max_epochs=config["max_epochs"],  # or stop early with patience 10
+        validate_epochs=config["validate_epochs"],
         val_loader=validation_data_loader
     )
 
     # save_best_model
-    tip_velocity_estimator.save_best_model("models/")
+    tip_velocity_estimator.save_best_model(config["save_to_location"])
     tip_velocity_estimator.plot_train_val_losses()
