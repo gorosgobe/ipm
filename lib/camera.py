@@ -147,3 +147,6 @@ class MovableCamera(Camera):
             points_to_draw.append(towards_y_axis)
             points_to_draw.append(towards_z_axis)
         return self._compute_pixel_position_from_canvas(canvas_position), points_to_draw
+
+    def add_to_orientation(self, rotation):
+        self.set_orientation(np.array(self.get_orientation()) + rotation)

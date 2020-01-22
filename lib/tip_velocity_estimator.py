@@ -91,7 +91,11 @@ class TipVelocityEstimator(object):
 
     @staticmethod
     def prepare_batch(batch, device, non_blocking):
-        return batch["image"].to(device), batch["tip_velocities"].to(device)
+        predictable = batch["tip_velocities"]
+        if "rotations" in batch:
+            # concatenate rotations to get 6-dimensional prediction
+            predictable = torch.cat((predictable, batch["rotations"]), 1)
+        return batch["image"].to(device), predictable.to(device)
 
     def epoch_started(self):
         def static_epoch_started(trainer):
@@ -269,20 +273,21 @@ if __name__ == "__main__":
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
-        size=(64, 48),
-        csv="text_camera_background_v2/velocities.csv",
-        metadata="text_camera_background_v2/metadata.json",
-        root_dir="text_camera_background_v2",
-        initial_pixel_cropper=TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
+        size=(128, 96),
+        velocities_csv="text_camera_orient/velocities.csv",
+        rotations_csv="text_camera_orient/rotations.csv",
+        metadata="text_camera_orient/metadata.json",
+        root_dir="text_camera_orient",
+        initial_pixel_cropper=None, #TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
         cache_images=False,
-        batch_size=128,
+        batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name="TESTING",
+        name="TESTING_ORIENTATIONS",
         learning_rate=0.0001,
-        max_epochs=1,
+        max_epochs=5,
         validate_epochs=1,
         save_to_location="models/",
-        network_klass=Network,
+        network_klass=FullImageNetwork,
     )
 
     np.random.seed(config["seed"])
@@ -305,7 +310,8 @@ if __name__ == "__main__":
                                                                ])
 
     dataset = ImageTipVelocitiesDataset(
-        csv=config["csv"],
+        velocities_csv=config["velocities_csv"],
+        rotations_csv=config["rotations_csv"],
         metadata=config["metadata"],
         root_dir=config["root_dir"],
         initial_pixel_cropper=config["initial_pixel_cropper"],

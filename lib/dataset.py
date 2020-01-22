@@ -10,13 +10,22 @@ from torch.utils.data import Subset
 
 
 class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
-    def __init__(self, csv, metadata, root_dir, transform=None, cache_images=True, initial_pixel_cropper=None, debug=False):
+    def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None, cache_images=True,
+                 initial_pixel_cropper=None, debug=False):
         # convert to absolute path
-        csv = os.path.abspath(csv)
+        velocities_csv = os.path.abspath(velocities_csv)
+        # if rotations csv is passed in, then dataset supplies vector of [tip velocities, rotations] (6 x 1)
+        if rotations_csv is not None:
+            rotations_csv = os.path.abspath(rotations_csv)
         metadata = os.path.abspath(metadata)
         root_dir = os.path.abspath(root_dir)
 
-        self.tip_velocities_frame = pd.read_csv(csv, header=None)
+        self.tip_velocities_frame = pd.read_csv(velocities_csv, header=None)
+        if rotations_csv is not None:
+            self.rotations_csv_frame = pd.read_csv(rotations_csv, header=None)
+            # Length must be the same
+            assert len(self.tip_velocities_frame) == len(self.rotations_csv_frame)
+
         self.root_dir = root_dir
         self.transform = transform
         self.initial_pixel_cropper = initial_pixel_cropper
@@ -67,7 +76,11 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
         tip_velocities = np.array(tip_velocities, dtype=np.float32)
 
-        sample = {'image': image, 'tip_velocities': tip_velocities}
+        sample = {"image": image, "tip_velocities": tip_velocities}
+        if self.rotations_csv_frame is not None:
+            rotations = self.rotations_csv_frame.iloc[idx, 1:]
+            rotations = np.array(rotations, dtype=np.float32)
+            sample["rotations"] = rotations
 
         # if dataset is of type crop pixel, crop image using the metadata pixel
         if self.initial_pixel_cropper is not None:

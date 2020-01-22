@@ -15,7 +15,7 @@ if __name__ == "__main__":
     seed = 2019
     np.random.seed(seed)
 
-    with CameraBackgroundObjectsTextureReachCubeScene(headless=False) as pr:
+    with CameraBackgroundObjectsTextureReachCubeScene(headless=True) as pr:
 
         # Minimum number of training samples we want to generate
         min_samples = 4000
@@ -25,6 +25,7 @@ if __name__ == "__main__":
         demonstration_num = 0
         folder = "./text_camera_orient"
         tip_velocity_file = "velocities.csv"
+        rotations_file = "rotations.csv"
         metadata_file = "metadata.json"
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder
         shutil.rmtree(folder, ignore_errors=True)
@@ -42,7 +43,7 @@ if __name__ == "__main__":
             offset = robot.generate_offset() if total_count > 0 else np.zeros(robot.generate_offset().shape[0])
             print("Offset {}".format(offset))
             try:
-                tip_positions, tip_velocities, images, crop_pixels = robot.generate_image_simulation(
+                tip_positions, tip_velocities, images, crop_pixels, rotations = robot.generate_image_simulation(
                     offset=offset, target_position=target_above_cube, target_object=target_cube
                 )
                 print(tip_positions[0])
@@ -53,7 +54,9 @@ if __name__ == "__main__":
                     tip_velocities=tip_velocities,
                     tip_velocity_file=tip_velocity_file,
                     metadata_file=metadata_file,
-                    crop_pixels=crop_pixels
+                    crop_pixels=crop_pixels,
+                    rotations=rotations,
+                    rotations_file=rotations_file
                 )
                 demonstration_num += 1
                 total_count += len(tip_velocities)

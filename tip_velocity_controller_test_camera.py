@@ -1,6 +1,7 @@
 import numpy as np
 from pyrep.objects.shape import Shape
 
+from lib import utils
 from lib.camera_robot import CameraRobot
 from lib.controller import TipVelocityController, IdentityCropper, TruePixelROI
 from lib.scenes import CameraTextureReachCubeScene, CameraBackgroundObjectsTextureReachCubeScene, \
@@ -12,9 +13,10 @@ from lib.tip_velocity_estimator import TipVelocityEstimator
 
 if __name__ == "__main__":
 
-    with CameraBackgroundObjectsExtendedTextureReachCubeScene(headless=True) as pr:
+    with CameraBackgroundObjectsTextureReachCubeScene(headless=True) as pr:
         camera_robot = CameraRobot(pr)
-        model_name = "M22L_background_v2"
+        model_name = "TESTING_ORIENTATIONS"
+        test = "test_offsets_orientations.json"
         target_cube = Shape("target_cube")
         target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.5])
 
@@ -26,23 +28,20 @@ if __name__ == "__main__":
         test_name = "{}-{}.camera_robot.test".format(model_name, int(time.time()))
         min_distances = {}
 
-        with open("test_offsets.json", "r") as f:
+        with open(test, "r") as f:
             content = f.read()
             json_offset_list = json.loads(content)["offset"]
 
         achieved_count = 0
         for idx, offset in enumerate(json_offset_list):
-            print(offset)
-            try:
-                images, tip_velocities, achieved, min_distance = camera_robot.run_controller_simulation(
-                    controller=controller, offset=np.array(offset), target=target_above_cube)
-                min_distances[str(idx)] = min_distance
-            except Exception as exc:
-                print("Exception ocurred: ", exc)
-                achieved = False
+            print("Offset:", offset)
+            images, tip_velocities, achieved, min_distance = camera_robot.run_controller_simulation(
+                controller=controller, offset=np.array(offset), target=target_above_cube)
+            min_distances[str(idx)] = min_distance
 
             if achieved:
                 achieved_count += 1
+            
             print("Min distance: ", min_distance)
             print("Achieved: ", achieved_count / (idx + 1), "{}/{}".format(achieved_count, idx + 1))
 

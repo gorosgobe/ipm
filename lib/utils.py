@@ -14,16 +14,18 @@ def save_images(images, format_str, prefix=""):
     for idx, img in enumerate(images):
         save_image(img, format_str.format(prefix, idx))
 
+
 def save_images_and_tip_velocities(images, demonstration_num, tip_positions, tip_velocities, tip_velocity_file,
-                                   metadata_file, crop_pixels):
+                                   metadata_file, crop_pixels, rotations, rotations_file):
     format_str = "{}image{}.png"
     prefix = str(demonstration_num)
     save_images(images=images, format_str=format_str, prefix=prefix)
 
-    with open(tip_velocity_file, "a", newline='') as f:
-        writer = csv.writer(f)
-        for idx, vel in enumerate(tip_velocities):
-            writer.writerow([format_str.format(prefix, idx), *vel])
+    # write tip velocities
+    add_to_csv_file(format_str, prefix, tip_velocities, tip_velocity_file)
+
+    # write rotations
+    add_to_csv_file(format_str, prefix, rotations, rotations_file)
 
     if not os.path.exists(metadata_file):
         with open(metadata_file, "x"):
@@ -54,3 +56,10 @@ def save_images_and_tip_velocities(images, demonstration_num, tip_positions, tip
             data["num_demonstrations"] = 0
         data["num_demonstrations"] += 1
         metadata_json.write(json.dumps(data))
+
+
+def add_to_csv_file(format_str, prefix, content, file):
+    with open(file, "a", newline='') as f:
+        writer = csv.writer(f)
+        for idx, data in enumerate(content):
+            writer.writerow([format_str.format(prefix, idx), *data])

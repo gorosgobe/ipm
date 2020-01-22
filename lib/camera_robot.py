@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from pyrep.backend import sim
 
 from lib.camera import MovableCamera
@@ -6,6 +7,7 @@ from lib.camera import MovableCamera
 
 class CameraRobot(object):
     TEST_STEPS_PER_TRAJECTORY = 40
+    TARGET_ORIENTATION = [-np.pi, 0, -np.pi / 2]
 
     def __init__(self, pr, show_paths=False):
         self.pr = pr
@@ -28,7 +30,7 @@ class CameraRobot(object):
         # position and orientation in 6 x 1 vector
         offset_position, offset_orientation = np.split(offset, 2)
         self.movable_camera.set_initial_offset_position(offset_position)
-        self.movable_camera.set_orientation(list(self.movable_camera.get_orientation() + offset_orientation))
+        self.movable_camera.add_to_orientation(offset_orientation)
         self.pr.step()
 
         target_handle = target_object.get_handle()
@@ -47,13 +49,10 @@ class CameraRobot(object):
 
             camera_orientation = np.array(self.movable_camera.get_orientation())
             print(camera_orientation)
-            # TODO: make this not hardcoded?
-            target_orientation = [-np.pi, 0, -np.pi / 2]
-            # Calculate difference in orientation and normalise
-            difference_orientation = target_orientation - camera_orientation + np.pi
+            # Calculate difference in orientation and normalise over distance to target
+            difference_orientation = self.TARGET_ORIENTATION - camera_orientation + np.pi
             difference_orientation = (difference_orientation % (2 * np.pi)) - np.pi
             difference_orientation_normalised = difference_orientation / np.linalg.norm(distance_vector_norm)
-            rotations.append(difference_orientation_normalised)
 
             step = sim.simGetSimulationTimeStep()
             # get pixel and extra information
@@ -69,17 +68,19 @@ class CameraRobot(object):
 
             if distance_vector_norm < 0.0001:
                 tip_velocities.append([0.0, 0.0, 0.0])
+                rotations.append([0.0, 0.0, 0.0])
                 break
             else:
                 velocity = self.get_normalised_velocity(distance_vector, distance_vector_norm)
                 tip_velocities.append(velocity)
+                rotations.append(difference_orientation_normalised)
 
             self.movable_camera.set_orientation(camera_orientation + step * difference_orientation_normalised)
             self.movable_camera.move_along_velocity(velocity)
             self.pr.step()
             print("Dist to target", np.linalg.norm(np.array(target_position) - np.array(self.movable_camera.get_position())))
 
-        return tip_positions, tip_velocities, images, crop_pixels
+        return tip_positions, tip_velocities, images, crop_pixels, rotations
 
     @staticmethod
     def get_normalised_velocity(distance_vector, distance_vector_norm):
@@ -104,20 +105,34 @@ class CameraRobot(object):
                     px, py = p
                     image[py, px] = np.array(colours[idx])
 
-    def run_controller_simulation(self, controller, offset, target, target_distance=0.01):
+    def run_controller_simulation(self, controller, offset, target, target_distance=0.01, has_rotations=True):
         # target is np array
-        self.movable_camera.set_initial_offset_position(offset)
-        self.movable_camera.set_orientation(target)
+        # TODO: remove repetition with generate_image_simulation
+        offset_position, offset_orientation = np.split(offset, 2)
+        self.movable_camera.set_initial_offset_position(offset_position)
+        self.movable_camera.add_to_orientation(offset_orientation)
         self.pr.step()
 
         achieved = False
         images = []
         tip_velocities = []
+        rotations = []
         min_distance = None
+        step = sim.simGetSimulationTimeStep()
         for i in range(self.TEST_STEPS_PER_TRAJECTORY):
             image = self.movable_camera.get_image()
             images.append(image)
-            velocity = np.array(controller.get_tip_velocity(image))
+            control = np.array(controller.get_tip_control(image))
+
+            # apply rotation
+            if has_rotations:
+                velocity, rotation = np.split(control, 2)
+                rotations.append(rotation)
+                self.movable_camera.add_to_orientation(step * rotation)
+            else:
+                velocity = control
+
+            # apply velocity
             tip_velocities.append(velocity)
             self.movable_camera.move_along_velocity(velocity)
             self.pr.step()

@@ -121,27 +121,18 @@ class TipVelocityController(object):
     def get_model(self):
         return self.tip_velocity_estimator
 
-    def get_tip_velocity(self, image):
+    def get_tip_control(self, image):
         # select region of interest (manual crop or RL agent)
         image = self.roi_estimator.crop(image)
-        if self.debug:
-            utils.save_image("image1.png", image)
-            time.sleep(1)
         # resizes image
         image = self.tip_velocity_estimator.resize_image(image)
-        if self.debug:
-            utils.save_image("image2.png", image)
-            time.sleep(1)
         # apply normalisation and other transforms as required
         transformed_image = self.tip_velocity_estimator.transforms(image)
-        if self.debug:
-            utils.save_image("image3.png", transformed_image.permute(1, 2, 0).numpy())
-            time.sleep(1)
 
         with torch.no_grad():
             image_tensor = torch.unsqueeze(transformed_image, 0)
-            # batch with single tip velocity
-            tip_velocity_single_batch = self.tip_velocity_estimator.predict(image_tensor)
-            tip_velocity = tip_velocity_single_batch[0]
+            # batch with single tip control command
+            tip_control_single_batch = self.tip_velocity_estimator.predict(image_tensor)
+            tip_control = tip_control_single_batch[0]
 
-        return tip_velocity
+        return tip_control

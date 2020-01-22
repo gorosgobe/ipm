@@ -1,20 +1,30 @@
 import torch
 
 
-class NetworkV2(torch.nn.Module):
+#TODO: implement, should take relative pos and orient of target object, and predict the same
+class BaselineNetwork(torch.nn.Module):
+    def __init__(self, image_width, image_height):
+        super(BaselineNetwork, self).__init__()
+
+    def forward(self, x):
+        return -1
+
+
+class FullImageNetwork(torch.nn.Module):
     """
-    Removes max pool layers, applying only stride.
+    Removes max pool layers, applying only stride, network for full image at resolution (128, 96), predicting
+    velocities and orientation change.
     """
 
     def __init__(self, image_width, image_height):
-        super(NetworkV2, self).__init__()
+        super(FullImageNetwork, self).__init__()
         self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=1)
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
         self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
         self.batch_norm2 = torch.nn.BatchNorm2d(32)
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
         self.batch_norm3 = torch.nn.BatchNorm2d(16)
-        self.fc1 = torch.nn.Linear(in_features=240, out_features=64)
+        self.fc1 = torch.nn.Linear(in_features=2240, out_features=64)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=6)
 
     def forward(self, x):
