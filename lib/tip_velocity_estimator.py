@@ -1,106 +1,20 @@
-import json
 import os
-import time
 
 import cv2
-import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 import torchvision
 from ignite.engine import (Events, create_supervised_evaluator,
                            create_supervised_trainer)
-from ignite.handlers import EarlyStopping, ModelCheckpoint
+from ignite.handlers import EarlyStopping
 from ignite.metrics import Loss
 from torch.nn.modules.loss import _Loss
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 
 from lib.controller import TrainingPixelROI
-
-
-class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
-    def __init__(self, csv, metadata, root_dir, transform=None, cache_images=True, initial_pixel_cropper=None, debug=False):
-        # convert to absolute path
-        csv = os.path.abspath(csv)
-        metadata = os.path.abspath(metadata)
-        root_dir = os.path.abspath(root_dir)
-
-        self.tip_velocities_frame = pd.read_csv(csv, header=None)
-        self.root_dir = root_dir
-        self.transform = transform
-        self.initial_pixel_cropper = initial_pixel_cropper
-        self.debug = debug
-
-        with open(metadata, "r") as m:
-            metadata_content = m.read()
-        self.demonstration_metadata = json.loads(metadata_content)
-        self.cache_images = cache_images
-        self.cache = {}
-        if self.cache_images:
-            print("Loading images into memory...")
-            # hack to preload all images from cache
-            for i in range(len(self)):
-                self.__getitem__(i)
-                print("Loaded ", i)
-            print("Finished loading.")
-
-    def get_indices_for_demonstration(self, d_idx):
-        demonstration_data = self.demonstration_metadata["demonstrations"][str(d_idx)]
-        return demonstration_data["start"], demonstration_data["end"]
-
-    def get_num_demonstrations(self):
-        return self.demonstration_metadata["num_demonstrations"]
-
-    @staticmethod
-    def get_split(split_int, total_dems, start):
-        n_split_demonstrations = int(split_int * total_dems)
-        start_split, _ = dataset.get_indices_for_demonstration(start)
-        _, end_split = dataset.get_indices_for_demonstration(start + n_split_demonstrations - 1)
-        return Subset(dataset, np.arange(start_split, end_split + 1)), n_split_demonstrations
-
-    def __len__(self):
-        return len(self.tip_velocities_frame)
-
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
-
-        if not self.cache_images:
-            image = imageio.imread(img_name)
-        else:
-            if img_name not in self.cache:
-                self.cache[img_name] = imageio.imread(img_name)
-            image = self.cache[img_name]
-
-        tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
-        tip_velocities = np.array(tip_velocities, dtype=np.float32)
-
-        sample = {'image': image, 'tip_velocities': tip_velocities}
-
-        # if dataset is of type crop pixel, crop image using the metadata pixel
-        if self.initial_pixel_cropper is not None:
-            # hack
-            num_demonstration = self.tip_velocities_frame.iloc[idx, 0].split("image")[0]
-            d_data = self.demonstration_metadata["demonstrations"][num_demonstration]
-            pixels = d_data["crop_pixels"]
-            if self.debug:
-                print("Should be #", idx - d_data["start"], "pixel, from", img_name)
-            pixel = pixels[idx - d_data["start"]]
-            sample["image"] = self.initial_pixel_cropper.crop(image, pixel)
-
-        if self.debug:
-            cv2.imshow("Image", sample["image"])
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-            print("Size image after crop:", sample["image"].shape)
-
-        if self.transform:
-            sample["image"] = self.transform(sample["image"])
-
-        return sample
+from lib.dataset import ImageTipVelocitiesDataset
+from lib.networks import Network
 
 
 class AlignmentLoss(_Loss):
@@ -130,44 +44,15 @@ class TipVelocityEstimatorLoss(object):
         return mse_loss  # + alignment_loss
 
 
-class Network(torch.nn.Module):
-    def __init__(self, image_width, image_height):
-        super(Network, self).__init__()
-        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=1, padding=1)
-        self.batch_norm1 = torch.nn.BatchNorm2d(64)
-        self.pool1 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=1, padding=1)
-        self.batch_norm2 = torch.nn.BatchNorm2d(32)
-        self.pool2 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=1, padding=1)
-        self.batch_norm3 = torch.nn.BatchNorm2d(16)
-        self.pool3 = torch.nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = torch.nn.Linear(in_features=1872, out_features=64)
-        self.fc2 = torch.nn.Linear(in_features=64, out_features=3)
-
-    def forward(self, x):
-        batch_size = x.size()[0]
-        out_conv1 = torch.nn.functional.relu(self.batch_norm1.forward(self.conv1.forward(x)))
-        out_conv1 = self.pool1.forward(out_conv1)
-        out_conv2 = torch.nn.functional.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
-        out_conv2 = self.pool2.forward(out_conv2)
-        out_conv3 = torch.nn.functional.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
-        out_conv3 = self.pool3.forward(out_conv3)
-        out_conv3 = out_conv3.view(batch_size, -1)
-        out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
-        out_fc2 = self.fc2.forward(out_fc1)
-        return out_fc2
-
-
 class TipVelocityEstimator(object):
-    def __init__(self, batch_size, learning_rate, image_size, transforms=None, name="model", device=None):
+    def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None):
         self.name = name
         self.device = device
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.image_size = image_size
         width, height = self.image_size
-        self.network = Network(width, height)
+        self.network = network_klass(width, height)
 
         self.optimiser = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
         self.loss_func = TipVelocityEstimatorLoss()
@@ -292,7 +177,8 @@ class TipVelocityEstimator(object):
             "test_loss": self.test_loss,
             "name": self.name,
             "training_losses": self.training_losses,
-            "validation_losses": self.validation_losses
+            "validation_losses": self.validation_losses,
+            "network_klass": self.network.__class__
         }
 
     def save(self, path, info=None):
@@ -316,7 +202,7 @@ class TipVelocityEstimator(object):
 
     @staticmethod
     def load(path):
-        info = torch.load(path)
+        info = torch.load(path, map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         batch_size = info["batch_size"]
         learning_rate = info["learning_rate"]
         state_dict = info["model_state_dict"]
@@ -325,8 +211,9 @@ class TipVelocityEstimator(object):
         image_size = info["image_size"]
         epoch = info["epoch"]
         name = info["name"]
+        network_klass = info["network_klass"]
 
-        estimator = TipVelocityEstimator(batch_size, learning_rate, image_size, transforms, name)
+        estimator = TipVelocityEstimator(batch_size, learning_rate, image_size, network_klass, transforms, name)
         estimator.test_loss = info["test_loss"]
 
         def setup_state(engine):
@@ -382,19 +269,20 @@ if __name__ == "__main__":
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
-        size=(128, 96),
+        size=(64, 48),
         csv="text_camera_background_v2/velocities.csv",
         metadata="text_camera_background_v2/metadata.json",
         root_dir="text_camera_background_v2",
         initial_pixel_cropper=TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
-        cache_images=True,
+        cache_images=False,
         batch_size=128,
         split=[0.8, 0.1, 0.1],
-        name="M3LIC_background_v2",
+        name="TESTING",
         learning_rate=0.0001,
-        max_epochs=100,
+        max_epochs=1,
         validate_epochs=1,
-        save_to_location="models/"
+        save_to_location="models/",
+        network_klass=Network,
     )
 
     np.random.seed(config["seed"])
@@ -427,17 +315,12 @@ if __name__ == "__main__":
 
     total_demonstrations = dataset.get_num_demonstrations()
 
-    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(config["split"][0],
-                                                                                   total_demonstrations, 0)
-    val_demonstrations, n_val_dems = ImageTipVelocitiesDataset.get_split(
-        config["split"][1], total_demonstrations, n_training_dems
-    )
-    test_demonstrations, n_test_dems = ImageTipVelocitiesDataset.get_split(
-        config["split"][2], total_demonstrations, n_training_dems + n_val_dems
-    )
+    training_demonstrations, n_training_dems = dataset.get_split(config["split"][0], total_demonstrations, 0)
+    val_demonstrations, n_val_dems = dataset.get_split(config["split"][1], total_demonstrations, n_training_dems)
+    test_demonstrations, n_test_dems = dataset.get_split(config["split"][2], total_demonstrations, n_training_dems + n_val_dems)
 
     # Limited dataset
-    training_demonstrations, n_training_dems = ImageTipVelocitiesDataset.get_split(0.2, total_demonstrations, 0)
+    #training_demonstrations, n_training_dems = dataset.get_split(0.2, total_demonstrations, 0)
 
     print("Training demonstrations: ", n_training_dems, len(training_demonstrations))
     print("Validation demonstrations: ", n_val_dems, len(val_demonstrations))
@@ -452,6 +335,7 @@ if __name__ == "__main__":
         batch_size=config["batch_size"],
         learning_rate=config["learning_rate"],
         image_size=config["size"],
+        network_klass=config["network_klass"],
         # transforms without initial resize, so they can be pickled correctly
         transforms=transforms,
         name=config["name"],
