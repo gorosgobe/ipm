@@ -1,3 +1,6 @@
+import os
+
+from lib import utils
 from lib.controller import TipVelocityController, OffsetCropper
 from lib.sawyer_robot import SawyerRobot
 from lib.scenes import SawyerTextureDistractorsReachCubeScene
@@ -36,9 +39,7 @@ if __name__ == "__main__":
                 continue
                 # save images obtained
                 for img_idx, image in enumerate(images):
-                    image = cv2.convertScaleAbs(image, alpha=(255.0))
-                    cv2.imwrite(os.path.join("/home/pablo/Desktop/errors_M1T_1cm", "{}test{}.png".format(idx, img_idx)),
-                                cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                    utils.save_image(image, os.path.join("/home/pablo/Desktop/errors_M1T_1cm", "{}test{}.png".format(idx, img_idx)))
             print("Achieved: ", achieved_count / (idx + 1), "{}/{}".format(achieved_count, idx + 1))
 
         print("Achieved: ", achieved_count / len(json_angles_list))

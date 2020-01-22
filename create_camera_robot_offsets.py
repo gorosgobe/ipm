@@ -13,5 +13,5 @@ if __name__ == '__main__':
 
     file_contents = json.dumps(content)
 
-    with open("test_offsets.json", "w+") as f:
+    with open("test_offsets_orientations.json", "w+") as f:
         f.write(file_contents)

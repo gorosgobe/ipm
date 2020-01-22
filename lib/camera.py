@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from pyrep.backend import sim
 from pyrep.objects.cartesian_path import CartesianPath
+from pyrep.objects.vision_sensor import VisionSensor
 
 from lib import utils
 
@@ -11,20 +12,32 @@ from lib import utils
 class Camera(object):
     def __init__(self, name):
         self.name = name
-        self.vision_sensor_handle = sim.simGetObjectHandle(self.name)
-        self.resolution = sim.simGetVisionSensorResolution(self.vision_sensor_handle)
+        self.vision_sensor = VisionSensor(self.name)
+        self.resolution = self.vision_sensor.get_resolution()
         self.perspective_angle = sim.simGetObjectFloatParameter(
-            self.vision_sensor_handle, sim.sim_visionfloatparam_perspective_angle
+            self.vision_sensor.get_handle(), sim.sim_visionfloatparam_perspective_angle
         )
 
     def get_image(self):
-        return sim.simGetVisionSensorImage(self.vision_sensor_handle, self.resolution)
+        return self.vision_sensor.capture_rgb()
 
     def save_current_image(self, path):
         return utils.save_image(path, self.get_image())
 
-    def get_position(self):
-        return sim.simGetObjectPosition(self.vision_sensor_handle, -1)
+    def get_position(self, relative_to=None):
+        return self.vision_sensor.get_position(relative_to=relative_to)
+
+    def set_position(self, position, relative_to=None):
+        return self.vision_sensor.set_position(position, relative_to=relative_to)
+
+    def get_orientation(self, relative_to=None):
+        return self.vision_sensor.get_orientation(relative_to=relative_to)
+
+    def set_orientation(self, orientation, relative_to=None):
+        return self.vision_sensor.set_orientation(orientation, relative_to=relative_to)
+
+    def get_handle(self):
+        return self.vision_sensor.get_handle()
 
 
 class WristCamera(Camera):
@@ -41,9 +54,9 @@ class MovableCamera(Camera):
         super(MovableCamera, self).__init__(MovableCamera.VISION_SENSOR)
         self.show_paths = show_paths
         if initial_position is not None:
-            sim.simSetObjectPosition(self.vision_sensor_handle, -1, initial_position)
-        self.initial_position = sim.simGetObjectPosition(self.vision_sensor_handle, -1)
-        self.initial_orientation = sim.simGetObjectOrientation(self.vision_sensor_handle, -1)
+            self.set_position(initial_position)
+        self.initial_position = self.get_position()
+        self.initial_orientation = self.get_orientation()
         self.ratio = self.resolution[0] / self.resolution[1]
         # from coppelia sim forum
         if self.ratio > 1:
@@ -55,16 +68,16 @@ class MovableCamera(Camera):
 
     def _set_offset_position(self, offset, current_position):
         # Expects np array for mathematical operations, passed as list to API
-        sim.simSetObjectPosition(self.vision_sensor_handle, -1, list(current_position + offset))
+        self.set_position(list(current_position + offset))
 
     def set_initial_offset_position(self, offset):
         self._set_offset_position(offset, np.array(self.initial_position))
-        sim.simSetObjectOrientation(self.vision_sensor_handle, -1, self.initial_orientation)
+        self.set_orientation(self.initial_orientation)
 
-    def set_orientation(self, point_towards):
+    def set_orientation_towards(self, point_towards):
         path = CartesianPath.create(show_line=self.show_paths, show_orientation=self.show_paths,
                                     automatic_orientation=True)
-        current_position = sim.simGetObjectPosition(self.vision_sensor_handle, -1)
+        current_position = self.get_position()
         for i in range(3):
             current_position.append(0.0)
 
@@ -75,19 +88,19 @@ class MovableCamera(Camera):
         path.insert_control_points([current_position, point_towards])
         # relative orientation, at the end of the path
         _, pose = path.get_pose_on_path(1)
-        sim.simSetObjectOrientation(self.vision_sensor_handle, path.get_handle(), pose)
+        self.set_orientation(pose, path.get_handle())
 
     def move_along_velocity(self, velocity):
         step = sim.simGetSimulationTimeStep()
-        position = sim.simGetObjectPosition(self.vision_sensor_handle, -1)
-        sim.simSetObjectPosition(self.vision_sensor_handle, -1, list(position + step * velocity))
+        position = self.get_position()
+        self.set_position(list(position + step * velocity))
 
     def _compute_canvas_position(self, handle=None, point=None):
         # point, if supplied, has to be in camera space
         if handle is None and point is None:
             raise Exception("Both handle and point should not be None")
         if handle is not None:
-            point = sim.simGetObjectPosition(handle, self.vision_sensor_handle)
+            point = sim.simGetObjectPosition(handle, self.get_handle())
         x = point[0]
         y = point[1]
         z = point[2]

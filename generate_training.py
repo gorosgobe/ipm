@@ -45,15 +45,15 @@ if __name__ == "__main__":
                     offset=offset, target=target_above_cube, target_object=target_cube
                 )
                 print(tip_positions[0])
-                save_images_and_tip_velocities(
-                    images=images,
-                    demonstration_num=demonstration_num,
-                    tip_positions=tip_positions,
-                    tip_velocities=tip_velocities,
-                    tip_velocity_file=tip_velocity_file,
-                    metadata_file=metadata_file,
-                    crop_pixels=crop_pixels
-                )
+                # save_images_and_tip_velocities(
+                #     images=images,
+                #     demonstration_num=demonstration_num,
+                #     tip_positions=tip_positions,
+                #     tip_velocities=tip_velocities,
+                #     tip_velocity_file=tip_velocity_file,
+                #     metadata_file=metadata_file,
+                #     crop_pixels=crop_pixels
+                # )
                 demonstration_num += 1
                 total_count += len(tip_velocities)
             except ConfigurationPathError:
