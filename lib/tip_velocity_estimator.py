@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from lib.controller import TrainingPixelROI
 from lib.dataset import ImageTipVelocitiesDataset
-from lib.networks import Network
+from lib.networks import *
 
 
 class AlignmentLoss(_Loss):
@@ -178,7 +178,7 @@ class TipVelocityEstimator(object):
             "name": self.name,
             "training_losses": self.training_losses,
             "validation_losses": self.validation_losses,
-            "network_klass": self.network.__class__
+            "network_klass": type(self.network)
         }
 
     def save(self, path, info=None):

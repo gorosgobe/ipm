@@ -5,6 +5,8 @@ import numpy as np
 from pyrep.backend import sim
 from pyrep.objects.cartesian_path import CartesianPath
 
+from lib import utils
+
 
 class Camera(object):
     def __init__(self, name):
@@ -19,12 +21,7 @@ class Camera(object):
         return sim.simGetVisionSensorImage(self.vision_sensor_handle, self.resolution)
 
     def save_current_image(self, path):
-        return Camera.save_image(path, self.get_image())
-
-    @staticmethod
-    def save_image(path, image):
-        image = cv2.convertScaleAbs(image, alpha=(255.0))
-        cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        return utils.save_image(path, self.get_image())
 
     def get_position(self):
         return sim.simGetObjectPosition(self.vision_sensor_handle, -1)

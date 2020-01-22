@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import torch
 
+from lib import utils
 from lib.camera import Camera
 
 
@@ -124,17 +125,17 @@ class TipVelocityController(object):
         # select region of interest (manual crop or RL agent)
         image = self.roi_estimator.crop(image)
         if self.debug:
-            Camera.save_image("image1.png", image)
+            utils.save_image("image1.png", image)
             time.sleep(1)
         # resizes image
         image = self.tip_velocity_estimator.resize_image(image)
         if self.debug:
-            Camera.save_image("image2.png", image)
+            utils.save_image("image2.png", image)
             time.sleep(1)
         # apply normalisation and other transforms as required
         transformed_image = self.tip_velocity_estimator.transforms(image)
         if self.debug:
-            Camera.save_image("image3.png", transformed_image.permute(1, 2, 0).numpy())
+            utils.save_image("image3.png", transformed_image.permute(1, 2, 0).numpy())
             time.sleep(1)
 
         with torch.no_grad():
