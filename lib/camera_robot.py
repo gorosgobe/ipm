@@ -17,37 +17,45 @@ class CameraRobot(object):
     @staticmethod
     def generate_offset():
         position_offset = np.random.uniform(-0.3, 0.3, size=3)
-        # pi / 30 -> max of 6 degrees per axis
-        orientation_offset = np.random.uniform(-np.pi / 30, np.pi / 30, size=3)
+        # pi / 30 -> max of 9 degrees per axis in both directions
+        # TODO: consider if rotation along z axis should be larger for higher variability
+        # TODO: maybe consider this only if scene needs to be made more complex
+        orientation_offset = np.random.uniform(-np.pi / 15, np.pi / 15, size=3)
         return np.concatenate((position_offset, orientation_offset), axis=0)
 
-    def generate_image_simulation(self, offset, target, target_object, draw_center_pixel=False, debug=False):
+    def generate_image_simulation(self, offset, target_position, target_object, draw_center_pixel=False, debug=False):
+
         # position and orientation in 6 x 1 vector
         offset_position, offset_orientation = np.split(offset, 2)
         self.movable_camera.set_initial_offset_position(offset_position)
-        # TODO: fix this
-        self.movable_camera.set_orientation(self.movable_camera.get_orientation() + offset_orientation)
-        # self.movable_camera.set_orientation_towards(target)
+        self.movable_camera.set_orientation(list(self.movable_camera.get_orientation() + offset_orientation))
         self.pr.step()
 
         target_handle = target_object.get_handle()
 
         tip_positions = []
         tip_velocities = []
+        rotations = []
         images = []
         crop_pixels = []
         while True:
             camera_position = self.movable_camera.get_position()
             tip_positions.append(camera_position)
 
-            distance_vector = np.array(target) - np.array(camera_position)
+            distance_vector = np.array(target_position) - np.array(camera_position)
             distance_vector_norm = np.linalg.norm(distance_vector)
-            if distance_vector_norm < 0.0001:
-                break
 
-            velocity = self.normalise_velocity(distance_vector, distance_vector_norm)
-            tip_velocities.append(velocity)
+            camera_orientation = np.array(self.movable_camera.get_orientation())
+            print(camera_orientation)
+            # TODO: make this not hardcoded?
+            target_orientation = [-np.pi, 0, -np.pi / 2]
+            # Calculate difference in orientation and normalise
+            difference_orientation = target_orientation - camera_orientation + np.pi
+            difference_orientation = (difference_orientation % (2 * np.pi)) - np.pi
+            difference_orientation_normalised = difference_orientation / np.linalg.norm(distance_vector_norm)
+            rotations.append(difference_orientation_normalised)
 
+            step = sim.simGetSimulationTimeStep()
             # get pixel and extra information
             # TODO: refactor this to use object that knows how to compute pixel position from relative position, and pass
             # TODO: directly relative position from handle
@@ -59,15 +67,22 @@ class CameraRobot(object):
             self.add_debug_info_to_img(axis, debug, draw_center_pixel, image, pixel)
             images.append(image)
 
+            if distance_vector_norm < 0.0001:
+                tip_velocities.append([0.0, 0.0, 0.0])
+                break
+            else:
+                velocity = self.get_normalised_velocity(distance_vector, distance_vector_norm)
+                tip_velocities.append(velocity)
+
+            self.movable_camera.set_orientation(camera_orientation + step * difference_orientation_normalised)
             self.movable_camera.move_along_velocity(velocity)
             self.pr.step()
-            print("Dist to target", np.linalg.norm(np.array(target) - np.array(self.movable_camera.get_position())))
+            print("Dist to target", np.linalg.norm(np.array(target_position) - np.array(self.movable_camera.get_position())))
 
-        tip_velocities[-1] = [0.0, 0.0, 0.0]
         return tip_positions, tip_velocities, images, crop_pixels
 
     @staticmethod
-    def normalise_velocity(distance_vector, distance_vector_norm):
+    def get_normalised_velocity(distance_vector, distance_vector_norm):
         step = sim.simGetSimulationTimeStep()
         # normalise, or the minimum when close enough
         if distance_vector_norm >= step:

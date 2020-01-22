@@ -28,12 +28,16 @@ class Camera(object):
         return self.vision_sensor.get_position(relative_to=relative_to)
 
     def set_position(self, position, relative_to=None):
+        if not isinstance(position, list):
+            position = list(position)
         return self.vision_sensor.set_position(position, relative_to=relative_to)
 
     def get_orientation(self, relative_to=None):
         return self.vision_sensor.get_orientation(relative_to=relative_to)
 
     def set_orientation(self, orientation, relative_to=None):
+        if not isinstance(orientation, list):
+            orientation = list(orientation)
         return self.vision_sensor.set_orientation(orientation, relative_to=relative_to)
 
     def get_handle(self):
