@@ -22,7 +22,7 @@ class BaselineNetwork(torch.nn.Module):
 
 class FullImageNetwork(torch.nn.Module):
     """
-    Removes max pool layers, applying only stride, network for full image at resolution (128, 96), predicting
+    Removes max pool layers, applying only stride, network for full image, predicting
     velocities and orientation change.
     """
 
@@ -46,7 +46,7 @@ class FullImageNetwork(torch.nn.Module):
         out_conv3 = out_conv3.view(batch_size, -1)
         out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
         out_fc2 = torch.nn.functional.relu(self.fc2.forward(out_fc1))
-        out_fc3 = torch.nn.functional.relu(self.fc3.forward(out_fc2))
+        out_fc3 = self.fc3.forward(out_fc2)
         return out_fc3
 
 
