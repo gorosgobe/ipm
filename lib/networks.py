@@ -2,7 +2,7 @@ import torch
 
 
 class BaselineNetwork(torch.nn.Module):
-    def __init__(self, image_width, image_height):
+    def __init__(self, _image_width, _image_height):
         """
         Similar to FullImageNetwork, but takes only relative positions as target position estimate
         :param image_width: Unused

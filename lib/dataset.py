@@ -97,8 +97,8 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
 
         # add relative quantities
         if self.get_rel_target_quantities:
-            sample["relative_target_position"] = np.array(d_data["relative_target_positions"][instance_demonstration_idx])
-            sample["relative_target_orientation"] = np.array(d_data["relative_target_orientations"][instance_demonstration_idx])
+            sample["relative_target_position"] = np.array(d_data["relative_target_positions"][instance_demonstration_idx], dtype=np.float32)
+            sample["relative_target_orientation"] = np.array(d_data["relative_target_orientations"][instance_demonstration_idx], dtype=np.float32)
 
         if self.debug:
             cv2.imshow("Image", sample["image"])

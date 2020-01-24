@@ -21,12 +21,13 @@ if __name__ == "__main__":
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name="TESTING_ORIENTATIONS",
-        learning_rate=0.0001,
-        max_epochs=5,
+        name="BaselineNetwork",
+        learning_rate=0.001,
+        max_epochs=100,
         validate_epochs=1,
         save_to_location="models/",
-        network_klass=FullImageNetwork,
+        network_klass=BaselineNetwork,
+        get_rel_target_quantities=True
     )
 
     np.random.seed(config["seed"])
@@ -42,6 +43,7 @@ if __name__ == "__main__":
         initial_pixel_cropper=config["initial_pixel_cropper"],
         transform=preprocessing_transforms,
         cache_images=config["cache_images"],
+        get_rel_target_quantities=config["get_rel_target_quantities"]
     )
 
     limit_training_coefficient = -1  # all training data

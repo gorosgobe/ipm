@@ -124,6 +124,7 @@ class TipVelocityController(object):
     def get_tip_control(self, image):
         # select region of interest (manual crop or RL agent)
         image = self.roi_estimator.crop(image)
+        # TODO: combine these two into one function to avoid issues?
         # resizes image
         image = self.tip_velocity_estimator.resize_image(image)
         # apply normalisation and other transforms as required
