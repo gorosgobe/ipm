@@ -3,6 +3,58 @@ import json
 import os
 
 import cv2
+import torch
+import torchvision
+
+
+class ResizeTransform(object):
+    def __init__(self, size):
+        self.size = size  # tuple, like (128, 96)
+
+    def __call__(self, image):
+        return cv2.resize(image, dsize=self.size)
+
+
+def set_up_cuda(seed):
+    global device
+    # set up GPU if available
+    use_cuda = torch.cuda.is_available()
+    device = torch.device('cuda' if use_cuda else 'cpu')
+    if use_cuda:
+        torch.cuda.manual_seed(seed)
+    print("Using GPU: {}".format(use_cuda))
+
+    return device
+
+
+def get_preprocessing_transforms(size):
+    transforms = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+    ])
+
+    preprocessing_transforms = torchvision.transforms.Compose([ResizeTransform(size),
+                                                               transforms
+                                                               ])
+    return preprocessing_transforms, transforms
+
+
+def get_demonstrations(dataset, split, limit_train_coeff=-1):
+    total_demonstrations = dataset.get_num_demonstrations()
+
+    training_demonstrations, n_training_dems = dataset.get_split(split[0], total_demonstrations, 0)
+    val_demonstrations, n_val_dems = dataset.get_split(split[1], total_demonstrations, n_training_dems)
+    test_demonstrations, n_test_dems = dataset.get_split(split[2], total_demonstrations, n_training_dems + n_val_dems)
+
+    # Limited dataset
+    if limit_train_coeff != -1:
+        training_demonstrations, n_training_dems = dataset.get_split(limit_train_coeff, total_demonstrations, 0)
+
+    print("Training demonstrations: ", n_training_dems, len(training_demonstrations))
+    print("Validation demonstrations: ", n_val_dems, len(val_demonstrations))
+    print("Test demonstrations: ", n_test_dems, len(test_demonstrations))
+
+    return training_demonstrations, val_demonstrations, test_demonstrations
 
 
 def save_image(img, path):
