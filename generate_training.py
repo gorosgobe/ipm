@@ -43,23 +43,24 @@ if __name__ == "__main__":
             offset = robot.generate_offset() if total_count > 0 else np.zeros(robot.generate_offset().shape[0])
             print("Offset {}".format(offset))
             try:
-                tip_positions, tip_velocities, images, crop_pixels, rotations = robot.generate_image_simulation(
+                result = robot.generate_image_simulation(
                     offset=offset, target_position=target_above_cube, target_object=target_cube
                 )
-                print(tip_positions[0])
                 save_images_and_tip_velocities(
-                    images=images,
+                    images=result["images"],
                     demonstration_num=demonstration_num,
-                    tip_positions=tip_positions,
-                    tip_velocities=tip_velocities,
+                    tip_positions=result["tip_positions"],
+                    tip_velocities=result["tip_velocities"],
                     tip_velocity_file=tip_velocity_file,
                     metadata_file=metadata_file,
-                    crop_pixels=crop_pixels,
-                    rotations=rotations,
-                    rotations_file=rotations_file
+                    crop_pixels=result["crop_pixels"],
+                    rotations=result["rotations"],
+                    rotations_file=rotations_file,
+                    relative_target_positions=result["relative_target_positions"],
+                    relative_target_orientations=result["relative_target_orientations"]
                 )
                 demonstration_num += 1
-                total_count += len(tip_velocities)
+                total_count += len(result["tip_velocities"])
             except ConfigurationPathError:
                 print("Error, can not reach object from offset: {}, ignoring...".format(offset))
                 break

@@ -11,7 +11,7 @@ from torch.utils.data import Subset
 
 class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
     def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None, cache_images=True,
-                 initial_pixel_cropper=None, debug=False):
+                 initial_pixel_cropper=None, debug=False, get_rel_target_quantities=False):
         # convert to absolute path
         velocities_csv = os.path.abspath(velocities_csv)
         # if rotations csv is passed in, then dataset supplies vector of [tip velocities, rotations] (6 x 1)
@@ -30,6 +30,8 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         self.transform = transform
         self.initial_pixel_cropper = initial_pixel_cropper
         self.debug = debug
+        # Do we want target position and orientation, relative to robot?
+        self.get_rel_target_quantities = get_rel_target_quantities
 
         with open(metadata, "r") as m:
             metadata_content = m.read()
@@ -82,16 +84,21 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
             rotations = np.array(rotations, dtype=np.float32)
             sample["rotations"] = rotations
 
+        # get demonstration metadata
+        # hack
+        num_demonstration = self.tip_velocities_frame.iloc[idx, 0].split("image")[0]
+        d_data = self.demonstration_metadata["demonstrations"][num_demonstration]
+        instance_demonstration_idx = idx - d_data["start"]
         # if dataset is of type crop pixel, crop image using the metadata pixel
         if self.initial_pixel_cropper is not None:
-            # hack
-            num_demonstration = self.tip_velocities_frame.iloc[idx, 0].split("image")[0]
-            d_data = self.demonstration_metadata["demonstrations"][num_demonstration]
             pixels = d_data["crop_pixels"]
-            if self.debug:
-                print("Should be #", idx - d_data["start"], "pixel, from", img_name)
-            pixel = pixels[idx - d_data["start"]]
+            pixel = pixels[instance_demonstration_idx]
             sample["image"] = self.initial_pixel_cropper.crop(image, pixel)
+
+        # add relative quantities
+        if self.get_rel_target_quantities:
+            sample["relative_target_position"] = np.array(d_data["relative_target_positions"][instance_demonstration_idx])
+            sample["relative_target_orientation"] = np.array(d_data["relative_target_orientations"][instance_demonstration_idx])
 
         if self.debug:
             cv2.imshow("Image", sample["image"])

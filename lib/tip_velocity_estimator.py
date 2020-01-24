@@ -91,11 +91,16 @@ class TipVelocityEstimator(object):
 
     @staticmethod
     def prepare_batch(batch, device, non_blocking):
+        input_data = batch["image"]
         predictable = batch["tip_velocities"]
         if "rotations" in batch:
             # concatenate rotations to get 6-dimensional prediction
             predictable = torch.cat((predictable, batch["rotations"]), 1)
-        return batch["image"].to(device), predictable.to(device)
+
+        # case where we want to estimate from relative quantities, rather than image
+        if "relative_target_position" in batch and "relative_target_orientation" in batch:
+            input_data = torch.cat((batch["relative_target_position"], batch["relative_target_orientation"]), dim=1)
+        return input_data.to(device), predictable.to(device)
 
     def epoch_started(self):
         def static_epoch_started(trainer):

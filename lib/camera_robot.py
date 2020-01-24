@@ -21,7 +21,7 @@ class CameraRobot(object):
         position_offset = np.random.uniform(-0.3, 0.3, size=3)
         # pi / 30 -> max of 9 degrees per axis in both directions
         # TODO: consider if rotation along z axis should be larger for higher variability
-        # TODO: maybe consider this only if scene needs to be made more complex
+        # TODO: maybe consider this only if scene needs to be made more complex, before applying offset
         orientation_offset = np.random.uniform(-np.pi / 15, np.pi / 15, size=3)
         return np.concatenate((position_offset, orientation_offset), axis=0)
 
@@ -38,12 +38,26 @@ class CameraRobot(object):
         tip_positions = []
         tip_velocities = []
         rotations = []
+        relative_target_positions = []
+        relative_target_orientations = []
         images = []
         crop_pixels = []
         while True:
+            # world camera position
             camera_position = self.movable_camera.get_position()
             tip_positions.append(camera_position)
 
+            # target position relative to camera
+            relative_target_position = target_object.get_position(relative_to=self.movable_camera)
+            print("Rel target position", relative_target_position)
+            relative_target_positions.append(relative_target_position)
+
+            # target orientation relative to camera
+            relative_target_orientation = target_object.get_orientation(relative_to=self.movable_camera)
+            print("Rel target orientation", relative_target_orientation)
+            relative_target_orientations.append(relative_target_orientation)
+
+            # world distance vector
             distance_vector = np.array(target_position) - np.array(camera_position)
             distance_vector_norm = np.linalg.norm(distance_vector)
 
@@ -66,6 +80,8 @@ class CameraRobot(object):
             self.add_debug_info_to_img(axis, debug, draw_center_pixel, image, pixel)
             images.append(image)
 
+            print("Dist to target at image taking time: ", np.linalg.norm(np.array(target_position) - np.array(self.movable_camera.get_position())))
+
             if distance_vector_norm < 0.0001:
                 tip_velocities.append([0.0, 0.0, 0.0])
                 rotations.append([0.0, 0.0, 0.0])
@@ -75,12 +91,20 @@ class CameraRobot(object):
                 tip_velocities.append(velocity)
                 rotations.append(difference_orientation_normalised)
 
-            self.movable_camera.set_orientation(camera_orientation + step * difference_orientation_normalised)
+            self.movable_camera.add_to_orientation(step * difference_orientation_normalised)
             self.movable_camera.move_along_velocity(velocity)
             self.pr.step()
-            print("Dist to target", np.linalg.norm(np.array(target_position) - np.array(self.movable_camera.get_position())))
 
-        return tip_positions, tip_velocities, images, crop_pixels, rotations
+        return dict(
+            tip_positions=tip_positions,
+            tip_velocities=tip_velocities,
+            images=images,
+            crop_pixels=crop_pixels,
+            rotations=rotations,
+            relative_target_positions=relative_target_positions,
+            relative_target_orientations=relative_target_orientations
+        )
+
 
     @staticmethod
     def get_normalised_velocity(distance_vector, distance_vector_norm):
