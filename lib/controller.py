@@ -71,12 +71,18 @@ class TruePixelROI(object):
         center_x += dx
         center_y += dy
 
-        cropped_image = image[
-                        center_y - half_size_height:center_y + half_size_height + 1,
-                        center_x - half_size_width:center_x + half_size_width + 1
-                        ]
+        y_min = center_y - half_size_height
+        y_max = center_y + half_size_height + 1
+        x_min = center_x - half_size_width
+        x_max = center_x + half_size_width + 1
 
-        return cropped_image
+        # center, top left, top right, bottom left, bottom right
+        bounding_box_pixels = [
+            (center_x, center_y), (x_min, y_min), (x_max - 1, y_min), (x_min, y_max - 1), (x_max - 1, y_max - 1)
+        ]
+
+        cropped_image = image[y_min:y_max, x_min:x_max]
+        return cropped_image, bounding_box_pixels
 
 
 # Pixel ROI for training, used to determine what the model sees at training time
