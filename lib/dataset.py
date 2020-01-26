@@ -93,11 +93,14 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         if self.initial_pixel_cropper is not None:
             pixels = d_data["crop_pixels"]
             pixel = pixels[instance_demonstration_idx]
+            original_h, original_w, _channels = image.shape
             cropped_image, bounding_box_pixels = self.initial_pixel_cropper.crop(image, pixel)
             sample["image"] = cropped_image
             sample["pixel_info"] = {
                 "top_left": np.array(bounding_box_pixels[1], dtype=np.float32),
-                "bottom_right": np.array(bounding_box_pixels[4], dtype=np.float32)
+                "bottom_right": np.array(bounding_box_pixels[4], dtype=np.float32),
+                "original_image_height": np.array([original_h], dtype=np.float32),
+                "original_image_width": np.array([original_w], dtype=np.float32)
             }
 
         # add relative quantities

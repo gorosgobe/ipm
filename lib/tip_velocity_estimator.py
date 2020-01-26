@@ -100,7 +100,9 @@ class TipVelocityEstimator(object):
             input_data = (
                 batch["image"].to(device),
                 batch["pixel_info"]["top_left"].to(device),
-                batch["pixel_info"]["bottom_right"].to(device)
+                batch["pixel_info"]["bottom_right"].to(device),
+                batch["pixel_info"]["original_image_width"].to(device),
+                batch["pixel_info"]["original_image_height"].to(device),
             )
 
         if isinstance(input_data, torch.Tensor):
