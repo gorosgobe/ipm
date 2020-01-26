@@ -52,7 +52,7 @@ class AttentionNetwork(torch.nn.Module):
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
 
     def forward(self, x):
-        image_batch, top_left_pixel, _ = x
+        image_batch, top_left_pixel = x
         batch_size = image_batch.size()[0]
         out_conv1 = torch.nn.functional.relu(self.batch_norm1.forward(self.conv1.forward(image_batch)))
         out_conv2 = torch.nn.functional.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))

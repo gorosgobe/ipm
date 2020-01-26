@@ -18,10 +18,10 @@ if __name__ == "__main__":
         model_name = "BaselineNetworkL3"
         test = "test_offsets_orientations.json"
         target_cube = Shape("target_cube")
-        target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.5])
+        target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
-        #cropper = TruePixelROI(480//2, 640//2, camera_robot.get_movable_camera(), target_cube)
-        cropper = IdentityCropper()
+        cropper = TruePixelROI(480//2, 640//2, camera_robot.get_movable_camera(), target_cube)
+        #cropper = IdentityCropper()
         c_type = ControllerType.RELATIVE_POSITION_AND_ORIENTATION
         controller = TipVelocityController(
             tve_model=TipVelocityEstimator.load("models/{}.pt".format(model_name)),
@@ -40,10 +40,14 @@ if __name__ == "__main__":
             json_offset_list = json.loads(content)["offset"]
 
         achieved_count = 0
+        count = 0
         for idx, offset in enumerate(json_offset_list):
             print("Offset:", offset)
             images, tip_velocities, achieved, min_distance = camera_robot.run_controller_simulation(
                 controller=controller, offset=np.array(offset), target=target_above_cube)
+            count += 1
+            #for index, i in enumerate(images):
+                #utils.save_image(i, "/home/pablo/Desktop/t-{}image{}.png".format(count, index))
             min_distances[str(idx)] = min_distance
 
             if achieved:

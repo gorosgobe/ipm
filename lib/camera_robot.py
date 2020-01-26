@@ -146,6 +146,13 @@ class CameraRobot(object):
         for i in range(self.TEST_STEPS_PER_TRAJECTORY):
             image = self.movable_camera.get_image()
             images.append(image)
+
+            dist = np.linalg.norm(target - np.array(self.movable_camera.get_position()))
+            min_distance = dist if min_distance is None else min(min_distance, dist)
+            if dist < target_distance:
+                achieved = True
+                break
+
             control = np.array(controller.get_tip_control(image))
 
             # apply rotation
@@ -160,10 +167,5 @@ class CameraRobot(object):
             tip_velocities.append(velocity)
             self.movable_camera.move_along_velocity(velocity)
             self.pr.step()
-            dist = np.linalg.norm(target - np.array(self.movable_camera.get_position()))
-            min_distance = dist if min_distance is None else min(min_distance, dist)
-            if dist < target_distance:
-                achieved = True
-                break
 
         return images, tip_velocities, achieved, min_distance

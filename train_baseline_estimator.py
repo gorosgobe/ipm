@@ -22,7 +22,7 @@ if __name__ == "__main__":
         batch_size=32,
         split=[0.8, 0.1, 0.1],
         name="BaselineNetwork2",
-        learning_rate=0.0005,
+        learning_rate=0.001,
         max_epochs=150,
         validate_epochs=1,
         save_to_location="models/",
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         get_rel_target_quantities=config["get_rel_target_quantities"]
     )
 
-    limit_training_coefficient = -1  # all training data
+    limit_training_coefficient = 0.05  # all training data
     training_demonstrations, val_demonstrations, test_demonstrations = get_demonstrations(dataset, config["split"], limit_training_coefficient)
 
     train_data_loader = DataLoader(training_demonstrations, batch_size=config["batch_size"], num_workers=8,

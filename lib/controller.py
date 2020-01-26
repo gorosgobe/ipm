@@ -141,6 +141,7 @@ class TipVelocityController(object):
         return self.tip_velocity_estimator
 
     def get_tip_control(self, image):
+        h, w, _c = image.shape
         # select region of interest (manual crop or RL agent)
         image, pixels = self.roi_estimator.crop(image)
         # TODO: combine all transformations into one function to avoid issues?
@@ -154,9 +155,18 @@ class TipVelocityController(object):
             # batch with single tip control command
             if self.controller_type == ControllerType.DEFAULT:
                 tip_control_single_batch = self.tip_velocity_estimator.predict(image_tensor)
+
             elif self.controller_type == ControllerType.TOP_LEFT_PIXEL:
                 top_left_pixel = torch.unsqueeze(torch.tensor(pixels[1], dtype=torch.float32), 0)
                 tip_control_single_batch = self.tip_velocity_estimator.predict((image_tensor, top_left_pixel))
+
+            elif self.controller_type == ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS:
+                top_left_pixel = torch.unsqueeze(torch.tensor(pixels[1], dtype=torch.float32), 0)
+                bottom_right_pixel = torch.unsqueeze(torch.tensor(pixels[4], dtype=torch.float32), 0)
+                tip_control_single_batch = self.tip_velocity_estimator.predict((
+                    image_tensor, top_left_pixel, bottom_right_pixel, w, h
+                ))
+
             elif self.controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
                 relative_target_position = torch.unsqueeze(torch.tensor(
                     self.target_object.get_position(relative_to=self.camera), dtype=torch.float32
@@ -169,3 +179,8 @@ class TipVelocityController(object):
 
         tip_control = tip_control_single_batch[0]
         return tip_control
+
+    def normalise_pixel(self, pixel, w, h):
+        x, y = pixel
+        p = (x / w, y / h)
+        return p
