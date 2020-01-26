@@ -95,9 +95,13 @@ class TipVelocityEstimator(object):
         # case where we want to estimate from relative quantities, rather than image
         if "relative_target_position" in batch and "relative_target_orientation" in batch:
             input_data = torch.cat((batch["relative_target_position"], batch["relative_target_orientation"]), dim=1)
-        elif "top_left" in batch:
+        elif "pixel_info" in batch:
             # case where pixels are used, cropped version
-            input_data = (batch["image"].to(device), batch["top_left"].to(device))
+            input_data = (
+                batch["image"].to(device),
+                batch["pixel_info"]["top_left"].to(device),
+                batch["pixel_info"]["bottom_right"].to(device)
+            )
 
         if isinstance(input_data, torch.Tensor):
             input_data = input_data.to(device)

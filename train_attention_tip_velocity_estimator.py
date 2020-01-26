@@ -22,12 +22,12 @@ if __name__ == "__main__":
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name="AttentionNetwork",
+        name="AttentionNetworkV2",
         learning_rate=0.0001,
-        max_epochs=100,
+        max_epochs=250,
         validate_epochs=1,
         save_to_location="models/",
-        network_klass=AttentionNetwork,
+        network_klass=AttentionNetworkV2,
     )
 
     np.random.seed(config["seed"])

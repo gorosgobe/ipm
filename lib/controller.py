@@ -1,3 +1,4 @@
+import enum
 import time
 
 import cv2
@@ -10,7 +11,7 @@ from lib.camera import Camera
 
 class IdentityCropper(object):
     def crop(self, image):
-        return image
+        return image, None
 
 
 class OffsetCropper(object):
@@ -117,20 +118,32 @@ class TrainingPixelROI(object):
         return true_pixel_roi.crop(image)
 
 
+class ControllerType(enum.Enum):
+    DEFAULT = 0,
+    TOP_LEFT_PIXEL = 1,
+    TOP_LEFT_BOTTOM_RIGHT_PIXELS = 2,
+    RELATIVE_POSITION_AND_ORIENTATION = 3
+
+
 # Controller that applies transformations and ROI to image at test time, and estimates tip velocity
 class TipVelocityController(object):
-    def __init__(self, tve_model, roi_estimator, debug=False):
+    def __init__(self, tve_model, roi_estimator, target_object=None, camera=None, controller_type=ControllerType.DEFAULT, debug=False):
         self.tip_velocity_estimator = tve_model
         self.roi_estimator = roi_estimator
+        self.target_object = target_object
+        self.camera = camera
+        if (self.target_object is None or self.camera is None) and controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
+            raise ValueError("Controller requires target object and camera handle to compute relative positions and orientations")
         self.debug = debug
+        self.controller_type = controller_type
 
     def get_model(self):
         return self.tip_velocity_estimator
 
     def get_tip_control(self, image):
         # select region of interest (manual crop or RL agent)
-        image = self.roi_estimator.crop(image)
-        # TODO: combine these two into one function to avoid issues?
+        image, pixels = self.roi_estimator.crop(image)
+        # TODO: combine all transformations into one function to avoid issues?
         # resizes image
         image = self.tip_velocity_estimator.resize_image(image)
         # apply normalisation and other transforms as required
@@ -139,7 +152,20 @@ class TipVelocityController(object):
         with torch.no_grad():
             image_tensor = torch.unsqueeze(transformed_image, 0)
             # batch with single tip control command
-            tip_control_single_batch = self.tip_velocity_estimator.predict(image_tensor)
-            tip_control = tip_control_single_batch[0]
+            if self.controller_type == ControllerType.DEFAULT:
+                tip_control_single_batch = self.tip_velocity_estimator.predict(image_tensor)
+            elif self.controller_type == ControllerType.TOP_LEFT_PIXEL:
+                top_left_pixel = torch.unsqueeze(torch.tensor(pixels[1], dtype=torch.float32), 0)
+                tip_control_single_batch = self.tip_velocity_estimator.predict((image_tensor, top_left_pixel))
+            elif self.controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
+                relative_target_position = torch.unsqueeze(torch.tensor(
+                    self.target_object.get_position(relative_to=self.camera), dtype=torch.float32
+                ), 0)
+                relative_target_orientation = torch.unsqueeze(torch.tensor(
+                    self.target_object.get_orientation(relative_to=self.camera), dtype=torch.float32
+                ), 0)
+                control_input = torch.cat((relative_target_position, relative_target_orientation), dim=1)
+                tip_control_single_batch = self.tip_velocity_estimator.predict(control_input)
 
+        tip_control = tip_control_single_batch[0]
         return tip_control

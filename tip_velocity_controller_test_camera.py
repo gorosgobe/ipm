@@ -3,7 +3,7 @@ from pyrep.objects.shape import Shape
 
 from lib import utils
 from lib.camera_robot import CameraRobot
-from lib.controller import TipVelocityController, IdentityCropper, TruePixelROI
+from lib.controller import TipVelocityController, IdentityCropper, TruePixelROI, ControllerType
 from lib.scenes import CameraTextureReachCubeScene, CameraBackgroundObjectsTextureReachCubeScene, \
     CameraBackgroundObjectsExtendedTextureReachCubeScene
 import json
@@ -15,14 +15,21 @@ if __name__ == "__main__":
 
     with CameraBackgroundObjectsTextureReachCubeScene(headless=True) as pr:
         camera_robot = CameraRobot(pr)
-        model_name = "TESTING_ORIENTATIONS"
+        model_name = "BaselineNetworkL3"
         test = "test_offsets_orientations.json"
         target_cube = Shape("target_cube")
         target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.5])
 
         #cropper = TruePixelROI(480//2, 640//2, camera_robot.get_movable_camera(), target_cube)
         cropper = IdentityCropper()
-        controller = TipVelocityController(TipVelocityEstimator.load("models/{}.pt".format(model_name)), cropper)
+        c_type = ControllerType.RELATIVE_POSITION_AND_ORIENTATION
+        controller = TipVelocityController(
+            tve_model=TipVelocityEstimator.load("models/{}.pt".format(model_name)),
+            target_object=target_cube,
+            camera=camera_robot.get_movable_camera(),
+            roi_estimator=cropper,
+            controller_type=c_type
+        )
         print(controller.get_model().test_loss)
 
         test_name = "{}-{}.camera_robot.test".format(model_name, int(time.time()))
