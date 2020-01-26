@@ -39,11 +39,12 @@ class TipVelocityEstimatorLoss(object):
 
 
 class TipVelocityEstimator(object):
-    def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None):
+    def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None, patience=10):
         self.name = name
         self.device = device
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.patience = patience
         self.image_size = image_size
         width, height = self.image_size
         self.network = network_klass(width, height)
@@ -68,7 +69,7 @@ class TipVelocityEstimator(object):
 
         self.trainer = self._create_trainer()
         self.training_evaluator = self._create_evaluator()
-        self.validation_evaluator = self._create_evaluator(early_stopping=True, patience=10)
+        self.validation_evaluator = self._create_evaluator(early_stopping=True, patience=self.patience)
 
     def train(self, data_loader, max_epochs, val_loader, test_loader, validate_epochs=10):
         """
