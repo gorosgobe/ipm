@@ -13,21 +13,21 @@ if __name__ == "__main__":
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
-        size=(64, 48),
+        size=(32, 24),
         velocities_csv="text_camera_orient/velocities.csv",
         rotations_csv="text_camera_orient/rotations.csv",
         metadata="text_camera_orient/metadata.json",
         root_dir="text_camera_orient",
-        initial_pixel_cropper=TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
+        initial_pixel_cropper=TrainingPixelROI(480 // 4, 640 // 4),  # set to None for full image initially
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name="AttentionNetworkV2",
+        name="AttentionNetworkV3",
         learning_rate=0.0001,
         max_epochs=250,
         validate_epochs=1,
         save_to_location="models/",
-        network_klass=AttentionNetworkV2,
+        network_klass=AttentionNetworkV3,
     )
 
     np.random.seed(config["seed"])

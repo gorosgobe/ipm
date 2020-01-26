@@ -1,6 +1,34 @@
 import torch
 
 
+class AttentionNetworkV3(torch.nn.Module):
+    def __init__(self, image_width, image_height):
+        super().__init__()
+        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.batch_norm1 = torch.nn.BatchNorm2d(64)
+        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
+        self.batch_norm2 = torch.nn.BatchNorm2d(32)
+        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
+        self.batch_norm3 = torch.nn.BatchNorm2d(16)
+        self.fc1 = torch.nn.Linear(in_features=32, out_features=62)
+        # add x, y position of top left pixel of bounding box
+        self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
+        self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
+
+    def forward(self, x):
+        image_batch, top_left_pixel, _, _, _ = x
+        batch_size = image_batch.size()[0]
+        out_conv1 = torch.nn.functional.relu(self.batch_norm1.forward(self.conv1.forward(image_batch)))
+        out_conv2 = torch.nn.functional.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
+        out_conv3 = torch.nn.functional.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
+        out_conv3 = out_conv3.view(batch_size, -1)
+        out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
+        cropped_concat = torch.cat((out_fc1, top_left_pixel), dim=1)
+        out_fc2 = torch.nn.functional.relu(self.fc2.forward(cropped_concat))
+        out_fc3 = self.fc3.forward(out_fc2)
+        return out_fc3
+
+
 class AttentionNetworkV2(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super().__init__()
