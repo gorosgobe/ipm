@@ -8,6 +8,9 @@ if __name__ == '__main__':
     special_distance = float(sys.argv[1])
     special_counts = []
     distances = np.arange(0.005, 0.45, 0.001)
+    distance_values = []
+    mean_minimum_distances = []
+    variance_minimum_distances = []
 
     for test_idx in range(2, len(sys.argv)):
         test_name = sys.argv[test_idx]
@@ -15,6 +18,16 @@ if __name__ == '__main__':
 
         with open(test_name, "r") as f:
             content = json.loads(f.read())
+
+        mean_minimum_distance = 0
+        for i_str in content:
+            dist = content[i_str]
+            distance_values.append(dist)
+            mean_minimum_distance += dist
+        res = np.var(np.array(distance_values))
+        variance_minimum_distances.append((test_name, res))
+        mean_minimum_distance /= len(content)
+        mean_minimum_distances.append((test_name, mean_minimum_distance))
 
         test_achieved = []
         for target_distance in distances:
@@ -32,7 +45,9 @@ if __name__ == '__main__':
         special_counts.append((test_name, special_distance_count))
         achieved_plot.append((test_name, test_achieved))
 
-    print(special_counts)
+    print(f"Count for distance {special_distance}: {special_counts}")
+    print(f"MMD: {mean_minimum_distances}")
+    print(f"Var MD: {variance_minimum_distances}")
 
     for t in achieved_plot:
         name, achieved_data = t
