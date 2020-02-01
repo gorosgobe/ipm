@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from torch.utils.data import DataLoader
 
@@ -7,27 +9,37 @@ from lib.tip_velocity_estimator import TipVelocityEstimator
 from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--name")
+    parser.add_argument("--training", type=float)
+    parser.add_argument("--dataset")
+    parse_result = parser.parse_args()
+
+    dataset = parse_result.dataset or "text_camera_rand"
+    print("Dataset: ", dataset)
+
     config = dict(
         seed=2019,
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
         size=(128, 96),
-        velocities_csv="text_camera_orient/velocities.csv",
-        rotations_csv="text_camera_orient/rotations.csv",
-        metadata="text_camera_orient/metadata.json",
-        root_dir="text_camera_orient",
-        initial_pixel_cropper=None, #TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
+        velocities_csv=f"{dataset}/velocities.csv",
+        rotations_csv=f"{dataset}/rotations.csv",
+        metadata=f"{dataset}/metadata.json",
+        root_dir=dataset,
+        initial_pixel_cropper=None,
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name="FullImageNetwork",
+        name=parse_result.name or "FullImageNetworkRand",
         learning_rate=0.0001,
         max_epochs=100,
         validate_epochs=1,
         save_to_location="models/",
         network_klass=FullImageNetwork,
     )
+    print("Name:", config["name"])
 
     np.random.seed(config["seed"])
     torch.manual_seed(config["seed"])
@@ -44,7 +56,8 @@ if __name__ == "__main__":
         cache_images=config["cache_images"],
     )
 
-    limit_training_coefficient = -1  # all training data
+    limit_training_coefficient = parse_result.training or 0.8  # all training data
+    print("Training coeff limit:", limit_training_coefficient)
     training_demonstrations, val_demonstrations, test_demonstrations = get_demonstrations(dataset, config["split"], limit_training_coefficient)
 
     train_data_loader = DataLoader(training_demonstrations, batch_size=config["batch_size"], num_workers=8,

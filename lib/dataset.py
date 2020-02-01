@@ -89,7 +89,7 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         num_demonstration = self.tip_velocities_frame.iloc[idx, 0].split("image")[0]
         d_data = self.demonstration_metadata["demonstrations"][num_demonstration]
         instance_demonstration_idx = idx - d_data["start"]
-        # if dataset is of type crop pixel, crop image using the metadata pixel, and add top left pixel information
+        # if dataset is of type crop pixel, crop image using the metadata pixel, and add  pixel information
         if self.initial_pixel_cropper is not None:
             pixels = d_data["crop_pixels"]
             pixel = pixels[instance_demonstration_idx]
@@ -105,8 +105,14 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
 
         # add relative quantities
         if self.get_rel_target_quantities:
-            sample["relative_target_position"] = np.array(d_data["relative_target_positions"][instance_demonstration_idx], dtype=np.float32)
-            sample["relative_target_orientation"] = np.array(d_data["relative_target_orientations"][instance_demonstration_idx], dtype=np.float32)
+            sample["relative_target_position"] = np.array(
+                d_data["relative_target_positions"][instance_demonstration_idx],
+                dtype=np.float32
+            )
+            sample["relative_target_orientation"] = np.array(
+                d_data["relative_target_orientations"][instance_demonstration_idx],
+                dtype=np.float32
+            )
 
         if self.debug:
             cv2.imshow("Image", sample["image"])
