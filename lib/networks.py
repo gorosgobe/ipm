@@ -23,8 +23,6 @@ class AttentionNetworkV2(torch.nn.Module):
         out_conv3 = out_conv3.view(batch_size, -1)
         out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
 
-        print(original_image_width)
-        print(original_image_height)
         top_left_pixel = self.normalise(top_left_pixel, original_image_width, original_image_height)
         bottom_right_pixel = self.normalise(bottom_right_pixel, original_image_width, original_image_height)
 
