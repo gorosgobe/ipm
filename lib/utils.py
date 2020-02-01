@@ -69,7 +69,7 @@ def save_images(images, format_str, prefix=""):
 
 def save_images_and_tip_velocities(images, demonstration_num, tip_positions, tip_velocities, tip_velocity_file,
                                    metadata_file, crop_pixels, rotations, rotations_file, relative_target_positions,
-                                   relative_target_orientations):
+                                   relative_target_orientations, distractor_positions):
     format_str = "{}image{}.png"
     prefix = str(demonstration_num)
     save_images(images=images, format_str=format_str, prefix=prefix)
@@ -104,7 +104,8 @@ def save_images_and_tip_velocities(images, demonstration_num, tip_positions, tip
             tip_positions=tip_positions,
             crop_pixels=crop_pixels,
             relative_target_positions=relative_target_positions,
-            relative_target_orientations=relative_target_orientations
+            relative_target_orientations=relative_target_orientations,
+            distractor_positions=distractor_positions
         )
 
         if "num_demonstrations" not in data:

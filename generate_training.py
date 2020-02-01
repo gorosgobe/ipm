@@ -6,8 +6,7 @@ from pyrep.errors import ConfigurationPathError
 from pyrep.objects.shape import Shape
 
 from lib.camera_robot import CameraRobot
-from lib.scenes import CameraBackgroundObjectsExtendedTextureReachCubeScene, \
-    CameraBackgroundObjectsTextureReachCubeScene
+from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3
 from lib.utils import save_images_and_tip_velocities
 
 if __name__ == "__main__":
@@ -15,7 +14,7 @@ if __name__ == "__main__":
     seed = 2019
     np.random.seed(seed)
 
-    with CameraBackgroundObjectsTextureReachCubeScene(headless=True) as pr:
+    with CameraBackgroundObjectsTextureReachCubeSceneV3(headless=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
         min_samples = 4000
@@ -23,7 +22,7 @@ if __name__ == "__main__":
         total_count = 0
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./text_camera_orient"
+        folder = "./text_camera_rand"
         tip_velocity_file = "velocities.csv"
         rotations_file = "rotations.csv"
         metadata_file = "metadata.json"
@@ -44,20 +43,14 @@ if __name__ == "__main__":
             print("Offset {}".format(offset))
             try:
                 result = robot.generate_image_simulation(
-                    offset=offset, target_position=target_above_cube, target_object=target_cube
+                    scene=scene, offset=offset, target_position=target_above_cube, target_object=target_cube, randomise_distractors=True
                 )
                 save_images_and_tip_velocities(
-                    images=result["images"],
                     demonstration_num=demonstration_num,
-                    tip_positions=result["tip_positions"],
-                    tip_velocities=result["tip_velocities"],
                     tip_velocity_file=tip_velocity_file,
                     metadata_file=metadata_file,
-                    crop_pixels=result["crop_pixels"],
-                    rotations=result["rotations"],
                     rotations_file=rotations_file,
-                    relative_target_positions=result["relative_target_positions"],
-                    relative_target_orientations=result["relative_target_orientations"]
+                    **result
                 )
                 demonstration_num += 1
                 total_count += len(result["tip_velocities"])

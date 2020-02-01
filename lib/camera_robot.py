@@ -3,6 +3,7 @@ import torch
 from pyrep.backend import sim
 
 from lib.camera import MovableCamera
+from lib.sim_gt_estimators import SimGTVelocityEstimator, SimGTOrientationEstimator
 
 
 class CameraRobot(object):
@@ -18,19 +19,28 @@ class CameraRobot(object):
 
     @staticmethod
     def generate_offset():
-        position_offset = np.random.uniform(-0.3, 0.3, size=3)
-        # pi / 30 -> max of 9 degrees per axis in both directions
-        # TODO: consider if rotation along z axis should be larger for higher variability
-        # TODO: maybe consider this only if scene needs to be made more complex, before applying offset
-        orientation_offset = np.random.uniform(-np.pi / 15, np.pi / 15, size=3)
-        return np.concatenate((position_offset, orientation_offset), axis=0)
+        xy_position_offset = np.random.uniform(-0.4, 0.4, size=2)
+        # otherwise, sometimes camera is too far away
+        z_position_offset = np.random.uniform(-0.3, 0.3, size=1)
+        xy_orientation_offset = np.random.uniform(-np.pi / 15, np.pi / 15, size=2)
+        # increased initial rotation for z-axis
+        z_offset = np.random.normal(0, np.pi / 5, size=1)
+        return np.concatenate((xy_position_offset, z_position_offset, xy_orientation_offset, z_offset), axis=0)
 
-    def generate_image_simulation(self, offset, target_position, target_object, draw_center_pixel=False, debug=False):
+    def generate_image_simulation(self, offset, scene, target_position, target_object, draw_center_pixel=False,
+                                  debug=False,
+                                  randomise_distractors=False):
 
         # position and orientation in 6 x 1 vector
         offset_position, offset_orientation = np.split(offset, 2)
         self.movable_camera.set_initial_offset_position(offset_position)
         self.movable_camera.add_to_orientation(offset_orientation)
+
+        if randomise_distractors:
+            self.set_distractor_random_positions(scene, target_position)
+
+        distractor_positions = [d.get_position() for d in scene.get_distractors()]
+
         self.pr.step()
 
         target_handle = target_object.get_handle()
@@ -42,6 +52,8 @@ class CameraRobot(object):
         relative_target_orientations = []
         images = []
         crop_pixels = []
+        sim_gt_velocity = SimGTVelocityEstimator(target_position)
+        sim_gt_orientation = SimGTOrientationEstimator(target_position, self.TARGET_ORIENTATION)
         while True:
             # world camera position
             camera_position = self.movable_camera.get_position()
@@ -49,24 +61,13 @@ class CameraRobot(object):
 
             # target position relative to camera
             relative_target_position = target_object.get_position(relative_to=self.movable_camera)
-            print("Rel target position", relative_target_position)
             relative_target_positions.append(relative_target_position)
 
             # target orientation relative to camera
             relative_target_orientation = target_object.get_orientation(relative_to=self.movable_camera)
-            print("Rel target orientation", relative_target_orientation)
             relative_target_orientations.append(relative_target_orientation)
 
-            # world distance vector
-            distance_vector = np.array(target_position) - np.array(camera_position)
-            distance_vector_norm = np.linalg.norm(distance_vector)
-
-            camera_orientation = np.array(self.movable_camera.get_orientation())
-            print(camera_orientation)
-            # Calculate difference in orientation and normalise over distance to target
-            difference_orientation = self.TARGET_ORIENTATION - camera_orientation + np.pi
-            difference_orientation = (difference_orientation % (2 * np.pi)) - np.pi
-            difference_orientation_normalised = difference_orientation / np.linalg.norm(distance_vector_norm)
+            camera_orientation = self.movable_camera.get_orientation()
 
             step = sim.simGetSimulationTimeStep()
             # get pixel and extra information
@@ -80,16 +81,16 @@ class CameraRobot(object):
             self.add_debug_info_to_img(axis, debug, draw_center_pixel, image, pixel)
             images.append(image)
 
-            print("Dist to target at image taking time: ", np.linalg.norm(np.array(target_position) - np.array(self.movable_camera.get_position())))
+            print("Dist to target at image taking time: ",
+                  np.linalg.norm(np.array(target_position) - np.array(camera_position)))
 
-            if distance_vector_norm < 0.0001:
-                tip_velocities.append([0.0, 0.0, 0.0])
-                rotations.append([0.0, 0.0, 0.0])
+            velocity = sim_gt_velocity.get_gt_tip_velocity(camera_position)
+            tip_velocities.append(velocity)
+            difference_orientation_normalised = sim_gt_orientation.get_gt_orientation_change(camera_position, camera_orientation)
+            rotations.append(difference_orientation_normalised)
+
+            if sim_gt_velocity.stop_sim() and sim_gt_orientation.stop_sim():
                 break
-            else:
-                velocity = self.get_normalised_velocity(distance_vector, distance_vector_norm)
-                tip_velocities.append(velocity)
-                rotations.append(difference_orientation_normalised)
 
             self.movable_camera.add_to_orientation(step * difference_orientation_normalised)
             self.movable_camera.move_along_velocity(velocity)
@@ -102,9 +103,29 @@ class CameraRobot(object):
             crop_pixels=crop_pixels,
             rotations=rotations,
             relative_target_positions=relative_target_positions,
-            relative_target_orientations=relative_target_orientations
+            relative_target_orientations=relative_target_orientations,
+            distractor_positions=distractor_positions
         )
 
+    def set_distractor_random_positions(self, scene, target_position):
+        distractors = scene.get_distractors()
+        x_target = target_position[0]
+        y_target = target_position[1]
+        for idx, d in enumerate(distractors):
+            previous_distractors = distractors[:idx]
+            # get random position within table dimensions
+            x = x_target
+            y = y_target
+            # make sure obtained x is not within 10 cm of target or previously set distractors
+            while abs(x - x_target) < 0.1 or \
+                    any(filter(lambda other_d: abs(x - other_d.get_position()[0]) < 0.1, previous_distractors)):
+                x = np.random.uniform(-0.3, 1.2)
+
+            while abs(y - y_target) < 0.1 or \
+                    any(filter(lambda other_d: abs(y - other_d.get_position()[1]) < 0.1, previous_distractors)):
+                y = np.random.uniform(-0.7, 0.8)
+
+            d.set_position([x, y, d.get_position()[-1]])
 
     @staticmethod
     def get_normalised_velocity(distance_vector, distance_vector_norm):

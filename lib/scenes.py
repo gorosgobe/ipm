@@ -1,6 +1,7 @@
 from os.path import abspath, dirname, join
 
 from pyrep import PyRep
+from pyrep.objects.shape import Shape
 
 
 class Scene(object):
@@ -12,48 +13,52 @@ class Scene(object):
         self.pr = PyRep()
         self.pr.launch(self.scene_file, headless=self.headless)
         self.pr.start()
-        return self.pr
+        return self.pr, self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.pr.stop()
         self.pr.shutdown()
+
+    def get_target(self):
+        return Shape("target_cube")
+
+    def get_distractors(self):
+        return []
 
 
 class SawyerReachCubeScene(Scene):
     SCENE_FILE = "sawyer_reach_cube.ttt"
 
     def __init__(self, headless=True):
-        super(SawyerReachCubeScene, self).__init__(self.SCENE_FILE, headless=headless)
+        super().__init__(self.SCENE_FILE, headless=headless)
 
 
 class SawyerTextureReachCubeScene(Scene):
     SCENE_FILE = "sawyer_reach_cube_textures.ttt"
 
     def __init__(self, headless=True):
-        super(SawyerTextureReachCubeScene, self).__init__(self.SCENE_FILE, headless=headless)
+        super().__init__(self.SCENE_FILE, headless=headless)
 
 
 class SawyerTextureDistractorsReachCubeScene(Scene):
     SCENE_FILE = "sawyer_reach_cube_textures_distractors.ttt"
 
     def __init__(self, headless=True):
-        super(SawyerTextureDistractorsReachCubeScene, self).__init__(self.SCENE_FILE,
-                                                                     headless=headless)
+        super().__init__(self.SCENE_FILE, headless=headless)
 
 
 class CameraTextureReachCubeScene(Scene):
     SCENE_FILE = "camera_reach_cube_textures.ttt"
 
     def __init__(self, headless=True):
-        super(CameraTextureReachCubeScene, self).__init__(self.SCENE_FILE, headless=headless)
+        super().__init__(self.SCENE_FILE, headless=headless)
 
 
 class CameraBackgroundObjectsTextureReachCubeScene(Scene):
     SCENE_FILE = "camera_reach_cube_textures_background.ttt"
 
     def __init__(self, headless=True):
-        super(CameraBackgroundObjectsTextureReachCubeScene, self).__init__(self.SCENE_FILE,
-                                                                           headless=headless)
+        super().__init__(self.SCENE_FILE, headless=headless)
 
 
 class CameraBackgroundObjectsExtendedTextureReachCubeScene(Scene):
@@ -61,5 +66,14 @@ class CameraBackgroundObjectsExtendedTextureReachCubeScene(Scene):
     SCENE_FILE = "camera_reach_cube_textures_background_v2.ttt"
 
     def __init__(self, headless=True):
-        super(CameraBackgroundObjectsExtendedTextureReachCubeScene, self).__init__(self.SCENE_FILE,
-                                                                                   headless=headless)
+        super().__init__(self.SCENE_FILE, headless=headless)
+
+
+class CameraBackgroundObjectsTextureReachCubeSceneV3(Scene):
+    SCENE_FILE = "camera_reach_cube_textures_background_v3.ttt"
+
+    def __init__(self, headless=True):
+        super().__init__(self.SCENE_FILE, headless=headless)
+
+    def get_distractors(self):
+        return [Shape("distractor_sphere"), Shape("distractor_cylinder"), Shape("distractor_cube")]
