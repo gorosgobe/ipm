@@ -50,8 +50,17 @@ class AttentionNetworkV3(AttentionNetworkV2):
         In contrast, V2 provides two values between 0 and 1. In this case, we provide two values between 0 and
         self.image_width/self.image_height, respectively (cropped image)
         """
-        image_width_tensor = torch.tensor([self.image_width], dtype=torch.float32).unsqueeze(0).expand(original_image_width.size())
-        image_height_tensor = torch.tensor([self.image_height], dtype=torch.float32).unsqueeze(0).expand(original_image_height.size())
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        image_width_tensor = torch.tensor(
+            [self.image_width],
+            dtype=torch.float32,
+            device=device
+        ).unsqueeze(0).expand(original_image_width.size())
+        image_height_tensor = torch.tensor(
+            [self.image_height],
+            dtype=torch.float32,
+            device=device
+        ).unsqueeze(0).expand(original_image_height.size())
         w, h = pixel_batch.split((1, 1), dim=1)
         w = w / (original_image_width / image_width_tensor)
         h = h / (original_image_height / image_height_tensor)
