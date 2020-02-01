@@ -15,7 +15,19 @@ if __name__ == "__main__":
     parser.add_argument("--name")
     parser.add_argument("--training", type=float)
     parser.add_argument("--dataset")
+    parser.add_argument("--version")
     parse_result = parser.parse_args()
+
+    version = parse_result.version or "V1"
+    print("Attention network version:", version)
+    if version == "V1":
+        version = AttentionNetwork
+    elif version == "V2":
+        version = AttentionNetworkV2
+    elif version == "V3":
+        version = AttentionNetworkV3
+    else:
+        raise ValueError(f"Attention network version {version} is not available")
 
     dataset = parse_result.dataset or "text_camera_rand"
     print("Dataset: ", dataset)
@@ -39,7 +51,7 @@ if __name__ == "__main__":
         max_epochs=250,
         validate_epochs=1,
         save_to_location="models/",
-        network_klass=AttentionNetwork,
+        network_klass=version,
     )
 
     print("Name:", config["name"])

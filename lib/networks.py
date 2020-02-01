@@ -1,6 +1,5 @@
 import torch
 
-
 class AttentionNetworkV2(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super().__init__()
@@ -23,8 +22,12 @@ class AttentionNetworkV2(torch.nn.Module):
         out_conv3 = torch.nn.functional.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
         out_conv3 = out_conv3.view(batch_size, -1)
         out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
+
+        print(original_image_width)
+        print(original_image_height)
         top_left_pixel = self.normalise(top_left_pixel, original_image_width, original_image_height)
         bottom_right_pixel = self.normalise(bottom_right_pixel, original_image_width, original_image_height)
+
         cropped_concat = torch.cat((out_fc1, top_left_pixel, bottom_right_pixel), dim=1)
         out_fc2 = torch.nn.functional.relu(self.fc2.forward(cropped_concat))
         out_fc3 = self.fc3.forward(out_fc2)
@@ -36,6 +39,25 @@ class AttentionNetworkV2(torch.nn.Module):
         h = h / original_image_height
         return torch.cat((w, h), dim=1)
 
+
+class AttentionNetworkV3(AttentionNetworkV2):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.image_width = image_width
+        self.image_height = image_height
+
+    def normalise(self, pixel_batch, original_image_width, original_image_height):
+        """
+        This version normalises so pixels provided are in the range of the cropped version of the image
+        In contrast, V2 provides two values between 0 and 1. In this case, we provide two values between 0 and
+        self.image_width/self.image_height, respectively (cropped image)
+        """
+        image_width_tensor = torch.tensor([self.image_width], dtype=torch.float32).unsqueeze(0).expand(original_image_width.size())
+        image_height_tensor = torch.tensor([self.image_height], dtype=torch.float32).unsqueeze(0).expand(original_image_height.size())
+        w, h = pixel_batch.split((1, 1), dim=1)
+        w = w / (original_image_width / image_width_tensor)
+        h = h / (original_image_height / image_height_tensor)
+        return torch.cat((w, h), dim=1)
 
 class AttentionNetwork(torch.nn.Module):
     def __init__(self, image_width, image_height):
