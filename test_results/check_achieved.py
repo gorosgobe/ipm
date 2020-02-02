@@ -18,35 +18,36 @@ if __name__ == '__main__':
 
         with open(test_name, "r") as f:
             content = json.loads(f.read())
+            minimum_distances = content["min_distances"]
 
         mean_minimum_distance = 0
-        for i_str in content:
-            dist = content[i_str]
+        for i_str in minimum_distances:
+            dist = minimum_distances[i_str]
             distance_values.append(dist)
             mean_minimum_distance += dist
         res = np.var(np.array(distance_values))
         variance_minimum_distances.append((test_name, res))
-        mean_minimum_distance /= len(content)
+        mean_minimum_distance /= len(minimum_distances)
         mean_minimum_distances.append((test_name, mean_minimum_distance))
 
         test_achieved = []
         for target_distance in distances:
             achieved = 0
             special_distance_count = 0
-            for i_str in content:
-                dist = content[i_str]
+            for i_str in minimum_distances:
+                dist = minimum_distances[i_str]
                 if dist <= target_distance:
                     achieved += 1
                 if dist <= special_distance:
                     special_distance_count += 1
 
-            print("Achieved: {} -> {}/{}".format(target_distance, achieved, len(content)))
+            print("Achieved: {} -> {}/{}".format(target_distance, achieved, len(minimum_distances)))
             test_achieved.append((target_distance, achieved))
         special_counts.append((test_name, special_distance_count))
         achieved_plot.append((test_name, test_achieved))
 
     print(f"Count for distance {special_distance}: {special_counts}")
-    print(f"MMD: {mean_minimum_distances}")
+    print(f"MMD: {sorted(mean_minimum_distances, key=lambda x: x[1])}")
     print(f"Var MD: {variance_minimum_distances}")
 
     for t in achieved_plot:

@@ -163,8 +163,10 @@ class TipVelocityController(object):
             elif self.controller_type == ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS:
                 top_left_pixel = torch.unsqueeze(torch.tensor(pixels[1], dtype=torch.float32), 0)
                 bottom_right_pixel = torch.unsqueeze(torch.tensor(pixels[4], dtype=torch.float32), 0)
+                w_tensor = torch.tensor([w], dtype=torch.float32).unsqueeze(0)
+                h_tensor = torch.tensor([h], dtype=torch.float32).unsqueeze(0)
                 tip_control_single_batch = self.tip_velocity_estimator.predict((
-                    image_tensor, top_left_pixel, bottom_right_pixel, w, h
+                    image_tensor, top_left_pixel, bottom_right_pixel, w_tensor, h_tensor
                 ))
 
             elif self.controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
