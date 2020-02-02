@@ -1,5 +1,6 @@
 import torch
 
+
 class AttentionNetworkV2(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super().__init__()
@@ -65,6 +66,7 @@ class AttentionNetworkV3(AttentionNetworkV2):
         w = w / (original_image_width / image_width_tensor)
         h = h / (original_image_height / image_height_tensor)
         return torch.cat((w, h), dim=1)
+
 
 class AttentionNetwork(torch.nn.Module):
     def __init__(self, image_width, image_height):
