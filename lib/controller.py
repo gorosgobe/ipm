@@ -35,20 +35,27 @@ class OffsetCropper(object):
 
 
 class TruePixelROI(object):
-    def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object):
+    def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object, add_spatial_maps=False):
         """
         :param cropped_height: Height of region to crop
         :param cropped_width: Width of region to crop
         :param pixel_position_estimator: object that, given a handle, can compute its screen, pixel position for
         full resolution of image supplied to "crop"
         :param target_object: handle of target object, to compute pixel position of
+        :param add_spatial_map: Add a spatial feature map to the cropped image, as in
+        "An intriguing failing of convolutional neural networksand the CoordConv solution",
+        https://arxiv.org/pdf/1807.03247.pdf
         """
         self.cropped_height = cropped_height
         self.cropped_width = cropped_width
         self.target_object = target_object
         self.pixel_position_estimator = pixel_position_estimator
+        self.add_spatial_maps = add_spatial_maps
 
     def crop(self, image):
+        if self.add_spatial_maps:
+            image = self.add_spatial_dimensions(image)
+
         height, width, _ = image.shape
         pixel, _ = self.pixel_position_estimator.compute_pixel_position(self.target_object.get_handle())
         center_x, center_y = pixel
@@ -85,6 +92,18 @@ class TruePixelROI(object):
         cropped_image = image[y_min:y_max, x_min:x_max]
         return cropped_image, bounding_box_pixels
 
+    @staticmethod
+    def add_spatial_dimensions(image):
+        # Add spatial map and normalise
+        height, width, _channels = image.shape
+
+        i = np.array([range(width) for _ in range(height)], dtype=np.float32)
+        i = np.expand_dims(i, axis=2) / width
+        j = np.array([range(height) for _ in range(width)], dtype=np.float32).T
+        j = np.expand_dims(j, axis=2) / height
+
+        return np.concatenate((image, i, j), axis=2)
+
 
 # Pixel ROI for training, used to determine what the model sees at training time
 # Pixel is loaded from data, so wrap for interfacing with TruePixelROI
@@ -108,13 +127,20 @@ class TrainingPixelROI(object):
     Region of interest for training, where pixel estimator is just the pixel stored for the image
     """
 
-    def __init__(self, cropped_height, cropped_width):
+    def __init__(self, cropped_height, cropped_width, add_spatial_maps=False):
         self.cropped_height = cropped_height
         self.cropped_width = cropped_width
+        self.add_spatial_maps = add_spatial_maps
 
     def crop(self, image, pixel):
         loaded_pixel_estimator = LoadedPixelEstimator(pixel)
-        true_pixel_roi = TruePixelROI(self.cropped_height, self.cropped_width, loaded_pixel_estimator, FakeHandle())
+        true_pixel_roi = TruePixelROI(
+            self.cropped_height,
+            self.cropped_width,
+            loaded_pixel_estimator,
+            FakeHandle(),
+            self.add_spatial_maps
+        )
         return true_pixel_roi.crop(image)
 
 
@@ -127,13 +153,16 @@ class ControllerType(enum.Enum):
 
 # Controller that applies transformations and ROI to image at test time, and estimates tip velocity
 class TipVelocityController(object):
-    def __init__(self, tve_model, roi_estimator, target_object=None, camera=None, controller_type=ControllerType.DEFAULT, debug=False):
+    def __init__(self, tve_model, roi_estimator, target_object=None, camera=None,
+                 controller_type=ControllerType.DEFAULT, debug=False):
         self.tip_velocity_estimator = tve_model
         self.roi_estimator = roi_estimator
         self.target_object = target_object
         self.camera = camera
-        if (self.target_object is None or self.camera is None) and controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
-            raise ValueError("Controller requires target object and camera handle to compute relative positions and orientations")
+        if (
+                self.target_object is None or self.camera is None) and controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
+            raise ValueError(
+                "Controller requires target object and camera handle to compute relative positions and orientations")
         self.debug = debug
         self.controller_type = controller_type
 

@@ -154,6 +154,17 @@ class TruePixelRoiTest(unittest.TestCase):
         ]))
         self.assertEqual(pixels, self.CENTER_11_3x3_PIXELS)
 
+    def test_spatial_dimensions_are_added(self):
+        fpe = FakePixelEstimator((3, 2))
+        roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle(), add_spatial_maps=True)
+        crop, pixels = roi_estimator.crop(self.FAKE_IMAGE)
+        np.testing.assert_array_equal(crop, np.array([
+            [[9, 2 / 6, 1 / 4], [10, 3 / 6, 1 / 4], [11, 4 / 6, 1 / 4]],
+            [[15, 2 / 6, 2 / 4], [16, 3 / 6, 2 / 4], [17, 4 / 6, 2 / 4]],
+            [[21, 2 / 6, 3 / 4], [22, 3 / 6, 3 / 4], [23, 4 / 6, 3 / 4]]
+        ]))
+        self.assertEqual(pixels, self.CENTER_16_3x3_PIXELS)
+
 
 if __name__ == '__main__':
     unittest.main()

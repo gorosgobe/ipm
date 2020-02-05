@@ -20,12 +20,17 @@ if __name__ == "__main__":
 
     version = parse_result.version or "V1"
     print("Attention network version:", version)
+
+    add_spatial_maps = False
     if version == "V1":
         version = AttentionNetwork
     elif version == "V2":
         version = AttentionNetworkV2
     elif version == "V3":
         version = AttentionNetworkV3
+    elif version.lower() == "coord":
+        version = AttentionNetworkCoord
+        add_spatial_maps = True
     else:
         raise ValueError(f"Attention network version {version} is not available")
 
@@ -42,7 +47,7 @@ if __name__ == "__main__":
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        initial_pixel_cropper=TrainingPixelROI(480 // 2, 640 // 2),  # set to None for full image initially
+        initial_pixel_cropper=TrainingPixelROI(480 // 2, 640 // 2, add_spatial_maps=add_spatial_maps),
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
@@ -59,7 +64,7 @@ if __name__ == "__main__":
     np.random.seed(config["seed"])
     torch.manual_seed(config["seed"])
     device = set_up_cuda(config["seed"])
-    preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"])
+    preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"], is_coord=add_spatial_maps)
 
     dataset = ImageTipVelocitiesDataset(
         velocities_csv=config["velocities_csv"],
