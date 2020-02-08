@@ -29,7 +29,6 @@ if __name__ == "__main__":
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
         initial_pixel_cropper=None,
-        cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
         name=parse_result.name or "FullImageNetworkRand",
@@ -53,7 +52,6 @@ if __name__ == "__main__":
         root_dir=config["root_dir"],
         initial_pixel_cropper=config["initial_pixel_cropper"],
         transform=preprocessing_transforms,
-        cache_images=config["cache_images"],
     )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data
