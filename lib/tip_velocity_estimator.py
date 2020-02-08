@@ -259,6 +259,7 @@ class TipVelocityEstimator(object):
         return self.resize_transform(image)
 
     def predict(self, batch):
+        self.network.eval()
         with torch.no_grad():
             return self.network.forward(batch)
 

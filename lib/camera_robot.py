@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from pyrep.backend import sim
 
+from lib import utils
 from lib.camera import MovableCamera
 from lib.sim_gt_estimators import SimGTVelocityEstimator, SimGTOrientationEstimator
 
@@ -203,15 +204,14 @@ class CameraRobot(object):
             if dist < target_distance:
                 achieved = True
                 break
-
             control = np.array(controller.get_tip_control(image))
             gt_velocity = np.array(sim_gt_velocity.get_gt_tip_velocity(camera_position))
             camera_orientation = self.movable_camera.get_orientation()
             gt_orientation = np.array(sim_gt_orientation.get_gt_orientation_change(camera_position, camera_orientation))
             combined_gt = np.concatenate((gt_velocity, gt_orientation), axis=0)
-
             # total error
             combined_error_norm = np.linalg.norm(combined_gt - control)
+            print("Combined error", combined_error_norm)
             combined_errors.append(dict(error_norm=combined_error_norm, gt=combined_gt.tolist(), predicted=control.tolist()))
 
             velocity, rotation = np.split(control, 2)

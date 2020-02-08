@@ -73,7 +73,6 @@ if __name__ == "__main__":
         root_dir=config["root_dir"],
         initial_pixel_cropper=config["initial_pixel_cropper"],
         transform=preprocessing_transforms,
-        cache_images=config["cache_images"],
     )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data

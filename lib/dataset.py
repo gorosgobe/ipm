@@ -10,7 +10,7 @@ from torch.utils.data import Subset
 
 
 class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
-    def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None, cache_images=True,
+    def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None,
                  initial_pixel_cropper=None, debug=False, get_rel_target_quantities=False):
         # convert to absolute path
         velocities_csv = os.path.abspath(velocities_csv)
@@ -36,15 +36,6 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         with open(metadata, "r") as m:
             metadata_content = m.read()
         self.demonstration_metadata = json.loads(metadata_content)
-        self.cache_images = cache_images
-        self.cache = {}
-        if self.cache_images:
-            print("Loading images into memory...")
-            # hack to preload all images from cache
-            for i in range(len(self)):
-                self.__getitem__(i)
-                print("Loaded ", i)
-            print("Finished loading.")
 
     def get_indices_for_demonstration(self, d_idx):
         demonstration_data = self.demonstration_metadata["demonstrations"][str(d_idx)]
@@ -68,12 +59,9 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
 
         img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
 
-        if not self.cache_images:
-            image = imageio.imread(img_name)
-        else:
-            if img_name not in self.cache:
-                self.cache[img_name] = imageio.imread(img_name)
-            image = self.cache[img_name]
+        image = imageio.imread(img_name)
+        if image.dtype == np.uint8:
+            image = (image / 255).astype("float32")
 
         tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
         tip_velocities = np.array(tip_velocities, dtype=np.float32)

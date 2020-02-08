@@ -1,12 +1,6 @@
 import enum
-import time
-
-import cv2
 import numpy as np
 import torch
-
-from lib import utils
-from lib.camera import Camera
 
 
 class IdentityCropper(object):

@@ -31,17 +31,17 @@ def get_preprocessing_transforms(size, is_coord=False):
     normalisation = torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     if is_coord:
         # to account for spatial maps
-        normalisation = torchvision.transforms.Normalize([0.5, 0.5, 0.5, 0, 0], [0.5, 0.5, 0.5, 1, 1])
+        normalisation = torchvision.transforms.Normalize([0.5, 0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5, 0.5])
 
-    transforms = torchvision.transforms.Compose([
+    transforms_without_resize = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         normalisation,
     ])
 
-    preprocessing_transforms = torchvision.transforms.Compose([ResizeTransform(size),
-                                                               transforms
-                                                               ])
-    return preprocessing_transforms, transforms
+    preprocessing_transforms_complete = torchvision.transforms.Compose([ResizeTransform(size),
+                                                                        transforms_without_resize
+                                                                        ])
+    return preprocessing_transforms_complete, transforms_without_resize
 
 
 def get_demonstrations(dataset, split, limit_train_coeff=-1):

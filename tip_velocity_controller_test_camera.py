@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from pyrep.objects.shape import Shape
 
@@ -13,7 +15,7 @@ from lib.tip_velocity_estimator import TipVelocityEstimator
 if __name__ == "__main__":
 
     models = [
-        "AttentionNetworkV3Rand",
+        "AttentionNetworkCoordRand",
         "AttentionNetworkV3RandL",
         "AttentionNetworkV3RandL1",
         "AttentionNetworkV3RandL2",
@@ -27,8 +29,9 @@ if __name__ == "__main__":
             target_cube = Shape("target_cube")
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
-            cropper = TruePixelROI(480//2, 640//2, camera_robot.get_movable_camera(), target_cube)
-            #cropper = IdentityCropper()
+            cropper = TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube,
+                                   add_spatial_maps=True)
+            # cropper = IdentityCropper()
             c_type = ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             controller = TipVelocityController(
                 tve_model=TipVelocityEstimator.load("models/{}.pt".format(model_name)),
@@ -63,7 +66,7 @@ if __name__ == "__main__":
                 )
                 count += 1
                 # for index, i in enumerate(images):
-                    # utils.save_image(i, "/home/pablo/Desktop/t-{}image{}.png".format(count, index))
+                # utils.save_image(i, "/home/pablo/Desktop/t-{}image{}.png".format(count, index))
                 result_json["min_distances"][str(idx)] = result["min_distance"]
                 result_json["errors"][str(idx)] = dict(
                     combined_errors=result["combined_errors"],
