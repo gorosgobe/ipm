@@ -10,7 +10,7 @@ if __name__ == '__main__':
     distances = np.arange(0.005, 0.45, 0.001)
     distance_values = []
     mean_minimum_distances = []
-    variance_minimum_distances = []
+    std_minimum_distances = []
 
     for test_idx in range(2, len(sys.argv)):
         test_name = sys.argv[test_idx]
@@ -25,8 +25,8 @@ if __name__ == '__main__':
             dist = minimum_distances[i_str]
             distance_values.append(dist)
             mean_minimum_distance += dist
-        res = np.var(np.array(distance_values))
-        variance_minimum_distances.append((test_name, res))
+        res = np.std(np.array(distance_values))
+        std_minimum_distances.append((test_name, res))
         mean_minimum_distance /= len(minimum_distances)
         mean_minimum_distances.append((test_name, mean_minimum_distance))
 
@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     print(f"Count for distance {special_distance}: {special_counts}")
     print(f"MMD: {sorted(mean_minimum_distances, key=lambda x: x[1])}")
-    print(f"Var MD: {variance_minimum_distances}")
+    print(f"STD MD: {std_minimum_distances}")
 
     for t in achieved_plot:
         name, achieved_data = t

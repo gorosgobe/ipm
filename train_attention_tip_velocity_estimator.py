@@ -9,6 +9,7 @@ from lib.networks import *
 from lib.tip_velocity_estimator import TipVelocityEstimator
 from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations
 
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -16,23 +17,30 @@ if __name__ == "__main__":
     parser.add_argument("--training", type=float)
     parser.add_argument("--dataset")
     parser.add_argument("--version")
+    parser.add_argument("--size", type=int)
     parse_result = parser.parse_args()
 
     version = parse_result.version or "V1"
+
+    size = (64, 48)
+    divisor = 2
+    if parse_result.size == 32:
+        size = (32, 24)
+        divisor = 4
+    print("Cropped image size:", size)
+    print("Training cropper divisor:", divisor)
     print("Attention network version:", version)
 
     add_spatial_maps = False
     if version == "V1":
-        version = AttentionNetwork
+        version = AttentionNetwork_32 if parse_result.size == 32 else AttentionNetwork
     elif version == "V2":
-        version = AttentionNetworkV2
-    elif version == "V3":
-        version = AttentionNetworkV3
+        version = AttentionNetworkV2_32 if parse_result.size == 32 else AttentionNetworkV2
     elif version.lower() == "coord":
-        version = AttentionNetworkCoord
+        version = AttentionNetworkCoord_32 if parse_result.size == 32 else AttentionNetworkCoord
         add_spatial_maps = True
     elif version.lower() == "tile":
-        version = AttentionNetworkTile
+        version = AttentionNetworkTile_32 if parse_result.size == 32 else AttentionNetworkTile
     else:
         raise ValueError(f"Attention network version {version} is not available")
 
@@ -44,12 +52,12 @@ if __name__ == "__main__":
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
-        size=(64, 48),
+        size=size,
         velocities_csv=f"{dataset}/velocities.csv",
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        initial_pixel_cropper=TrainingPixelROI(480 // 2, 640 // 2, add_spatial_maps=add_spatial_maps),
+        initial_pixel_cropper=TrainingPixelROI(480 // divisor, 640 // divisor, add_spatial_maps=add_spatial_maps),
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],

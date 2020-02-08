@@ -43,10 +43,22 @@ class AttentionNetworkTile(torch.nn.Module):
         return torch.cat((w, h), dim=1)
 
     def get_tiled_spatial_info(self, h, w, tl, br):
-        assert h == 10 and w == 14  # for 64x48 input
+        self.assert_size(h, w)
         top_left_tile = tl.repeat(1, w // 2).unsqueeze(1).repeat(1, h, 1).unsqueeze(1)
         bottom_right_tile = br.repeat(1, w // 2).unsqueeze(1).repeat(1, h, 1).unsqueeze(1)
         return torch.cat((top_left_tile, bottom_right_tile), dim=1)
+
+    def assert_size(self, h, w):
+        assert h == 10 and w == 14   # for 64x48 input
+
+
+class AttentionNetworkTile_32(AttentionNetworkTile):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
+
+    def assert_size(self, h, w):
+        assert h == 4 and w == 6  # for 32x24 input
 
 
 class AttentionNetworkCoord(torch.nn.Module):
@@ -74,6 +86,12 @@ class AttentionNetworkCoord(torch.nn.Module):
         out_fc2 = torch.nn.functional.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
         return out_fc3
+
+
+class AttentionNetworkCoord_32(AttentionNetworkCoord):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
 
 
 class AttentionNetworkV2(torch.nn.Module):
@@ -114,33 +132,10 @@ class AttentionNetworkV2(torch.nn.Module):
         return torch.cat((w, h), dim=1)
 
 
-class AttentionNetworkV3(AttentionNetworkV2):
+class AttentionNetworkV2_32(AttentionNetworkV2):
     def __init__(self, image_width, image_height):
         super().__init__(image_width, image_height)
-        self.image_width = image_width
-        self.image_height = image_height
-
-    def normalise(self, pixel_batch, original_image_width, original_image_height):
-        """
-        This version normalises so pixels provided are in the range of the cropped version of the image
-        In contrast, V2 provides two values between 0 and 1. In this case, we provide two values between 0 and
-        self.image_width/self.image_height, respectively (cropped image)
-        """
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        image_width_tensor = torch.tensor(
-            [self.image_width],
-            dtype=torch.float32,
-            device=device
-        ).unsqueeze(0).expand(original_image_width.size())
-        image_height_tensor = torch.tensor(
-            [self.image_height],
-            dtype=torch.float32,
-            device=device
-        ).unsqueeze(0).expand(original_image_height.size())
-        w, h = pixel_batch.split((1, 1), dim=1)
-        w = w / (original_image_width / image_width_tensor)
-        h = h / (original_image_height / image_height_tensor)
-        return torch.cat((w, h), dim=1)
+        self.fc1 = torch.nn.Linear(in_features=32, out_features=60)
 
 
 class AttentionNetwork(torch.nn.Module):
@@ -169,6 +164,16 @@ class AttentionNetwork(torch.nn.Module):
         out_fc2 = F.relu(self.fc2.forward(cropped_concat))
         out_fc3 = self.fc3.forward(out_fc2)
         return out_fc3
+
+
+# for 32 x 24 images, override flattening layer
+# to make sure that input is correct, rather than writing generic AttentionNetwork
+# better be safe than sorry (happened too many times now), at the expense of some code duplication
+class AttentionNetwork_32(AttentionNetwork):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        # redefine flattening layer
+        self.fc1 = torch.nn.Linear(in_features=32, out_features=62)
 
 
 class BaselineNetwork(torch.nn.Module):
