@@ -31,6 +31,8 @@ if __name__ == "__main__":
     elif version.lower() == "coord":
         version = AttentionNetworkCoord
         add_spatial_maps = True
+    elif version.lower() == "tile":
+        version = AttentionNetworkTile
     else:
         raise ValueError(f"Attention network version {version} is not available")
 

@@ -20,7 +20,7 @@ class Camera(object):
 
     def get_image(self):
         image = self.vision_sensor.capture_rgb()
-        assert 0 <= image[0][0][0] < 1
+        assert 0 <= image[0][0][0] <= 1
         return image
 
     def save_current_image(self, path):
