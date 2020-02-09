@@ -1,8 +1,7 @@
 import json
 import sys
 import matplotlib.pyplot as plt
-import numpy as np
-
+import argparse
 
 def get_mean_error_per_step(error_values, num_steps=40):
     # list of [cumulative_error, num trajectories with this step] per step across all trajectories
@@ -25,9 +24,14 @@ def get_mean_error_per_step(error_values, num_steps=40):
 
 if __name__ == '__main__':
 
-    test_names = sys.argv[1:]
-    print("Test names:", test_names)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--training")
+    parser.add_argument("--tests", nargs="+", default=[])
+    result = parser.parse_args()
 
+    test_names = result.tests
+    print("Test names:", test_names)
+    test_names = list(map(lambda t: f"{t}{result.training}.test", test_names))
     errors_plot = []
     steps = 20
     for t_name in test_names:
@@ -41,7 +45,9 @@ if __name__ == '__main__':
         plt.plot(rang, mean_error_per_step, label=t_name)
         plt.xticks(rang)
 
-    plt.legend()
+    leg = plt.legend(fontsize=30)
+    for i in leg.legendHandles:
+        i.set_linewidth(4)
     plt.show()
 
 

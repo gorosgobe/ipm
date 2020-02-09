@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class AttentionNetworkTile(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super().__init__()
-        # spatial information is encoded as a tiled feature map, added to conv2d
+        # spatial information is encoded as a tiled feature map, added to conv2
         # from https://arxiv.org/pdf/1610.00696.pdf
         self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=1)
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
@@ -28,11 +28,11 @@ class AttentionNetworkTile(torch.nn.Module):
         br = self.normalise(bottom_right_pixel, original_image_width, original_image_height)
         out_conv2_tiled = torch.cat((out_conv2_untiled, self.get_tiled_spatial_info(h, w, tl, br)), dim=1)
 
-        out_conv2 = torch.nn.functional.relu(self.batch_norm2.forward(out_conv2_tiled))
-        out_conv3 = torch.nn.functional.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
+        out_conv2 = F.relu(self.batch_norm2.forward(out_conv2_tiled))
+        out_conv3 = F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
         out_conv3 = out_conv3.view(batch_size, -1)
-        out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
-        out_fc2 = torch.nn.functional.relu(self.fc2.forward(out_fc1))
+        out_fc1 = F.relu(self.fc1.forward(out_conv3))
+        out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
         return out_fc3
 
@@ -79,11 +79,11 @@ class AttentionNetworkCoord(torch.nn.Module):
         image_batch, top_left_pixel, bottom_right_pixel, original_image_width, original_image_height = x
         batch_size = image_batch.size()[0]
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(image_batch)))
-        out_conv2 = torch.nn.functional.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
-        out_conv3 = torch.nn.functional.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
+        out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
+        out_conv3 = F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
         out_conv3 = out_conv3.view(batch_size, -1)
-        out_fc1 = torch.nn.functional.relu(self.fc1.forward(out_conv3))
-        out_fc2 = torch.nn.functional.relu(self.fc2.forward(out_fc1))
+        out_fc1 = F.relu(self.fc1.forward(out_conv3))
+        out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
         return out_fc3
 

@@ -15,12 +15,12 @@ from lib.tip_velocity_estimator import TipVelocityEstimator
 if __name__ == "__main__":
 
     models = [
-        "AttentionNetworkCoordRand",
-        "AttentionNetworkV3RandL",
-        "AttentionNetworkV3RandL1",
-        "AttentionNetworkV3RandL2",
-        "AttentionNetworkV3RandL3",
-        "AttentionNetworkV3RandL4",
+        "AttentionNetworkRand32",
+        "AttentionNetworkRand32L",
+        "AttentionNetworkRand32L1",
+        "AttentionNetworkRand32L2",
+        "AttentionNetworkRand32L3",
+        "AttentionNetworkRand32L4",
     ]
     for model_name in models:
         with CameraBackgroundObjectsTextureReachCubeSceneV3(headless=True) as (pr, scene):
@@ -29,9 +29,8 @@ if __name__ == "__main__":
             target_cube = Shape("target_cube")
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
-            cropper = TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube,
-                                   add_spatial_maps=True)
-            # cropper = IdentityCropper()
+            cropper = TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube, add_spatial_maps=False)
+            #cropper = IdentityCropper()
             c_type = ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             controller = TipVelocityController(
                 tve_model=TipVelocityEstimator.load("models/{}.pt".format(model_name)),
