@@ -13,8 +13,21 @@ if __name__ == "__main__":
     parser.add_argument("--name")
     parser.add_argument("--training", type=float)
     parser.add_argument("--dataset")
+    parser.add_argument("--size", type=int)
+    parser.add_argument("--version")
     parse_result = parser.parse_args()
 
+    size = (128, 96)
+    version = FullImageNetwork
+    if parse_result.size == 64:
+        size = (64, 48)
+        version = FullImageNetworkCoord_64 if parse_result.version.lower() == "coord" else FullImageNetwork_64
+    elif parse_result.size == 32:
+        size = (32, 24)
+        version = FullImageNetworkCoord_32 if parse_result.version.lower() == "coord" else FullImageNetwork_32
+
+    print("Size: ", size)
+    print("Version: ", parse_result.version.lower())
     dataset = parse_result.dataset or "text_camera_rand"
     print("Dataset: ", dataset)
 
@@ -23,7 +36,7 @@ if __name__ == "__main__":
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
-        size=(128, 96),
+        size=size,
         velocities_csv=f"{dataset}/velocities.csv",
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
@@ -36,7 +49,7 @@ if __name__ == "__main__":
         max_epochs=100,
         validate_epochs=1,
         save_to_location="models/",
-        network_klass=FullImageNetwork,
+        network_klass=version,
     )
     print("Name:", config["name"])
 
@@ -56,7 +69,8 @@ if __name__ == "__main__":
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data
     print("Training coeff limit:", limit_training_coefficient)
-    training_demonstrations, val_demonstrations, test_demonstrations = get_demonstrations(dataset, config["split"], limit_training_coefficient)
+    training_demonstrations, val_demonstrations, test_demonstrations = get_demonstrations(dataset, config["split"],
+                                                                                          limit_training_coefficient)
 
     train_data_loader = DataLoader(training_demonstrations, batch_size=config["batch_size"], num_workers=8,
                                    shuffle=True)
@@ -84,4 +98,4 @@ if __name__ == "__main__":
 
     # save_best_model
     tip_velocity_estimator.save_best_model(config["save_to_location"])
-    #tip_velocity_estimator.plot_train_val_losses()
+    # tip_velocity_estimator.plot_train_val_losses()

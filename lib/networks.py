@@ -1,5 +1,8 @@
 import torch
 import torch.nn.functional as F
+import torchvision
+
+from lib.controller import SpatialDimensionAdder
 
 
 class AttentionNetworkTile(torch.nn.Module):
@@ -49,7 +52,7 @@ class AttentionNetworkTile(torch.nn.Module):
         return torch.cat((top_left_tile, bottom_right_tile), dim=1)
 
     def assert_size(self, h, w):
-        assert h == 10 and w == 14   # for 64x48 input
+        assert h == 10 and w == 14  # for 64x48 input
 
 
 class AttentionNetworkTile_32(AttentionNetworkTile):
@@ -203,6 +206,8 @@ class FullImageNetwork(torch.nn.Module):
 
     def __init__(self, image_width, image_height):
         super().__init__()
+        self.image_width = image_width
+        self.image_height = image_height
         self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=1)
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
         self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
@@ -223,6 +228,46 @@ class FullImageNetwork(torch.nn.Module):
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
         return out_fc3
+
+
+
+class FullImageNetwork_64(FullImageNetwork):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.fc1 = torch.nn.Linear(in_features=384, out_features=64)
+
+
+class FullImageNetworkCoord_64(FullImageNetwork_64):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.conv1 = torch.nn.Conv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.spatial_dimension_adder = SpatialDimensionAdder()
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+        assert self.image_width == w and self.image_height == h
+        i_tensor, j_tensor = self.spatial_dimension_adder.get_tensor_batch_spatial_dimensions(b, h, w)
+        image_batch_spatial = torch.cat((x, i_tensor, j_tensor), dim=1)
+        return super().forward(image_batch_spatial)
+
+
+class FullImageNetwork_32(FullImageNetwork):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
+
+
+class FullImageNetworkCoord_32(FullImageNetwork_32):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.conv1 = torch.nn.Conv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+        assert self.image_width == w and self.image_height == h
+        i_tensor, j_tensor = self.spatial_dimension_adder.get_tensor_batch_spatial_dimensions(b, h, w)
+        image_batch_spatial = torch.cat((x, i_tensor, j_tensor), dim=1)
+        return super().forward(image_batch_spatial)
 
 
 class Network(torch.nn.Module):
@@ -252,3 +297,9 @@ class Network(torch.nn.Module):
         out_fc1 = F.relu(self.fc1.forward(out_conv3))
         out_fc2 = self.fc2.forward(out_fc1)
         return out_fc2
+
+
+if __name__ == '__main__':
+    a = FullImageNetworkCoord_64(64, 48)
+    t = torch.rand((2, 3, 48, 64))
+    res = a(t)

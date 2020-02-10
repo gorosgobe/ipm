@@ -28,6 +28,32 @@ class OffsetCropper(object):
         return cropped_image
 
 
+class SpatialDimensionAdder(object):
+    def __init__(self):
+        self.to_tensor = torchvision.transforms.ToTensor()
+
+    def get_tensor_batch_spatial_dimensions(self, b, h, w):
+        i, j = self.get_spatial_dimensions(h, w)
+        i_tensor = self.to_tensor(i).unsqueeze(0).expand((b, 1, h, w))
+        j_tensor = self.to_tensor(j).unsqueeze(0).expand((b, 1, h, w))
+        return i_tensor, j_tensor
+
+    @staticmethod
+    def get_spatial_dimensions(height, width):
+        i = np.array([range(width) for _ in range(height)], dtype=np.float32)
+        i = np.expand_dims(i, axis=2) / width
+        j = np.array([range(height) for _ in range(width)], dtype=np.float32).T
+        j = np.expand_dims(j, axis=2) / height
+        return i, j
+
+    @staticmethod
+    def add_spatial_dimensions(image):
+        # Add spatial map and normalise
+        height, width, _channels = image.shape
+        i, j = SpatialDimensionAdder.get_spatial_dimensions(height, width)
+        return np.concatenate((image, i, j), axis=2)
+
+
 class TruePixelROI(object):
     def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object, add_spatial_maps=False):
         """
@@ -37,7 +63,7 @@ class TruePixelROI(object):
         full resolution of image supplied to "crop"
         :param target_object: handle of target object, to compute pixel position of
         :param add_spatial_map: Add a spatial feature map to the cropped image, as in
-        "An intriguing failing of convolutional neural networksand the CoordConv solution",
+        "An intriguing failing of convolutional neural networks and the CoordConv solution",
         https://arxiv.org/pdf/1807.03247.pdf
         """
         self.cropped_height = cropped_height
@@ -48,7 +74,7 @@ class TruePixelROI(object):
 
     def crop(self, image):
         if self.add_spatial_maps:
-            image = self.add_spatial_dimensions(image)
+            image = SpatialDimensionAdder.add_spatial_dimensions(image)
 
         height, width, _ = image.shape
         pixel, _ = self.pixel_position_estimator.compute_pixel_position(self.target_object.get_handle())
@@ -85,18 +111,6 @@ class TruePixelROI(object):
 
         cropped_image = image[y_min:y_max, x_min:x_max]
         return cropped_image, bounding_box_pixels
-
-    @staticmethod
-    def add_spatial_dimensions(image):
-        # Add spatial map and normalise
-        height, width, _channels = image.shape
-
-        i = np.array([range(width) for _ in range(height)], dtype=np.float32)
-        i = np.expand_dims(i, axis=2) / width
-        j = np.array([range(height) for _ in range(width)], dtype=np.float32).T
-        j = np.expand_dims(j, axis=2) / height
-
-        return np.concatenate((image, i, j), axis=2)
 
 
 # Pixel ROI for training, used to determine what the model sees at training time

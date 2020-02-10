@@ -26,7 +26,7 @@ if __name__ == "__main__":
         with CameraBackgroundObjectsTextureReachCubeSceneV3(headless=True) as (pr, scene):
             camera_robot = CameraRobot(pr)
             test = "test_offsets_random.json"
-            target_cube = Shape("target_cube")
+            target_cube = scene.get_target()
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
             cropper = TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube, add_spatial_maps=False)
