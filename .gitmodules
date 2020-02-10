@@ -1,3 +1,6 @@
 [submodule "test_results"]
 	path = test_results
 	url = https://github.com/gorosgobe/ipm-test-results.git
+[submodule "models"]
+	path = models
+	url = https://github.com/gorosgobe/ipm-models.git
