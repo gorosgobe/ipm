@@ -22,6 +22,6 @@ for training in $training_list; do
   echo "Starting training baseline network for training data ${training}."
   training_str=$(echo "$training" | sed -e "s/\.//g")
   python3 train_baseline_estimator.py --name "BaselineNetwork_${dataset}_${training_str}" --dataset "$dataset" \
-          --training "$training" > "$log_file"
+          --training "$training" >> "$log_file"
   echo "Completed training."
 done

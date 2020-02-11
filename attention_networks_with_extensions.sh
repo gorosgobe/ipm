@@ -23,20 +23,20 @@ tile
 "
 for v in $versions; do
     for training in $training_list; do
-      echo "Starting training attention network for version ${version}, size 64 and training data ${training}."
+      echo "Starting training attention network for version ${v}, size 64 and training data ${training}."
       training_str=$(echo "$training" | sed -e "s/\.//g")
-      python3 train_tip_velocity_estimator.py --name "AttentionNetwork${v}${dataset}_${training_str}" --dataset "$dataset" \
-              --training "$training" --version "$v" > "$log_file"
+      python3 train_tip_velocity_estimator.py --name "AttentionNetwork${v}_${dataset}_${training_str}" --dataset "$dataset" \
+              --training "$training" --version "$v" >> "$log_file"
       echo "Completed training."
     done
 done
 
 for v in $versions; do
     for training in $training_list; do
-      echo "Starting training attention network for version ${version}, size 32 and training data ${training}."
+      echo "Starting training attention network for version ${v}, size 32 and training data ${training}."
       training_str=$(echo "$training" | sed -e "s/\.//g")
-      python3 train_tip_velocity_estimator.py --name "AttentionNetwork${v}${dataset}_32_${training_str}" --dataset "$dataset" \
-              --training "$training" --version "$v" --size 32 > "$log_file"
+      python3 train_tip_velocity_estimator.py --name "AttentionNetwork${v}_${dataset}_32_${training_str}" --dataset "$dataset" \
+              --training "$training" --version "$v" --size 32 >> "$log_file"
       echo "Completed training."
     done
 done
