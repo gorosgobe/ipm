@@ -7,3 +7,6 @@
 [submodule "scene2"]
 	path = scene2
 	url = https://github.com/gorosgobe/scene2.git
+[submodule "text_camera_rand"]
+	path = text_camera_rand
+	url = https://github.com/gorosgobe/scene1.git
