@@ -15,12 +15,11 @@ class ResizeTransform(object):
         return cv2.resize(image, dsize=self.size)
 
 
-def set_up_cuda(seed):
-    global device
+def set_up_cuda(seed, set_up_seed=True):
     # set up GPU if available
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda' if use_cuda else 'cpu')
-    if use_cuda:
+    if use_cuda and set_up_seed:
         torch.cuda.manual_seed(seed)
     print("Using GPU: {}".format(use_cuda))
 

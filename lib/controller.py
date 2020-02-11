@@ -3,6 +3,8 @@ import numpy as np
 import torch
 import torchvision
 
+from lib import utils
+
 
 class IdentityCropper(object):
     def crop(self, image):
@@ -31,12 +33,13 @@ class OffsetCropper(object):
 
 class SpatialDimensionAdder(object):
     def __init__(self):
+        self.device = utils.set_up_cuda(-1, False)
         self.to_tensor = torchvision.transforms.ToTensor()
 
     def get_tensor_batch_spatial_dimensions(self, b, h, w):
         i, j = self.get_spatial_dimensions(h, w)
-        i_tensor = self.to_tensor(i).unsqueeze(0).expand((b, 1, h, w))
-        j_tensor = self.to_tensor(j).unsqueeze(0).expand((b, 1, h, w))
+        i_tensor = self.to_tensor(i).to(self.device).unsqueeze(0).expand((b, 1, h, w))
+        j_tensor = self.to_tensor(j).to(self.device).unsqueeze(0).expand((b, 1, h, w))
         return i_tensor, j_tensor
 
     @staticmethod
