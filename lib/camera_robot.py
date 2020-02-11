@@ -126,6 +126,7 @@ class CameraRobot(object):
         :return: The positions the distractors were set at
         """
         distractors = scene.get_distractors()
+        dsp = scene.get_distractor_safe_distances()
         x_target = target_position[0]
         y_target = target_position[1]
         distractor_positions = []
@@ -134,13 +135,13 @@ class CameraRobot(object):
             # get random position within table dimensions
             x = x_target
             y = y_target
-            # make sure obtained x is not within 10 cm of target or previously set distractors
-            while abs(x - x_target) < 0.1 or \
-                    any(filter(lambda other_d: abs(x - other_d.get_position()[0]) < 0.1, previous_distractors)):
+            # make sure obtained x is not within safe distance of target or previously set distractors
+            while abs(x - x_target) < dsp[idx] or \
+                    any(filter(lambda other_d: abs(x - other_d.get_position()[0]) < dsp[idx], previous_distractors)):
                 x = self.get_x_distractor()
 
-            while abs(y - y_target) < 0.1 or \
-                    any(filter(lambda other_d: abs(y - other_d.get_position()[1]) < 0.1, previous_distractors)):
+            while abs(y - y_target) < dsp[idx] or \
+                    any(filter(lambda other_d: abs(y - other_d.get_position()[1]) < dsp[idx], previous_distractors)):
                 y = self.get_y_distractor()
 
             d_position = [x, y, d.get_position()[-1]]

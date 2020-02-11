@@ -25,6 +25,9 @@ class Scene(object):
     def get_distractors(self):
         return []
 
+    def get_distractor_safe_distances(self):
+        return []
+
 
 class SawyerReachCubeScene(Scene):
     SCENE_FILE = "sawyer_reach_cube.ttt"
@@ -77,3 +80,19 @@ class CameraBackgroundObjectsTextureReachCubeSceneV3(Scene):
 
     def get_distractors(self):
         return [Shape("distractor_sphere"), Shape("distractor_cylinder"), Shape("distractor_cube")]
+
+    def get_distractor_safe_distances(self):
+        return [0.1, 0.1, 0.1]
+
+
+class CameraScene2(Scene):
+    SCENE_FILE = "camera_reach_cube_scene2.ttt"
+
+    def __init__(self, headless=True):
+        super().__init__(self.SCENE_FILE, headless=headless)
+
+    def get_distractors(self):
+        return [Shape("rectangle_distractor"), Shape("large_cube_distractor"), Shape("sphere_distractor")]
+
+    def get_distractor_safe_distances(self):
+        return [0.15, 0.15, 0.1]

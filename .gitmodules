@@ -4,3 +4,6 @@
 [submodule "models"]
 	path = models
 	url = https://github.com/gorosgobe/ipm-models.git
+[submodule "scene2"]
+	path = scene2
+	url = https://github.com/gorosgobe/scene2.git
