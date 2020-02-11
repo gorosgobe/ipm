@@ -21,13 +21,13 @@ if __name__ == "__main__":
     version = FullImageNetwork
     if parse_result.size == 64:
         size = (64, 48)
-        version = FullImageNetworkCoord_64 if parse_result.version.lower() == "coord" else FullImageNetwork_64
+        version = FullImageNetworkCoord_64 if parse_result.version == "coord" else FullImageNetwork_64
     elif parse_result.size == 32:
         size = (32, 24)
-        version = FullImageNetworkCoord_32 if parse_result.version.lower() == "coord" else FullImageNetwork_32
+        version = FullImageNetworkCoord_32 if parse_result.version == "coord" else FullImageNetwork_32
 
     print("Size: ", size)
-    print("Version: ", parse_result.version.lower())
+    print("Version: ", parse_result.version)
     dataset = parse_result.dataset or "text_camera_rand"
     print("Dataset: ", dataset)
 
