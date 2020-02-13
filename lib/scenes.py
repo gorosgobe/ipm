@@ -118,7 +118,15 @@ class CameraScene4(Scene):
         super().__init__(self.SCENE_FILE, headless=headless)
 
     def get_distractors(self):
-        return [Shape("distractor_cylinder"), Shape("distractor_cube1"), Shape("distractor_cube2")]
+        return [
+            Shape("distractor_cylinder"),
+            Shape("distractor_cube1"),
+            Shape("distractor_cube2_long"),
+            Shape("distractor_cube3"),
+            Shape("distractor_cube4"),
+            Shape("distractor_cube5"),
+            Shape("distractor_cube6")
+        ]
 
     def get_distractor_safe_distances(self):
-        return [0.10, 0.10, 0.10]
+        return [0.075, 0.10, 0.05, 0.05, 0.1, 0.1, 0.1]

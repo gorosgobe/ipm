@@ -46,7 +46,7 @@ if __name__ == "__main__":
         split=[0.8, 0.1, 0.1],
         name=parse_result.name or "FullImageNetworkRand",
         learning_rate=0.0001,
-        max_epochs=100,
+        max_epochs=250,
         validate_epochs=1,
         save_to_location="models/",
         network_klass=version,

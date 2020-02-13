@@ -33,7 +33,7 @@ if __name__ == "__main__":
         split=[0.8, 0.1, 0.1],
         name=parse_result.name or "BaselineNetworkRand",
         learning_rate=0.001,
-        max_epochs=150,
+        max_epochs=500,
         validate_epochs=1,
         save_to_location="models/",
         network_klass=BaselineNetwork,
