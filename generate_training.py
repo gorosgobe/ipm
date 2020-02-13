@@ -32,7 +32,7 @@ if __name__ == "__main__":
         os.chdir(folder)
         robot = CameraRobot(pr, show_paths=True)
         print("Position camera:", robot.movable_camera.get_position())
-        target_cube = Shape("target_cube")
+        target_cube = scene.get_target()
         target_cube_position = target_cube.get_position()
         print("Target cube position -0.05:", target_cube_position)
         target_above_cube = (np.array(target_cube_position) + np.array([0.0, 0.0, 0.05])).tolist()

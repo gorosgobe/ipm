@@ -13,3 +13,6 @@
 [submodule "scene3"]
 	path = scene3
 	url = https://github.com/gorosgobe/scene3.git
+[submodule "scene4"]
+	path = scene4
+	url = https://github.com/gorosgobe/scene4.git

@@ -108,4 +108,17 @@ class CameraScene3(Scene):
         return [Shape("distractor_cylinder"), *[Shape(f"distractor_sphere{i}") for i in range(1, 11)]]
 
     def get_distractor_safe_distances(self):
-        return [0.15, *[0.075 for i in range(1, 11)]]
+        return [0.10, *[0.05 for i in range(1, 11)]]
+
+
+class CameraScene4(Scene):
+    SCENE_FILE = "camera_reach_cube_scene4.ttt"
+
+    def __init__(self, headless=True):
+        super().__init__(self.SCENE_FILE, headless=headless)
+
+    def get_distractors(self):
+        return [Shape("distractor_cylinder"), Shape("distractor_cube1"), Shape("distractor_cube2")]
+
+    def get_distractor_safe_distances(self):
+        return [0.10, 0.10, 0.10]
