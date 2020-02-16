@@ -13,10 +13,15 @@ if __name__ == "__main__":
     parser.add_argument("--name")
     parser.add_argument("--training", type=float)
     parser.add_argument("--dataset")
+    parser.add_argument("--version")
     parse_result = parser.parse_args()
 
     dataset = parse_result.dataset or "text_camera_rand"
     print("Dataset: ", dataset)
+    version = parse_result.version or "default"
+    if version != "default" and version != "sim_params_coord":
+        raise ValueError("Incorrect version for baseline network")
+    print("Version: ", version)
 
     config = dict(
         seed=2019,
@@ -36,7 +41,7 @@ if __name__ == "__main__":
         max_epochs=500,
         validate_epochs=1,
         save_to_location="models/",
-        network_klass=BaselineNetwork,
+        network_klass=BaselineSimilarParamsAttentionCoord64 if version == "sim_params_coord" else BaselineNetwork,
         get_rel_target_quantities=True
     )
 

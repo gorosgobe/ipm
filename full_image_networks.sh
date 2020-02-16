@@ -34,9 +34,6 @@ for training in $training_list; do
   echo "Completed training"
 done
 
-#TODO: remove this, this is just momentary
-exit 0
-
 for training in $training_list; do
   echo "Starting training full image network for training data ${training}."
   training_str=$(echo "$training" | sed -e "s/\.//g")

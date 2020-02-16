@@ -198,6 +198,23 @@ class BaselineNetwork(torch.nn.Module):
         return out_fc3
 
 
+class BaselineSimilarParamsAttentionCoord64(torch.nn.Module):
+    def __init__(self, _image_width, _image_height):
+        super().__init__()
+        self.fc1 = torch.nn.Linear(in_features=6, out_features=271)
+        self.fc2 = torch.nn.Linear(in_features=271, out_features=271)
+        self.fc3 = torch.nn.Linear(in_features=271, out_features=271)
+        self.fc4 = torch.nn.Linear(in_features=271, out_features=6)
+
+    def forward(self, x):
+        out_fc1 = F.relu(self.fc1.forward(x))
+        out_fc2 = F.relu(self.fc2.forward(out_fc1))
+        out_fc3 = F.relu(self.fc3.forward(out_fc2))
+        out_fc4 = self.fc4.forward(out_fc3)
+        return out_fc4
+
+
+
 class FullImageNetwork(torch.nn.Module):
     """
     Removes max pool layers, applying only stride, network for full image, predicting
