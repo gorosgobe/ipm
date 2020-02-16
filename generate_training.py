@@ -6,7 +6,7 @@ from pyrep.errors import ConfigurationPathError
 from pyrep.objects.shape import Shape
 
 from lib.camera_robot import CameraRobot
-from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3, CameraScene4
+from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3, CameraScene5
 from lib.utils import save_images_and_tip_velocities
 
 if __name__ == "__main__":
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     seed = 2019
     np.random.seed(seed)
 
-    with CameraScene4(headless=False) as (pr, scene):
+    with CameraScene5(headless=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
         min_samples = 4000
@@ -22,7 +22,7 @@ if __name__ == "__main__":
         total_count = 0
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./scene4"
+        folder = "./scene5"
         tip_velocity_file = "velocities.csv"
         rotations_file = "rotations.csv"
         metadata_file = "metadata.json"

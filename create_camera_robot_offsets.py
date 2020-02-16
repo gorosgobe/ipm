@@ -3,10 +3,10 @@ import json
 import numpy as np
 
 from lib.camera_robot import CameraRobot
-from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3
+from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3, CameraScene5
 
 if __name__ == '__main__':
-    with CameraBackgroundObjectsTextureReachCubeSceneV3(headless=True) as (pr, scene):
+    with CameraScene5(headless=True) as (pr, scene):
         camera_robot = CameraRobot(pr)
         target_position_above_cube = np.array(scene.get_target().get_position()) + np.array([0.0, 0.0, 0.05])
         np.random.seed(2019)
@@ -19,5 +19,5 @@ if __name__ == '__main__':
 
         file_contents = json.dumps(content)
 
-        with open("test_offsets_random.json", "w+") as f:
+        with open("scene5_test.json", "w+") as f:
             f.write(file_contents)
