@@ -27,6 +27,17 @@ coord
 "
 
 for training in $training_list; do
+  echo "Starting training full image network with coord for training data ${training}"
+  training_str=$(echo "$training" | sed -e "s/\.//g")
+  python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_coord_${training_str}" --dataset "$dataset" \
+          --training "$training" >> "$log_file"
+  echo "Completed training"
+done
+
+#TODO: remove this, this is just momentary
+exit 0
+
+for training in $training_list; do
   echo "Starting training full image network for training data ${training}."
   training_str=$(echo "$training" | sed -e "s/\.//g")
   python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_${training_str}" --dataset "$dataset" \

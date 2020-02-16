@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parse_result = parser.parse_args()
 
     size = (128, 96)
-    version = FullImageNetwork
+    version = FullImageNetworkCoord if parse_result.version == "coord" else FullImageNetwork
     if parse_result.size == 64:
         size = (64, 48)
         version = FullImageNetworkCoord_64 if parse_result.version == "coord" else FullImageNetwork_64

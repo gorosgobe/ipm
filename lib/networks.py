@@ -230,6 +230,20 @@ class FullImageNetwork(torch.nn.Module):
         return out_fc3
 
 
+class FullImageNetworkCoord(FullImageNetwork):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.conv1 = torch.nn.Conv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.spatial_dimension_adder = SpatialDimensionAdder()
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+        assert self.image_width == w and self.image_height == h
+        i_tensor, j_tensor = self.spatial_dimension_adder.get_tensor_batch_spatial_dimensions(b, h, w)
+        image_batch_spatial = torch.cat((x, i_tensor, j_tensor), dim=1)
+        return super().forward(image_batch_spatial)
+
+
 class FullImageNetwork_64(FullImageNetwork):
     def __init__(self, image_width, image_height):
         super().__init__(image_width, image_height)
