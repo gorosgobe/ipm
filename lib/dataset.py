@@ -31,6 +31,7 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         self.initial_pixel_cropper = initial_pixel_cropper
         self.debug = debug
         # Do we want target position and orientation, relative to robot?
+        # This mode does not load images, for efficiency of training of baseline network
         self.get_rel_target_quantities = get_rel_target_quantities
 
         with open(metadata, "r") as m:
@@ -57,11 +58,15 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
+        # if mode is relative quantities, do not load image for efficiency
+        if not self.get_rel_target_quantities:
+            img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
 
-        image = imageio.imread(img_name)
-        if image.dtype == np.uint8:
-            image = (image / 255).astype("float32")
+            image = imageio.imread(img_name)
+            if image.dtype == np.uint8:
+                image = (image / 255).astype("float32")
+        else:
+            image = None
 
         tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
         tip_velocities = np.array(tip_velocities, dtype=np.float32)
@@ -77,8 +82,9 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         num_demonstration = self.tip_velocities_frame.iloc[idx, 0].split("image")[0]
         d_data = self.demonstration_metadata["demonstrations"][num_demonstration]
         instance_demonstration_idx = idx - d_data["start"]
-        # if dataset is of type crop pixel, crop image using the metadata pixel, and add  pixel information
-        if self.initial_pixel_cropper is not None:
+        # if dataset is of type crop pixel, crop image using the metadata pixel, and add pixel information
+        # if mode is relative quantities, we avoid this for efficiency
+        if self.initial_pixel_cropper is not None and not self.get_rel_target_quantities:
             pixels = d_data["crop_pixels"]
             pixel = pixels[instance_demonstration_idx]
             original_h, original_w, _channels = image.shape
@@ -102,13 +108,13 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
                 dtype=np.float32
             )
 
-        if self.debug:
+        if self.debug and not self.get_rel_target_quantities:
             cv2.imshow("Image", sample["image"])
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             print("Size image after crop:", sample["image"].shape)
 
-        if self.transform:
+        if self.transform and not self.get_rel_target_quantities:
             sample["image"] = self.transform(sample["image"])
 
         return sample
