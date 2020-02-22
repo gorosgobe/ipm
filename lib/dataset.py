@@ -66,7 +66,7 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
             if image.dtype == np.uint8:
                 image = (image / 255).astype("float32")
         else:
-            image = None
+            image = []
 
         tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
         tip_velocities = np.array(tip_velocities, dtype=np.float32)
