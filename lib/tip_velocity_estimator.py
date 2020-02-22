@@ -87,7 +87,8 @@ class TipVelocityEstimator(object):
 
     @staticmethod
     def prepare_batch(batch, device, non_blocking):
-        input_data = batch["image"]
+        input_data = batch["image"] if "image" in batch else None
+
         predictable = batch["tip_velocities"]
         if "rotations" in batch:
             # concatenate rotations to get 6-dimensional prediction
