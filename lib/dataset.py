@@ -7,11 +7,12 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Subset
+import time
 
 
 class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
     def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None,
-                 initial_pixel_cropper=None, debug=False, get_rel_target_quantities=False):
+                 initial_pixel_cropper=None, debug=False, get_rel_target_quantities=False, crop_deviation_sampler=None):
         # convert to absolute path
         velocities_csv = os.path.abspath(velocities_csv)
         # if rotations csv is passed in, then dataset supplies vector of [tip velocities, rotations] (6 x 1)
@@ -38,6 +39,21 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
             metadata_content = m.read()
         self.demonstration_metadata = json.loads(metadata_content)
 
+        self.crop_deviation_sampler = crop_deviation_sampler
+        self.cache = None
+        self.initialising = True
+        # crop deviation has to be None, as the random aspect involves sampling, and we cannot pre-compute that
+        if self.initial_pixel_cropper is not None and self.crop_deviation_sampler is None:
+            self.cache = {}
+            print("Start cache loading...")
+            start_time = time.time()
+            for i in range(len(self)):
+                self.cache[i] = self.__getitem__(i)
+            print("Finished cache loading.")
+            end_time = time.time()
+            print(f"Elapsed seconds: {end_time - start_time}")
+        self.initialising = False
+
     def get_indices_for_demonstration(self, d_idx):
         demonstration_data = self.demonstration_metadata["demonstrations"][str(d_idx)]
         return demonstration_data["start"], demonstration_data["end"]
@@ -55,8 +71,11 @@ class ImageTipVelocitiesDataset(torch.utils.data.Dataset):
         return len(self.tip_velocities_frame)
 
     def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
+
+        # to avoid continuously cropping, for simple, static simulation-based attention
+        if self.initial_pixel_cropper is not None and self.cache is not None and \
+                not self.initialising and self.crop_deviation_sampler is None:
+            return self.cache[idx]
 
         # if mode is relative quantities, do not load image for efficiency
         if not self.get_rel_target_quantities:

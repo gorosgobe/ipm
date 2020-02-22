@@ -31,6 +31,14 @@ class OffsetCropper(object):
         return cropped_image
 
 
+class CropDeviationSampler(object):
+    def __init__(self, std):
+        self.std = std
+
+    def sample(self):
+        return np.random.normal(loc=0.0, scale=self.std, size=2).astype(int)
+
+
 class SpatialDimensionAdder(object):
     def __init__(self):
         self.device = utils.set_up_cuda(-1, False)
@@ -59,22 +67,27 @@ class SpatialDimensionAdder(object):
 
 
 class TruePixelROI(object):
-    def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object, add_spatial_maps=False):
+    def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object, add_spatial_maps=False,
+                 crop_deviation_sampler=None):
         """
         :param cropped_height: Height of region to crop
         :param cropped_width: Width of region to crop
         :param pixel_position_estimator: object that, given a handle, can compute its screen, pixel position for
         full resolution of image supplied to "crop"
         :param target_object: handle of target object, to compute pixel position of
-        :param add_spatial_map: Add a spatial feature map to the cropped image, as in
+        :param add_spatial_maps: Add a spatial feature map to the cropped image, as in
         "An intriguing failing of convolutional neural networks and the CoordConv solution",
         https://arxiv.org/pdf/1807.03247.pdf
+        :param crop_deviation_sampler: If set to None (default), image is cropped at provided/computed pixel. Otherwise,
+        an offset is sampled (.sample()) from the provided object, added to the computed pixel, and then the image is cropped.
+        Note that if the sampled offset makes the crop lie outside of the image, the crop is moved into the image (normal behaviour).
         """
         self.cropped_height = cropped_height
         self.cropped_width = cropped_width
         self.target_object = target_object
         self.pixel_position_estimator = pixel_position_estimator
         self.add_spatial_maps = add_spatial_maps
+        self.crop_deviation_sampler = crop_deviation_sampler
 
     def crop(self, image):
         if self.add_spatial_maps:
@@ -83,6 +96,11 @@ class TruePixelROI(object):
         height, width, _ = image.shape
         pixel, _ = self.pixel_position_estimator.compute_pixel_position(self.target_object.get_handle())
         center_x, center_y = pixel
+        if self.crop_deviation_sampler is not None:
+            offset = self.crop_deviation_sampler.sample()
+            center_x += offset[0]
+            center_y += offset[1]
+
         half_size_height = self.cropped_height // 2
         half_size_width = self.cropped_width // 2
 
@@ -123,7 +141,7 @@ class LoadedPixelEstimator(object):
     def __init__(self, pixel):
         self.pixel = pixel
 
-    def compute_pixel_position(self, handle):
+    def compute_pixel_position(self, _handle):
         return self.pixel, None
 
 
@@ -136,13 +154,14 @@ class FakeHandle(object):
 
 class TrainingPixelROI(object):
     """
-    Region of interest for training, where pixel estimator is just the pixel stored for the image
+    Region of interest for training, where pixel estimator is just the pixel stored for the image.
     """
 
-    def __init__(self, cropped_height, cropped_width, add_spatial_maps=False):
+    def __init__(self, cropped_height, cropped_width, add_spatial_maps=False, crop_deviation_sampler=None):
         self.cropped_height = cropped_height
         self.cropped_width = cropped_width
         self.add_spatial_maps = add_spatial_maps
+        self.crop_deviation_sampler = crop_deviation_sampler
 
     def crop(self, image, pixel):
         loaded_pixel_estimator = LoadedPixelEstimator(pixel)
@@ -151,14 +170,14 @@ class TrainingPixelROI(object):
             self.cropped_width,
             loaded_pixel_estimator,
             FakeHandle(),
-            self.add_spatial_maps
+            self.add_spatial_maps,
+            self.crop_deviation_sampler
         )
         return true_pixel_roi.crop(image)
 
 
 class ControllerType(enum.Enum):
     DEFAULT = 0,
-    TOP_LEFT_PIXEL = 1,
     TOP_LEFT_BOTTOM_RIGHT_PIXELS = 2,
     RELATIVE_POSITION_AND_ORIENTATION = 3
 
@@ -196,10 +215,6 @@ class TipVelocityController(object):
             # batch with single tip control command
             if self.controller_type == ControllerType.DEFAULT:
                 tip_control_single_batch = self.tip_velocity_estimator.predict(image_tensor)
-
-            elif self.controller_type == ControllerType.TOP_LEFT_PIXEL:
-                top_left_pixel = torch.unsqueeze(torch.tensor(pixels[1], dtype=torch.float32), 0)
-                tip_control_single_batch = self.tip_velocity_estimator.predict((image_tensor, top_left_pixel))
 
             elif self.controller_type == ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS:
                 top_left_pixel = torch.unsqueeze(torch.tensor(pixels[1], dtype=torch.float32), 0)
