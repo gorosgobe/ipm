@@ -26,6 +26,8 @@ if __name__ == "__main__":
         tip_velocity_file = "velocities.csv"
         rotations_file = "rotations.csv"
         metadata_file = "metadata.json"
+        # Every demonstration must be this long (in terms of observations)
+        constant_steps_per_demonstration = 27
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder
         shutil.rmtree(folder, ignore_errors=True)
         os.mkdir(folder)
@@ -50,6 +52,7 @@ if __name__ == "__main__":
                     tip_velocity_file=tip_velocity_file,
                     metadata_file=metadata_file,
                     rotations_file=rotations_file,
+                    augment_to_steps=constant_steps_per_demonstration,
                     **result
                 )
                 demonstration_num += 1

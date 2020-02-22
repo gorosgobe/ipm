@@ -73,9 +73,29 @@ def save_images(images, format_str, prefix=""):
 
 def save_images_and_tip_velocities(images, demonstration_num, tip_positions, tip_velocities, tip_velocity_file,
                                    metadata_file, crop_pixels, rotations, rotations_file, relative_target_positions,
-                                   relative_target_orientations, distractor_positions):
+                                   relative_target_orientations, distractor_positions, augment_to_steps=-1):
     format_str = "{}image{}.png"
     prefix = str(demonstration_num)
+
+    assert len(images) == len(tip_positions) == len(tip_velocities) == len(crop_pixels) == len(rotations) \
+           == len(relative_target_positions) == len(relative_target_orientations)
+
+    if augment_to_steps != -1:
+        # we want every demonstration to be padded to augment_to_steps
+        # with the last image, and last tip velocity and rotation should be zero vectors
+        # everything has to be padded
+        assert augment_to_steps > len(tip_velocities)
+        pad_amount = augment_to_steps - len(tip_velocities)
+        for _ in range(pad_amount):
+            images.append(images[-1])
+            tip_positions.append(tip_positions[-1])
+            tip_velocities.append(tip_velocities[-1])
+            crop_pixels.append(crop_pixels[-1])
+            rotations.append(rotations[-1])
+            relative_target_positions.append(relative_target_positions[-1])
+            relative_target_orientations.append(relative_target_orientations[-1])
+
+    # save images
     save_images(images=images, format_str=format_str, prefix=prefix)
 
     # write tip velocities
