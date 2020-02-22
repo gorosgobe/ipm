@@ -17,7 +17,11 @@ if __name__ == "__main__":
     with CameraScene5(headless=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
-        min_samples = 4000
+        # 5250 -> 28 * 150 / 0.8
+        # This is because we are using padding to 28, but we want
+        # to keep the information from previous datasets which had 150 demonstrations for training, while not having
+        # any padding (for comparability)
+        min_samples = 5250
         # count of number of training samples so far (image, tip velocity)
         total_count = 0
         # Number of the demonstration
@@ -27,7 +31,7 @@ if __name__ == "__main__":
         rotations_file = "rotations.csv"
         metadata_file = "metadata.json"
         # Every demonstration must be this long (in terms of observations)
-        constant_steps_per_demonstration = 27
+        constant_steps_per_demonstration = scene.get_steps_per_demonstration()
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder
         shutil.rmtree(folder, ignore_errors=True)
         os.mkdir(folder)

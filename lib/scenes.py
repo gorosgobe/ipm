@@ -28,6 +28,9 @@ class Scene(object):
     def get_distractor_safe_distances(self):
         return []
 
+    def get_steps_per_demonstration(self):
+        return 28
+
 
 class SawyerReachCubeScene(Scene):
     SCENE_FILE = "sawyer_reach_cube.ttt"
@@ -83,6 +86,9 @@ class CameraBackgroundObjectsTextureReachCubeSceneV3(Scene):
 
     def get_distractor_safe_distances(self):
         return [0.1, 0.1, 0.1]
+
+
+CameraScene1 = CameraBackgroundObjectsTextureReachCubeSceneV3
 
 
 class CameraScene2(Scene):

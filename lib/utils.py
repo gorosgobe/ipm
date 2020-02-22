@@ -84,7 +84,7 @@ def save_images_and_tip_velocities(images, demonstration_num, tip_positions, tip
         # we want every demonstration to be padded to augment_to_steps
         # with the last image, and last tip velocity and rotation should be zero vectors
         # everything has to be padded
-        assert augment_to_steps > len(tip_velocities)
+        assert augment_to_steps >= len(tip_velocities)
         pad_amount = augment_to_steps - len(tip_velocities)
         for _ in range(pad_amount):
             images.append(images[-1])
