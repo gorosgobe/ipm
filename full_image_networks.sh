@@ -29,7 +29,7 @@ coord
 for training in $training_list; do
   echo "Starting training full image network with coord for training data ${training}"
   training_str=$(echo "$training" | sed -e "s/\.//g")
-  python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_coord_${training_str}" --dataset "$dataset" \
+  time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_coord_${training_str}" --dataset "$dataset" \
           --training "$training" >> "$log_file"
   echo "Completed training"
 done
@@ -37,7 +37,7 @@ done
 for training in $training_list; do
   echo "Starting training full image network for training data ${training}."
   training_str=$(echo "$training" | sed -e "s/\.//g")
-  python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_${training_str}" --dataset "$dataset" \
+  time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_${training_str}" --dataset "$dataset" \
           --training "$training" >> "$log_file"
   echo "Completed training."
 done
@@ -47,7 +47,7 @@ for v in $versions; do
     for training in $training_list; do
       echo "Starting training full image network on size ${s}:${v} data for training data ${training}"
       training_str=$(echo "$training" | sed -e "s/\.//g")
-      python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_${v}_${s}_${training_str}" --dataset "$dataset" \
+      time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset}_${v}_${s}_${training_str}" --dataset "$dataset" \
               --training "$training" --size "$s" --version "$v" >> "$log_file"
       echo "Completed training."
     done
