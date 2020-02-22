@@ -29,8 +29,7 @@ class CameraRobot(object):
         return np.concatenate((xy_position_offset, z_position_offset, xy_orientation_offset, z_offset), axis=0)
 
     def generate_image_simulation(self, offset, scene, target_position, target_object, draw_center_pixel=False,
-                                  debug=False,
-                                  randomise_distractors=False):
+                                  debug=False, randomise_distractors=False):
 
         # position and orientation in 6 x 1 vector
         offset_position, offset_orientation = np.split(offset, 2)
@@ -53,8 +52,9 @@ class CameraRobot(object):
         relative_target_orientations = []
         images = []
         crop_pixels = []
-        sim_gt_velocity = SimGTVelocityEstimator(target_position)
+        sim_gt_velocity = SimGTVelocityEstimator(target_position, generating=True)
         sim_gt_orientation = SimGTOrientationEstimator(target_position, self.TARGET_ORIENTATION)
+        count = 0
         while True:
             # world camera position
             camera_position = self.movable_camera.get_position()
@@ -85,15 +85,20 @@ class CameraRobot(object):
             print("Dist to target at image taking time: ",
                   np.linalg.norm(np.array(target_position) - np.array(camera_position)))
 
-            velocity = sim_gt_velocity.get_gt_tip_velocity(camera_position)
-            tip_velocities.append(velocity)
+            velocity, should_zero = sim_gt_velocity.get_gt_tip_velocity(camera_position)
+            # if should_zero, apply velocity but append zeros so model does not get confused
+            # this is the case when we want to add more data around target discontinuity
+            tip_velocities.append(velocity if not should_zero else np.zeros(3))
             difference_orientation_normalised = sim_gt_orientation.get_gt_orientation_change(camera_position,
                                                                                              camera_orientation)
             rotations.append(difference_orientation_normalised)
 
             if sim_gt_velocity.stop_sim() and sim_gt_orientation.stop_sim():
                 break
-
+            count += 1
+            if count == 40:
+                break
+            print(difference_orientation_normalised)
             self.movable_camera.add_to_orientation(step * difference_orientation_normalised)
             self.movable_camera.move_along_velocity(velocity)
             self.pr.step()
@@ -173,9 +178,9 @@ class CameraRobot(object):
                     px, py = p
                     image[py, px] = np.array(colours[idx])
 
-    def run_controller_simulation(self, controller, offset, target, distractor_positions, scene, target_distance=0.01):
+    def run_controller_simulation(self, controller, offset, target, distractor_positions, scene, target_distance=0.01,
+                                  fixed_steps=-1):
         # target is np array
-        # TODO: remove repetition with generate_image_simulation
         # set camera position and orientation
         offset_position, offset_orientation = np.split(offset, 2)
         self.movable_camera.set_initial_offset_position(offset_position)
@@ -190,38 +195,54 @@ class CameraRobot(object):
         tip_velocities = []
         rotations = []
         min_distance = None
+        # not generating
         sim_gt_velocity = SimGTVelocityEstimator(target)
         sim_gt_orientation = SimGTOrientationEstimator(target, self.TARGET_ORIENTATION)
         combined_errors = []
         velocity_errors = []
         orientation_errors = []
         step = sim.simGetSimulationTimeStep()
-        for i in range(self.TEST_STEPS_PER_TRAJECTORY):
+        fixed_steps_distance = -1
+        # run default test steps, unless a fixed number of steps have to be run (i.e. when dataset is padded)
+        for i in range(self.TEST_STEPS_PER_TRAJECTORY if fixed_steps == -1 else fixed_steps + 1):
             image = self.movable_camera.get_image()
             images.append(image)
             camera_position = self.movable_camera.get_position()
             dist = np.linalg.norm(target - np.array(camera_position))
             min_distance = dist if min_distance is None else min(min_distance, dist)
-            if dist < target_distance:
-                achieved = True
-                break
+
+            # when fixed steps are not taken into account, break when target distance is reached
+            if fixed_steps == -1:
+                if dist < target_distance:
+                    achieved = True
+                    break
+            else:
+                fixed_steps_distance = dist
+                if i == fixed_steps:
+                    # test episode has ended
+                    break
+
             control = np.array(controller.get_tip_control(image))
-            gt_velocity = np.array(sim_gt_velocity.get_gt_tip_velocity(camera_position))
+            gt_velocity, _ = sim_gt_velocity.get_gt_tip_velocity(camera_position)
+            gt_velocity = np.array(gt_velocity)
             camera_orientation = self.movable_camera.get_orientation()
             gt_orientation = np.array(sim_gt_orientation.get_gt_orientation_change(camera_position, camera_orientation))
             combined_gt = np.concatenate((gt_velocity, gt_orientation), axis=0)
             # total error
             combined_error_norm = np.linalg.norm(combined_gt - control)
             print("Combined error", combined_error_norm)
-            combined_errors.append(dict(error_norm=combined_error_norm, gt=combined_gt.tolist(), predicted=control.tolist()))
+            combined_errors.append(
+                dict(error_norm=combined_error_norm, gt=combined_gt.tolist(), predicted=control.tolist()))
 
             velocity, rotation = np.split(control, 2)
             # velocity error
             velocity_error_norm = np.linalg.norm(gt_velocity - velocity)
-            velocity_errors.append(dict(error_norm=velocity_error_norm, gt=gt_velocity.tolist(), predicted=velocity.tolist()))
+            velocity_errors.append(
+                dict(error_norm=velocity_error_norm, gt=gt_velocity.tolist(), predicted=velocity.tolist()))
             # rotation error
             rotation_error_norm = np.linalg.norm(gt_orientation - rotation)
-            orientation_errors.append(dict(error_norm=rotation_error_norm, gt=gt_orientation.tolist(), predicted=rotation.tolist()))
+            orientation_errors.append(
+                dict(error_norm=rotation_error_norm, gt=gt_orientation.tolist(), predicted=rotation.tolist()))
 
             rotations.append(rotation)
             # apply rotation
@@ -231,11 +252,14 @@ class CameraRobot(object):
             self.movable_camera.move_along_velocity(velocity)
             self.pr.step()
 
+        assert fixed_steps_distance == -1 if fixed_steps == -1 else True
+
         return dict(
             images=images,
             tip_velocities=tip_velocities,
             achieved=achieved,
             min_distance=min_distance,
+            fixed_steps_distance=fixed_steps_distance,
             combined_errors=combined_errors,
             velocity_errors=velocity_errors,
             orientation_errors=orientation_errors
