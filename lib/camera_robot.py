@@ -56,6 +56,7 @@ class CameraRobot(object):
         sim_gt_orientation = SimGTOrientationEstimator(target_position, self.TARGET_ORIENTATION)
         count = 0
         while True:
+            count += 1
             # world camera position
             camera_position = self.movable_camera.get_position()
             tip_positions.append(camera_position)
@@ -86,6 +87,8 @@ class CameraRobot(object):
                   np.linalg.norm(np.array(target_position) - np.array(camera_position)))
 
             velocity, should_zero = sim_gt_velocity.get_gt_tip_velocity(camera_position)
+            if should_zero:
+                count_stop_demonstration = count
             # if should_zero, apply velocity but append zeros so model does not get confused
             # this is the case when we want to add more data around target discontinuity
             tip_velocities.append(velocity if not should_zero else np.zeros(3))
@@ -109,6 +112,7 @@ class CameraRobot(object):
             relative_target_positions=relative_target_positions,
             relative_target_orientations=relative_target_orientations,
             distractor_positions=distractor_positions,
+            count_stop_demonstration=count_stop_demonstration
         )
 
     @staticmethod

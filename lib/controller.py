@@ -208,10 +208,22 @@ class TipVelocityController(object):
         return self.tip_velocity_estimator
 
     def get_tip_control(self, image):
+
+        # baseline controller does not require image at all
+        if self.controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
+            relative_target_position = torch.unsqueeze(torch.tensor(
+                self.target_object.get_position(relative_to=self.camera), dtype=torch.float32
+            ), 0)
+            relative_target_orientation = torch.unsqueeze(torch.tensor(
+                self.target_object.get_orientation(relative_to=self.camera), dtype=torch.float32
+            ), 0)
+            control_input = torch.cat((relative_target_position, relative_target_orientation), dim=1)
+            tip_control_single_batch = self.tip_velocity_estimator.predict(control_input)
+            return tip_control_single_batch[0]
+
         h, w, _c = image.shape
         # select region of interest (manual crop or RL agent)
         image, pixels = self.roi_estimator.crop(image)
-        # TODO: combine all transformations into one function to avoid issues?
         # resizes image
         image = self.tip_velocity_estimator.resize_image(image)
         # apply normalisation and other transforms as required
@@ -231,16 +243,8 @@ class TipVelocityController(object):
                 tip_control_single_batch = self.tip_velocity_estimator.predict((
                     image_tensor, top_left_pixel, bottom_right_pixel, w_tensor, h_tensor
                 ))
-
-            elif self.controller_type == ControllerType.RELATIVE_POSITION_AND_ORIENTATION:
-                relative_target_position = torch.unsqueeze(torch.tensor(
-                    self.target_object.get_position(relative_to=self.camera), dtype=torch.float32
-                ), 0)
-                relative_target_orientation = torch.unsqueeze(torch.tensor(
-                    self.target_object.get_orientation(relative_to=self.camera), dtype=torch.float32
-                ), 0)
-                control_input = torch.cat((relative_target_position, relative_target_orientation), dim=1)
-                tip_control_single_batch = self.tip_velocity_estimator.predict(control_input)
+            else:
+                raise ValueError("Unrecognised controller type")
 
         tip_control = tip_control_single_batch[0]
         return tip_control

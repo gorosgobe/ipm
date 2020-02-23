@@ -91,7 +91,8 @@ class CameraBackgroundObjectsTextureReachCubeSceneV3(Scene):
         return [0.1, 0.1, 0.1]
 
     def get_steps_per_demonstration(self):
-        return 35
+        # mean is 29.1, without backtracking
+        return 29
 
 
 CameraScene1 = CameraBackgroundObjectsTextureReachCubeSceneV3

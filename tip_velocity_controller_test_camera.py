@@ -4,10 +4,71 @@ import numpy as np
 
 from lib import utils
 from lib.camera_robot import CameraRobot
-from lib.controller import TipVelocityController, IdentityCropper, TruePixelROI, ControllerType
+from lib.controller import TipVelocityController, IdentityCropper, TruePixelROI, ControllerType, CropDeviationSampler
 from lib.scenes import CameraScene1, CameraScene2, CameraScene3, CameraScene4, CameraScene5
 import json
 from lib.tip_velocity_estimator import TipVelocityEstimator
+
+
+def get_full_image_networks(scene_trained, training_list):
+    models_res = []
+    for tr in training_list:
+        models_res.append(f"FullImageNetwork_{scene_trained}_{tr}")
+
+    for tr in training_list:
+        for sc in ["32", "64"]:
+            for v in ["a", "coord"]:
+                models_res.append(f"FullImageNetwork_{scene_trained}_{v}_{sc}_{tr}")
+
+    for tr in training_list:
+        models_res.append(f"FullImageNetwork_{scene_trained}_coord_{tr}")
+
+    return models_res, "fullimage"
+
+
+def get_baseline_networks(scene_trained, training_list):
+    models_res = []
+    for tr in training_list:
+        models_res.append(f"BaselineNetwork_{scene_trained}_{tr}")
+    return models_res, "baseline"
+
+
+def get_attention_networks(size, scene_trained, training_list):
+    models_res = []
+    if size == 64:
+        config = "attention_64"
+    elif size == 32:
+        config = "attention_32"
+    else:
+        raise ValueError("Unknown size")
+
+    for tr in training_list:
+        for v in ["V1", "V2", "tile"]:
+            if size == 64:
+                models_res.append(f"AttentionNetwork{v}_{scene_trained}_{tr}")
+            else:
+                models_res.append(f"AttentionNetwork{v}_{scene_trained}_32_{tr}")
+
+    return models_res, config
+
+
+def get_coord_attention_networks(size, scene_trained, training_list):
+    models_res = []
+    if size == 64:
+        config = "attention_coord_64"
+    elif size == 32:
+        config = "attention_coord_32"
+    else:
+        raise ValueError("Unknown size")
+
+    for tr in training_list:
+        if size == 64:
+            models_res.append(f"AttentionNetworkcoord_{scene_trained}_{tr}")
+        else:
+            models_res.append(f"AttentionNetworkcoord_{scene_trained}_32_{tr}")
+
+    return models_res, config
+
 
 if __name__ == "__main__":
 
@@ -26,17 +87,19 @@ if __name__ == "__main__":
 
     sizes = ["64", "32"]
 
-    models = []
-    for scene in scenes:
-        for t in trainings:
-            # for ty in types:
-            #     for size in sizes:
-            models.append(f"AttentionNetworkcoord_{scene}_{t}")
+    # models, testing_config_name = get_full_image_networks(scenes[0], trainings)
+    # models, testing_config_name = get_baseline_networks(scenes[0], trainings)
+    # models, testing_config_name = get_attention_networks(32, scenes[0], trainings)
+    # models, testing_config_name = get_coord_attention_networks(32, scenes[0], trainings)
+    # for scene in scenes:
+    #     for t in trainings:
+    #         # for ty in types:
+    #         #     for size in sizes:
+    #         models.append(f"FullImageNetwork_{scene}_{t}")
+    models = ["test_random_att_coord32_100_08"]
+    testing_config_name = "coord_32_std_100"
 
-    models = ["test_full_discontinuity_scene1"]
-    testing_config_name = "fullimage"
-
-    prefix = "" #"fixed_steps_datasets/"
+    prefix = "random_deviations/"
 
     for model_name in models:
         if "scene2" in model_name:
@@ -93,6 +156,11 @@ if __name__ == "__main__":
                                                 add_spatial_maps=True),
                         "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
                     },
+                "coord_32_std_100": {
+                        "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                                                add_spatial_maps=True, crop_deviation_sampler=CropDeviationSampler(100)),
+                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+                    }
             }
 
             testing_config = testing_configs[testing_config_name]
@@ -138,7 +206,7 @@ if __name__ == "__main__":
                 )
                 count += 1
                 # for index, i in enumerate(result["images"]):
-                #     utils.save_image(i, "/home/pablo/Desktop/f-{}image{}.png".format(count, index))
+                #     utils.save_image(i, "/home/pablo/Desktop/baseline-{}image{}.png".format(count, index))
                 result_json["min_distances"][str(idx)] = result["min_distance"]
                 result_json["fixed_steps_distances"][str(idx)] = result["fixed_steps_distance"]
                 result_json["errors"][str(idx)] = dict(
