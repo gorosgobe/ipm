@@ -83,17 +83,16 @@ class BaselineTipVelocitiesDataset(TipVelocitiesDataset):
 
 class ImageTipVelocitiesDataset(TipVelocitiesDataset):
     def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None,
-                 initial_pixel_cropper=None, debug=False, crop_deviation_sampler=None):
+                 initial_pixel_cropper=None, debug=False):
         super().__init__(velocities_csv=velocities_csv, metadata=metadata, root_dir=root_dir,
                          rotations_csv=rotations_csv)
         self.transform = transform
         self.initial_pixel_cropper = initial_pixel_cropper
         self.debug = debug
-        self.crop_deviation_sampler = crop_deviation_sampler
         self.cache = None
         self.initialising = True
-        # crop deviation has to be None, as the random aspect involves sampling, and we cannot pre-compute that
-        if self.initial_pixel_cropper is not None and self.crop_deviation_sampler is None:
+        # Random crops around center pixel involves sampling, and we cannot save time by pre-computing it
+        if self.initial_pixel_cropper is not None and not self.initial_pixel_cropper.is_random_crop():
             self.cache = {}
             print("Start cache loading...")
             start_time = time.time()
@@ -107,8 +106,7 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
     def __getitem__(self, idx):
 
         # to avoid continuously cropping, for simple, static simulation-based attention
-        if self.initial_pixel_cropper is not None and self.cache is not None and \
-                not self.initialising and self.crop_deviation_sampler is None:
+        if self.initial_pixel_cropper is not None and not self.initialising and not self.initial_pixel_cropper.is_random_crop():
             return self.cache[idx]
 
         img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])

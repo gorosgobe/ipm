@@ -212,11 +212,8 @@ class TipVelocityEstimator(object):
             torch.save(info, path)
 
     def save_best_model(self, path):
-        best_val_loss = self.best_info["validation_losses"][-1][1]
-        best_epoch = self.best_info["epoch"]
         name = self.best_info["name"]
-        file_name = "{}_{}_{}.pt".format(name, best_epoch, best_val_loss)
-        self.save(os.path.join(path, file_name), self.best_info)
+        self.save(os.path.join(path, name), self.best_info)
 
     def load_parameters(self, state_dict):
         self.network.load_state_dict(state_dict)

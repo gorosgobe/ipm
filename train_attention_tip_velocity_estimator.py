@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 from torch.utils.data import DataLoader
 
-from lib.controller import TrainingPixelROI
+from lib.controller import TrainingPixelROI, CropDeviationSampler
 from lib.dataset import ImageTipVelocitiesDataset
 from lib.networks import *
 from lib.tip_velocity_estimator import TipVelocityEstimator
@@ -18,6 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset")
     parser.add_argument("--version")
     parser.add_argument("--size", type=int)
+    parser.add_argument("--random_std", type=int)
     parse_result = parser.parse_args()
 
     version = parse_result.version or "V1"
@@ -47,6 +48,13 @@ if __name__ == "__main__":
     dataset = parse_result.dataset or "text_camera_rand"
     print("Dataset: ", dataset)
 
+    # random crop, if required
+    crop_deviation_sampler = None
+    if parse_result.random_std is not None:
+        std = parse_result.random_std
+        print(f"Random cropping, std {std}")
+        crop_deviation_sampler = CropDeviationSampler(std=std)
+
     config = dict(
         seed=2019,
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
@@ -57,7 +65,9 @@ if __name__ == "__main__":
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        initial_pixel_cropper=TrainingPixelROI(480 // divisor, 640 // divisor, add_spatial_maps=add_spatial_maps),
+        initial_pixel_cropper=TrainingPixelROI(
+            480 // divisor, 640 // divisor, add_spatial_maps=add_spatial_maps, crop_deviation_sampler=crop_deviation_sampler
+        ),
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
@@ -92,8 +102,8 @@ if __name__ == "__main__":
 
     train_data_loader = DataLoader(training_demonstrations, batch_size=config["batch_size"], num_workers=8,
                                    shuffle=True)
-    validation_data_loader = DataLoader(val_demonstrations, batch_size=4, num_workers=8, shuffle=True)
-    test_data_loader = DataLoader(test_demonstrations, batch_size=4, num_workers=8, shuffle=True)
+    validation_data_loader = DataLoader(val_demonstrations, batch_size=32, num_workers=8, shuffle=True)
+    test_data_loader = DataLoader(test_demonstrations, batch_size=32, num_workers=8, shuffle=True)
 
     tip_velocity_estimator = TipVelocityEstimator(
         batch_size=config["batch_size"],

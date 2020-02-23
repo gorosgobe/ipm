@@ -90,6 +90,9 @@ class TruePixelROI(object):
         self.add_spatial_maps = add_spatial_maps
         self.crop_deviation_sampler = crop_deviation_sampler
 
+    def is_random_crop(self):
+        return self.crop_deviation_sampler is not None
+
     def crop(self, image):
         if self.add_spatial_maps:
             image = SpatialDimensionAdder.add_spatial_dimensions(image)
@@ -163,6 +166,9 @@ class TrainingPixelROI(object):
         self.cropped_width = cropped_width
         self.add_spatial_maps = add_spatial_maps
         self.crop_deviation_sampler = crop_deviation_sampler
+
+    def is_random_crop(self):
+        return self.crop_deviation_sampler is not None
 
     def crop(self, image, pixel):
         loaded_pixel_estimator = LoadedPixelEstimator(pixel)
