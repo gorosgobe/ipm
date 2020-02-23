@@ -28,8 +28,11 @@ class Scene(object):
     def get_distractor_safe_distances(self):
         return []
 
+    def get_padding_steps(self):
+        raise NotImplementedError
+
     def get_steps_per_demonstration(self):
-        return 28
+        return NotImplementedError
 
 
 class SawyerReachCubeScene(Scene):
@@ -86,6 +89,9 @@ class CameraBackgroundObjectsTextureReachCubeSceneV3(Scene):
 
     def get_distractor_safe_distances(self):
         return [0.1, 0.1, 0.1]
+
+    def get_steps_per_demonstration(self):
+        return 35
 
 
 CameraScene1 = CameraBackgroundObjectsTextureReachCubeSceneV3

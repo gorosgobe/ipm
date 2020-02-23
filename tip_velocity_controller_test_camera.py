@@ -1,16 +1,12 @@
 import math
 
 import numpy as np
-from pyrep.objects.shape import Shape
 
 from lib import utils
 from lib.camera_robot import CameraRobot
 from lib.controller import TipVelocityController, IdentityCropper, TruePixelROI, ControllerType
-from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3, CameraScene2, CameraScene3, CameraScene4, \
-    CameraScene5
+from lib.scenes import CameraScene1, CameraScene2, CameraScene3, CameraScene4, CameraScene5
 import json
-import time
-
 from lib.tip_velocity_estimator import TipVelocityEstimator
 
 if __name__ == "__main__":
@@ -24,7 +20,7 @@ if __name__ == "__main__":
         "08"
     ]
 
-    scenes = ["scene1"]
+    scenes = ["scene1scene1"]
 
     vs = ["V1", "V2"]
 
@@ -32,11 +28,15 @@ if __name__ == "__main__":
 
     models = []
     for scene in scenes:
-        for si in sizes:
-            for t in trainings:
-                # for ty in types:
-                #     for size in sizes:
-                models.append(f"FullImageNetwork_{scene}_coord_{si}_{t}")
+        for t in trainings:
+            # for ty in types:
+            #     for size in sizes:
+            models.append(f"AttentionNetworkcoord_{scene}_{t}")
+
+    models = ["test_full_discontinuity_scene1"]
+    testing_config_name = "fullimage"
+
+    prefix = "" #"fixed_steps_datasets/"
 
     for model_name in models:
         if "scene2" in model_name:
@@ -51,8 +51,8 @@ if __name__ == "__main__":
         elif "scene5" in model_name:
             s = CameraScene5
             test = "scene5_test.json"
-        elif "rand" in model_name or "scene1" in model_name:
-            s = CameraBackgroundObjectsTextureReachCubeSceneV3
+        elif "rand" in model_name.lower() or "scene1" in model_name:
+            s = CameraScene1
             test = "test_offsets_random.json"
 
         with s(headless=True) as (pr, scene):
@@ -60,22 +60,61 @@ if __name__ == "__main__":
             target_cube = scene.get_target()
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
-            #cropper = TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube, add_spatial_maps=False)
-            cropper = IdentityCropper()
-            c_type = ControllerType.DEFAULT
+            testing_configs = {
+                "baseline":
+                    {
+                        "cropper": IdentityCropper(),
+                        "c_type": ControllerType.RELATIVE_POSITION_AND_ORIENTATION
+                    },
+                "fullimage":
+                    {
+                        "cropper": IdentityCropper(),
+                        "c_type": ControllerType.DEFAULT
+                    },
+                "attention_64":
+                    {
+                        "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube),
+                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+                    },
+                "attention_32":
+                    {
+                        "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube),
+                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+                    },
+                "attention_coord_64":
+                    {
+                        "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube,
+                                                add_spatial_maps=True),
+                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+                    },
+                "attention_coord_32":
+                    {
+                        "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                                                add_spatial_maps=True),
+                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+                    },
+            }
+
+            testing_config = testing_configs[testing_config_name]
+
+            cropper = testing_config["cropper"]
+            c_type = testing_config["c_type"]
             controller = TipVelocityController(
-                tve_model=TipVelocityEstimator.load("models/{}.pt".format(model_name)),
+                tve_model=TipVelocityEstimator.load("models/{}{}.pt".format(prefix, model_name)),
                 target_object=target_cube,
                 camera=camera_robot.get_movable_camera(),
                 roi_estimator=cropper,
                 controller_type=c_type
             )
-            print(model_name)
-            print(controller.tip_velocity_estimator.network)
+            m = controller.get_model().network
+
+            print("Parameters:", sum([p.numel() for p in m.parameters()]))
+            print("Model name:", model_name)
+            print("Network: ", m)
             print(controller.get_model().test_loss)
 
             test_name = "{}.test".format(model_name)
-            result_json = {"min_distances": {}, "errors": {}}
+            result_json = {"min_distances": {}, "errors": {}, "fixed_steps_distances": {}}
 
             with open(test, "r") as f:
                 content = f.read()
@@ -94,12 +133,14 @@ if __name__ == "__main__":
                     offset=np.array(offset),
                     target=target_above_cube,
                     distractor_positions=distractor_positions,
-                    scene=scene
+                    scene=scene,
+                    fixed_steps=scene.get_steps_per_demonstration()
                 )
                 count += 1
-                # for index, i in enumerate(images):
-                # utils.save_image(i, "/home/pablo/Desktop/t-{}image{}.png".format(count, index))
+                # for index, i in enumerate(result["images"]):
+                #     utils.save_image(i, "/home/pablo/Desktop/f-{}image{}.png".format(count, index))
                 result_json["min_distances"][str(idx)] = result["min_distance"]
+                result_json["fixed_steps_distances"][str(idx)] = result["fixed_steps_distance"]
                 result_json["errors"][str(idx)] = dict(
                     combined_errors=result["combined_errors"],
                     velocity_errors=result["velocity_errors"],
@@ -110,6 +151,7 @@ if __name__ == "__main__":
                     achieved_count += 1
 
                 print("Min distance: ", result["min_distance"])
+                print("Fixed step distance: ", result["fixed_steps_distance"])
                 print("Achieved: ", achieved_count / (idx + 1), "{}/{}".format(achieved_count, idx + 1))
 
             print("Achieved: ", achieved_count / len(json_offset_list))

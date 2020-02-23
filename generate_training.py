@@ -6,7 +6,7 @@ from pyrep.errors import ConfigurationPathError
 from pyrep.objects.shape import Shape
 
 from lib.camera_robot import CameraRobot
-from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3, CameraScene5
+from lib.scenes import CameraScene1
 from lib.utils import save_images_and_tip_velocities
 
 if __name__ == "__main__":
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     seed = 2019
     np.random.seed(seed)
 
-    with CameraScene5(headless=True) as (pr, scene):
+    with CameraScene1(headless=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
         # 5250 -> 28 * 150 / 0.8
@@ -24,14 +24,13 @@ if __name__ == "__main__":
         min_samples = 5250
         # count of number of training samples so far (image, tip velocity)
         total_count = 0
+        counts = []
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./scene5"
+        folder = "./scene1"
         tip_velocity_file = "velocities.csv"
         rotations_file = "rotations.csv"
         metadata_file = "metadata.json"
-        # Every demonstration must be this long (in terms of observations)
-        constant_steps_per_demonstration = scene.get_steps_per_demonstration()
         # remove data folder to regenerate data. Alternatively, change this to write to a different folder
         shutil.rmtree(folder, ignore_errors=True)
         os.mkdir(folder)
@@ -56,11 +55,14 @@ if __name__ == "__main__":
                     tip_velocity_file=tip_velocity_file,
                     metadata_file=metadata_file,
                     rotations_file=rotations_file,
-                    augment_to_steps=constant_steps_per_demonstration,
+                    augment_to_steps=-1,
                     **result
                 )
                 demonstration_num += 1
                 total_count += len(result["tip_velocities"])
+                counts.append(len(result["tip_velocities"]))
             except ConfigurationPathError:
                 print("Error, can not reach object from offset: {}, ignoring...".format(offset))
                 break
+
+        print(np.array(counts).mean())

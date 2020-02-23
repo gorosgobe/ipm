@@ -92,12 +92,9 @@ class CameraRobot(object):
             difference_orientation_normalised = sim_gt_orientation.get_gt_orientation_change(camera_position,
                                                                                              camera_orientation)
             rotations.append(difference_orientation_normalised)
-
             if sim_gt_velocity.stop_sim() and sim_gt_orientation.stop_sim():
                 break
-            count += 1
-            if count == 40:
-                break
+
             print(difference_orientation_normalised)
             self.movable_camera.add_to_orientation(step * difference_orientation_normalised)
             self.movable_camera.move_along_velocity(velocity)
@@ -111,7 +108,7 @@ class CameraRobot(object):
             rotations=rotations,
             relative_target_positions=relative_target_positions,
             relative_target_orientations=relative_target_orientations,
-            distractor_positions=distractor_positions
+            distractor_positions=distractor_positions,
         )
 
     @staticmethod
