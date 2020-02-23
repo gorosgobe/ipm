@@ -213,7 +213,7 @@ class TipVelocityEstimator(object):
 
     def save_best_model(self, path):
         name = self.best_info["name"]
-        self.save(os.path.join(path, name), self.best_info)
+        self.save(os.path.join(path, f"{name}.pt"), self.best_info)
 
     def load_parameters(self, state_dict):
         self.network.load_state_dict(state_dict)
