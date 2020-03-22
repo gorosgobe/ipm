@@ -143,3 +143,13 @@ def add_to_csv_file(format_str, prefix, content, file):
         writer = csv.writer(f)
         for idx, data in enumerate(content):
             writer.writerow([format_str.format(prefix, idx), *data])
+
+
+def get_loss(loss_params):
+    if loss_params is not None:
+        if loss_params == "composite":
+            loss_params = {}  # for the time being set to default hyperparams
+        else:
+            raise ValueError("Loss is passed as an argument, but it's not composite.")
+
+    return loss_params

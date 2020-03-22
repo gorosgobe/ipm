@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from lib.dataset import ImageTipVelocitiesDataset
 from lib.networks import *
 from lib.tip_velocity_estimator import TipVelocityEstimator
-from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations
+from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -15,7 +15,10 @@ if __name__ == "__main__":
     parser.add_argument("--dataset")
     parser.add_argument("--size", type=int)
     parser.add_argument("--version")
+    parser.add_argument("--loss")
     parse_result = parser.parse_args()
+
+    loss_params = get_loss(parse_result.loss)
 
     size = (128, 96)
     version = FullImageNetworkCoord if parse_result.version == "coord" else FullImageNetwork
@@ -50,6 +53,7 @@ if __name__ == "__main__":
         validate_epochs=1,
         save_to_location="models/",
         network_klass=version,
+        loss_params=loss_params,
     )
     print("Name:", config["name"])
 
@@ -85,7 +89,8 @@ if __name__ == "__main__":
         # transforms without initial resize, so they can be pickled correctly
         transforms=transforms,
         name=config["name"],
-        device=device
+        device=device,
+        composite_loss_params=config["loss_params"]
     )
 
     tip_velocity_estimator.train(

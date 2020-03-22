@@ -5,41 +5,56 @@ from ignite.engine import (Events, create_supervised_evaluator,
                            create_supervised_trainer)
 from ignite.handlers import EarlyStopping
 from ignite.metrics import Loss
-from torch.nn.modules.loss import _Loss
 
 from lib.networks import *
 from lib.utils import ResizeTransform
 
 
-class AlignmentLoss(_Loss):
-    def __init__(self):
-        super(AlignmentLoss, self).__init__()
-
-    def forward(self, input, target):
+class AlignmentLoss(object):
+    def __call__(self, input, target):
         # noinspection PyTypeChecker
-        similarity = torch.nn.functional.cosine_similarity(input, target, dim=1, eps=1e-8)
-        clamped = torch.clamp(similarity, -1.0, 1.0)
+        eps = 1e-7
+        similarity = torch.nn.functional.cosine_similarity(input, target, dim=1, eps=eps)
+        # torch.acos is not numerically very stable (https://github.com/pytorch/pytorch/issues/8069)
+        # so clamp with epsilon
+        clamped = torch.clamp(similarity, -1.0 + eps, 1.0 - eps)
         acos = torch.acos(clamped)
         return torch.mean(acos)
 
 
 class TipVelocityEstimatorLoss(object):
-    def __init__(self):
+    def __init__(self, is_composite_loss=False, mse_lambda=0.1, l1_lambda=1.0, alignment_lambda=0.005):
         self.mse_loss = torch.nn.MSELoss()
+
+        # everything required when using composite loss from:
+        # https://arxiv.org/abs/1710.04615
+        # Deep Imitation Learning for Complex Manipulation Tasks from Virtual Reality Teleoperation
+        self.is_composite_loss = is_composite_loss
+        self.mse_lambda = mse_lambda
+        self.l1_loss = torch.nn.L1Loss()
+        self.l1_lambda = l1_lambda
+        # alignment component
         self.alignment_loss = AlignmentLoss()
+        self.alignment_lambda = alignment_lambda
 
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+        if self.is_composite_loss:
+            print(
+                f"Composite L2 ({self.mse_lambda}), L1 ({self.l1_lambda}) and alignment loss ({self.alignment_lambda})")
+        else:
+            print("Standard L2 Loss")
 
-    def forward(self, input, target):
+    def __call__(self, input, target):
         mse_loss = self.mse_loss(input, target)
-        # alignment loss gives NANs for some reason
-        # alignment_loss = self.alignment_loss(input, target)
-        return mse_loss  # + alignment_loss
+        if self.is_composite_loss:
+            mse_loss *= self.mse_lambda
+            mse_loss += self.l1_lambda * self.l1_loss(input, target)
+            mse_loss += self.alignment_lambda * self.alignment_loss(input, target)
+        return mse_loss
 
 
 class TipVelocityEstimator(object):
-    def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None, patience=10):
+    def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None,
+                 patience=10, composite_loss_params=None):
         self.name = name
         self.device = device
         self.batch_size = batch_size
@@ -50,7 +65,13 @@ class TipVelocityEstimator(object):
         self.network = network_klass(width, height)
 
         self.optimiser = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
-        self.loss_func = TipVelocityEstimatorLoss()
+        self.composite_loss_params = composite_loss_params
+
+        # For a composite loss, pass in the parameters as a dictionary
+        if self.composite_loss_params is None:
+            self.loss_func = TipVelocityEstimatorLoss()
+        else:
+            self.loss_func = TipVelocityEstimatorLoss(is_composite_loss=True, **self.composite_loss_params)
 
         # set in train()
         self.train_data_loader = None
