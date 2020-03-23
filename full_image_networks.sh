@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [[ $# -ne 2 ]]; then
+if [[ $# -ne 3 ]]; then
     echo "Expected dataset argument"
     echo "Usage: $0 <dataset> <log_file> <seed> (random for random seed, give seed otherwise)"
     exit 1
