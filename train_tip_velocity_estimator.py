@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from lib.dataset import ImageTipVelocitiesDataset
 from lib.networks import *
 from lib.tip_velocity_estimator import TipVelocityEstimator
-from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss
+from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -16,10 +16,12 @@ if __name__ == "__main__":
     parser.add_argument("--size", type=int)
     parser.add_argument("--version")
     parser.add_argument("--loss")
+    parser.add_argument("--seed")
     parse_result = parser.parse_args()
 
     loss_params = get_loss(parse_result.loss)
-
+    seed = get_seed(parse_result.seed)
+    print("Seed:", seed)
     size = (128, 96)
     version = FullImageNetworkCoord if parse_result.version == "coord" else FullImageNetwork
     if parse_result.size == 64:
@@ -31,11 +33,11 @@ if __name__ == "__main__":
 
     print("Size: ", size)
     print("Version: ", parse_result.version)
-    dataset = parse_result.dataset or "text_camera_rand"
+    dataset = parse_result.dataset
     print("Dataset: ", dataset)
 
     config = dict(
-        seed=2019,
+        seed=seed,
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image

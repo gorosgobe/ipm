@@ -2,13 +2,14 @@
 
 if [[ $# -ne 2 ]]; then
     echo "Expected dataset argument"
-    echo "Usage: $0 <dataset> <log_file>"
+    echo "Usage: $0 <dataset> <log_file> <seed> (random for random seed, give seed otherwise)"
     exit 1
 fi
 
 dataset="$1"
 dataset_str=$(echo "$dataset" | sed -e "s/\///g")
 log_file="$2"
+seed="$3"
 source /vol/bitbucket/pg1816/venv/bin/activate
 
 training_list="0.8
@@ -31,7 +32,7 @@ for training in $training_list; do
   echo "Starting training full image network with coord for training data ${training}"
   training_str=$(echo "$training" | sed -e "s/\.//g")
   time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_coord_${training_str}" --dataset "$dataset" \
-          --training "$training" >> "$log_file"
+          --training "$training" --seed "$seed" >> "$log_file"
   echo "Completed training"
 done
 
@@ -39,7 +40,7 @@ for training in $training_list; do
   echo "Starting training full image network for training data ${training}."
   training_str=$(echo "$training" | sed -e "s/\.//g")
   time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_${training_str}" --dataset "$dataset" \
-          --training "$training" >> "$log_file"
+          --training "$training" --seed "$seed" >> "$log_file"
   echo "Completed training."
 done
 
@@ -49,7 +50,7 @@ for v in $versions; do
       echo "Starting training full image network on size ${s}:${v} data for training data ${training}"
       training_str=$(echo "$training" | sed -e "s/\.//g")
       time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_${v}_${s}_${training_str}" --dataset "$dataset" \
-              --training "$training" --size "$s" --version "$v" >> "$log_file"
+              --training "$training" --size "$s" --version "$v" --seed "$seed" >> "$log_file"
       echo "Completed training."
     done
   done

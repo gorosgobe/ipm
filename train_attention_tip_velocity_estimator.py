@@ -7,7 +7,7 @@ from lib.controller import TrainingPixelROI, CropDeviationSampler
 from lib.dataset import ImageTipVelocitiesDataset
 from lib.networks import *
 from lib.tip_velocity_estimator import TipVelocityEstimator
-from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss
+from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
 
 if __name__ == "__main__":
 
@@ -19,9 +19,12 @@ if __name__ == "__main__":
     parser.add_argument("--size", type=int)
     parser.add_argument("--random_std", type=int)
     parser.add_argument("--loss")
+    parser.add_argument("--seed")
     parse_result = parser.parse_args()
 
     loss_params = get_loss(parse_result.loss)
+    seed = get_seed(parse_result.seed)
+    print("Seed:", seed)
 
     version = parse_result.version or "V1"
 
@@ -58,7 +61,7 @@ if __name__ == "__main__":
         crop_deviation_sampler = CropDeviationSampler(std=std)
 
     config = dict(
-        seed=2019,
+        seed=seed,
         # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
         # otherwise we would be feeding a higher resolution cropped image
         # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image

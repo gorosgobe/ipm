@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from lib.dataset import BaselineTipVelocitiesDataset
 from lib.networks import *
 from lib.tip_velocity_estimator import TipVelocityEstimator
-from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations
+from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -14,9 +14,12 @@ if __name__ == "__main__":
     parser.add_argument("--training", type=float)
     parser.add_argument("--dataset")
     parser.add_argument("--version")
+    parser.add_argument("--seed")
     parse_result = parser.parse_args()
 
-    dataset = parse_result.dataset or "text_camera_rand"
+    seed = get_seed(parse_result.seed)
+    print("Seed:", seed)
+    dataset = parse_result.dataset
     print("Dataset: ", dataset)
     version = parse_result.version or "default"
     if version != "default" and version != "sim_params_coord":
@@ -24,7 +27,7 @@ if __name__ == "__main__":
     print("Version: ", version)
 
     config = dict(
-        seed=2019,
+        seed=seed,
         size=(128, 96),  # ignored anyway
         velocities_csv=f"{dataset}/velocities.csv",
         rotations_csv=f"{dataset}/rotations.csv",

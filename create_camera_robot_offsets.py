@@ -19,5 +19,5 @@ if __name__ == '__main__':
 
         file_contents = json.dumps(content)
 
-        with open("scene5_test.json", "w+") as f:
+        with open("test_demonstrations/scene5_test.json", "w+") as f:
             f.write(file_contents)

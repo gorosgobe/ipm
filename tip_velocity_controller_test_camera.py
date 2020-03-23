@@ -5,7 +5,7 @@ import numpy as np
 from lib.camera_robot import CameraRobot
 from lib.controller import TipVelocityController
 from lib.tip_velocity_estimator import TipVelocityEstimator
-from lib.utils import get_testing_configs, get_scene_and_test_scene_configuration
+from lib.utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
 
 
 def get_full_image_networks(scene_trained, training_list):
@@ -21,22 +21,22 @@ def get_full_image_networks(scene_trained, training_list):
     for tr in training_list:
         models_res.append(f"FullImageNetwork_{scene_trained}_coord_{tr}")
 
-    return models_res, "fullimage"
+    return models_res, TestConfig.FULL_IMAGE
 
 
 def get_baseline_networks(scene_trained, training_list):
     models_res = []
     for tr in training_list:
         models_res.append(f"BaselineNetwork_{scene_trained}_{tr}")
-    return models_res, "baseline"
+    return models_res, TestConfig.BASELINE
 
 
 def get_attention_networks(size, scene_trained, training_list):
     models_res = []
     if size == 64:
-        config = "attention_64"
+        config = TestConfig.ATTENTION_64
     elif size == 32:
-        config = "attention_32"
+        config = TestConfig.ATTENTION_32
     else:
         raise ValueError("Unknown size")
 
@@ -53,9 +53,9 @@ def get_attention_networks(size, scene_trained, training_list):
 def get_coord_attention_networks(size, scene_trained, training_list):
     models_res = []
     if size == 64:
-        config = "attention_coord_64"
+        config = TestConfig.ATTENTION_COORD_64
     elif size == 32:
-        config = "attention_coord_32"
+        config = TestConfig.ATTENTION_COORD_32
     else:
         raise ValueError("Unknown size")
 
@@ -94,8 +94,14 @@ if __name__ == "__main__":
     #         # for ty in types:
     #         #     for size in sizes:
     #         models.append(f"FullImageNetwork_{scene}_{t}")
-    models = ["FullImageNetwork_scene1scene1_compV1_08"]
-    testing_config_name = "fullimage"
+    models = [
+        "AttentionNetworkcoord_scene1scene1_compV1_32_04",
+        "AttentionNetworkcoord_scene1scene1_compV1_32_02",
+        "AttentionNetworkcoord_scene1scene1_compV1_32_015",
+        "AttentionNetworkcoord_scene1scene1_compV1_32_010",
+        "AttentionNetworkcoord_scene1scene1_compV1_32_005"
+    ]
+    testing_config_name = TestConfig.ATTENTION_COORD_32
 
     prefix = "composite_loss_test/"
 
