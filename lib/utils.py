@@ -6,6 +6,9 @@ import cv2
 import torch
 import torchvision
 
+from lib.controller import IdentityCropper, ControllerType, TruePixelROI, CropDeviationSampler
+from lib.scenes import CameraScene2, CameraScene3, CameraScene4, CameraScene5, CameraScene1
+
 
 class ResizeTransform(object):
     def __init__(self, size):
@@ -155,3 +158,65 @@ def get_loss(loss_params):
             raise ValueError("Loss is passed as an argument, but it's not composite.")
 
     return loss_params
+
+
+def get_scene_and_test_scene_configuration(model_name):
+    if "scene2" in model_name:
+        s = CameraScene2
+        test = "scene2_test.json"
+    elif "scene3" in model_name:
+        s = CameraScene3
+        test = "scene3_test.json"
+    elif "scene4" in model_name:
+        s = CameraScene4
+        test = "scene4_test.json"
+    elif "scene5" in model_name:
+        s = CameraScene5
+        test = "scene5_test.json"
+    elif "rand" in model_name.lower() or "scene1" in model_name:
+        s = CameraScene1
+        test = "test_offsets_random.json"
+
+    return s, test
+
+
+def get_testing_configs(camera_robot, target_cube):
+    return {
+        "baseline":
+            {
+                "cropper": IdentityCropper(),
+                "c_type": ControllerType.RELATIVE_POSITION_AND_ORIENTATION
+            },
+        "fullimage":
+            {
+                "cropper": IdentityCropper(),
+                "c_type": ControllerType.DEFAULT
+            },
+        "attention_64":
+            {
+                "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube),
+                "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+            },
+        "attention_32":
+            {
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube),
+                "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+            },
+        "attention_coord_64":
+            {
+                "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube,
+                                        add_spatial_maps=True),
+                "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+            },
+        "attention_coord_32":
+            {
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                                        add_spatial_maps=True),
+                "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+            },
+        "coord_32_std_100": {
+            "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                                    add_spatial_maps=True, crop_deviation_sampler=CropDeviationSampler(100)),
+            "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+        }
+    }

@@ -1,13 +1,11 @@
-import math
+import json
 
 import numpy as np
 
-from lib import utils
 from lib.camera_robot import CameraRobot
-from lib.controller import TipVelocityController, IdentityCropper, TruePixelROI, ControllerType, CropDeviationSampler
-from lib.scenes import CameraScene1, CameraScene2, CameraScene3, CameraScene4, CameraScene5
-import json
+from lib.controller import TipVelocityController
 from lib.tip_velocity_estimator import TipVelocityEstimator
+from lib.utils import get_testing_configs, get_scene_and_test_scene_configuration
 
 
 def get_full_image_networks(scene_trained, training_list):
@@ -96,73 +94,19 @@ if __name__ == "__main__":
     #         # for ty in types:
     #         #     for size in sizes:
     #         models.append(f"FullImageNetwork_{scene}_{t}")
-    models = ["test_random_att_coord32_100_08"]
-    testing_config_name = "coord_32_std_100"
+    models = ["FullImageNetwork_scene1scene1_compV1_08"]
+    testing_config_name = "fullimage"
 
-    prefix = "random_deviations/"
+    prefix = "composite_loss_test/"
 
     for model_name in models:
-        if "scene2" in model_name:
-            s = CameraScene2
-            test = "scene2_test.json"
-        elif "scene3" in model_name:
-            s = CameraScene3
-            test = "scene3_test.json"
-        elif "scene4" in model_name:
-            s = CameraScene4
-            test = "scene4_test.json"
-        elif "scene5" in model_name:
-            s = CameraScene5
-            test = "scene5_test.json"
-        elif "rand" in model_name.lower() or "scene1" in model_name:
-            s = CameraScene1
-            test = "test_offsets_random.json"
-
+        s, test = get_scene_and_test_scene_configuration(model_name=model_name)
         with s(headless=True) as (pr, scene):
             camera_robot = CameraRobot(pr)
             target_cube = scene.get_target()
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
-            testing_configs = {
-                "baseline":
-                    {
-                        "cropper": IdentityCropper(),
-                        "c_type": ControllerType.RELATIVE_POSITION_AND_ORIENTATION
-                    },
-                "fullimage":
-                    {
-                        "cropper": IdentityCropper(),
-                        "c_type": ControllerType.DEFAULT
-                    },
-                "attention_64":
-                    {
-                        "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube),
-                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
-                    },
-                "attention_32":
-                    {
-                        "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube),
-                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
-                    },
-                "attention_coord_64":
-                    {
-                        "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube,
-                                                add_spatial_maps=True),
-                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
-                    },
-                "attention_coord_32":
-                    {
-                        "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
-                                                add_spatial_maps=True),
-                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
-                    },
-                "coord_32_std_100": {
-                        "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
-                                                add_spatial_maps=True, crop_deviation_sampler=CropDeviationSampler(100)),
-                        "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
-                    }
-            }
-
+            testing_configs = get_testing_configs(camera_robot=camera_robot, target_cube=target_cube)
             testing_config = testing_configs[testing_config_name]
 
             cropper = testing_config["cropper"]
