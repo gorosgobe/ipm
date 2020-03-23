@@ -5,7 +5,7 @@ import numpy as np
 from lib.camera_robot import CameraRobot
 from lib.controller import TipVelocityController
 from lib.tip_velocity_estimator import TipVelocityEstimator
-from lib.utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
+from lib.test_utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
 
 
 def get_full_image_networks(scene_trained, training_list):
