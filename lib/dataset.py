@@ -152,3 +152,5 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
             sample["image"] = self.transform(sample["image"])
 
         return sample
+
+
