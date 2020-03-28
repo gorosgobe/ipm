@@ -3,8 +3,7 @@ import unittest
 import numpy as np
 
 from lib.dataset import ImageTipVelocitiesDataset
-from lib.meta_dataset import MetaTipVelocityDataset, DatasetType
-from lib.utils import get_demonstrations
+from lib.meta.meta_dataset import MetaTipVelocityDataset, DatasetType
 
 
 class MetaDatasetTest(unittest.TestCase):

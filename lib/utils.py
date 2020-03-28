@@ -157,6 +157,7 @@ def get_loss(loss_params):
 
     return loss_params
 
+
 def get_seed(parsed_seed):
     if parsed_seed == "random":
         return random.getrandbits(32)

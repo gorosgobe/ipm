@@ -49,8 +49,8 @@ class MetaTipVelocityTask(Task):
     def __init__(
             self,
             index,
-            demonstration_start_index,  # local to dataset
-            demonstration_end_index,  # local to dataset
+            demonstration_start_index,
+            demonstration_end_index,
             dataset
     ):
         super(MetaTipVelocityTask, self).__init__(index, num_classes=None)  # Regression task
@@ -58,15 +58,10 @@ class MetaTipVelocityTask(Task):
         self.demonstration_end_index = demonstration_end_index
         self.dataset = dataset
 
-    def get_start(self):
-        return self.demonstration_start_index
-
-    def get_end(self):
-        return self.demonstration_end_index
-
     def __len__(self):
         return self.demonstration_end_index - self.demonstration_start_index + 1
 
     def __getitem__(self, index):
         assert self.demonstration_start_index + index <= self.demonstration_end_index
-        return self.dataset[self.demonstration_start_index + index]
+        image_and_target_dict = self.dataset[self.demonstration_start_index + index]
+        return image_and_target_dict["image"], image_and_target_dict["tip_velocities"]

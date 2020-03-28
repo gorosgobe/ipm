@@ -2,12 +2,9 @@ import os
 import shutil
 
 import numpy as np
-from pyrep.errors import ConfigurationPathError
-from pyrep.objects.shape import Shape
 
 from lib.camera_robot import CameraRobot
 from lib.scenes import CameraScene1
-from lib.utils import save_images_and_tip_velocities
 
 if __name__ == "__main__":
 
@@ -46,25 +43,22 @@ if __name__ == "__main__":
             print("{}/{} samples generated".format(total_count, min_samples))
             offset = robot.generate_offset() if total_count > 0 else np.zeros(robot.generate_offset().shape[0])
             print("Offset {}".format(offset))
-            try:
-                result = robot.generate_image_simulation(
-                    scene=scene, offset=offset, target_position=target_above_cube, target_object=target_cube, randomise_distractors=True
-                )
-                # save_images_and_tip_velocities(
-                #     demonstration_num=demonstration_num,
-                #     tip_velocity_file=tip_velocity_file,
-                #     metadata_file=metadata_file,
-                #     rotations_file=rotations_file,
-                #     augment_to_steps=-1,
-                #     **result
-                # )
-                demonstration_num += 1
-                total_count += len(result["tip_velocities"])
-                counts.append(len(result["tip_velocities"]))
-                stop_demonstration.append(result["count_stop_demonstration"])
-            except ConfigurationPathError:
-                print("Error, can not reach object from offset: {}, ignoring...".format(offset))
-                break
+            result = robot.generate_image_simulation(
+                scene=scene, offset=offset, target_position=target_above_cube, target_object=target_cube,
+                randomise_distractors=True
+            )
+            # save_images_and_tip_velocities(
+            #     demonstration_num=demonstration_num,
+            #     tip_velocity_file=tip_velocity_file,
+            #     metadata_file=metadata_file,
+            #     rotations_file=rotations_file,
+            #     augment_to_steps=-1,
+            #     **result
+            # )
+            demonstration_num += 1
+            total_count += len(result["tip_velocities"])
+            counts.append(len(result["tip_velocities"]))
+            stop_demonstration.append(result["count_stop_demonstration"])
 
         print("Counts mean:", np.array(counts).mean())
         print("Stop demonstration mean:", np.array(stop_demonstration).mean())
