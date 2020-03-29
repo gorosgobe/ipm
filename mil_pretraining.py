@@ -11,20 +11,33 @@ from utils import set_up_cuda, get_seed, get_preprocessing_transforms
 
 
 if __name__ == '__main__':
-    location = "models/pretraining_test"
-    seed = "random"  # TODO: change accordingly
-    device = set_up_cuda(seed=get_seed(parsed_seed=seed))
-    size = (32, 24)
-    preprocessing_transforms, transforms = get_preprocessing_transforms(size=size)
+
+    config = dict(
+        size=(32, 24),
+        seed="random",
+        location="models/pretraining_test",
+        meta_algorithm=MetaAlgorithm.FOMAML,
+        adaptation_steps=1,
+        step_size=0.1,
+        optimizer=torch.optim.Adam,
+        learning_rate=0.01,
+        loss_function=torch.nn.MSELoss(),
+        max_batches=10,
+        split=[0.8, 0.1, 0.1]
+    )
+
+    device = set_up_cuda(seed=get_seed(parsed_seed=config["seed"]))
+    preprocessing_transforms, transforms = get_preprocessing_transforms(size=config["size"])
+
     model = MetaAttentionNetworkCoord()
     mil = MetaImitationLearning(
         model=model,
-        meta_algorithm=MetaAlgorithm.FOMAML,
-        num_adaptation_steps=1,
-        step_size=0.1,
-        optimizer=torch.optim.Adam(model.parameters(), lr=0.01),
-        loss_function=torch.nn.MSELoss(),
-        max_batches=10,
+        meta_algorithm=config["meta_algorithms"],
+        num_adaptation_steps=config["num_adaptation_steps"],
+        step_size=config["step_size"],
+        optimizer=config["optimizer"](model.parameters(), lr=config["learning_rate"]),
+        loss_function=config["loss_function"],
+        max_batches=config["max_batches"],
         device=device
     )
 
@@ -37,17 +50,15 @@ if __name__ == '__main__':
         transform=preprocessing_transforms
     )
 
-    split = [0.8, 0.1, 0.1]
-
     meta_train_dataset = MILTipVelocityDataset(
         demonstration_dataset=dataset,
-        split=split,
+        split=config["split"],
         dataset_type=DatasetType.TRAIN
     )
 
     meta_val_dataset = MILTipVelocityDataset(
         demonstration_dataset=dataset,
-        split=split,
+        split=config["split"],
         dataset_type=DatasetType.VAL
     )
 

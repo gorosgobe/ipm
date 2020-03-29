@@ -8,6 +8,7 @@ from ignite.metrics import Loss
 
 from lib.networks import *
 from lib.utils import ResizeTransform
+from saveable import BestSaveable
 
 
 class AlignmentLoss(object):
@@ -52,9 +53,10 @@ class TipVelocityEstimatorLoss(object):
         return mse_loss
 
 
-class TipVelocityEstimator(object):
+class TipVelocityEstimator(BestSaveable):
     def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None,
                  patience=10, composite_loss_params=None):
+        super().__init__()
         self.name = name
         self.device = device
         self.batch_size = batch_size
@@ -226,15 +228,8 @@ class TipVelocityEstimator(object):
             "network_klass": type(self.network)
         }
 
-    def save(self, path, info=None):
-        if info is None:
-            torch.save(self.get_info(), path)
-        else:
-            torch.save(info, path)
-
-    def save_best_model(self, path):
-        name = self.best_info["name"]
-        self.save(os.path.join(path, f"{name}.pt"), self.best_info)
+    def get_best_info(self):
+        return self.best_info
 
     def load_parameters(self, state_dict):
         self.network.load_state_dict(state_dict)
