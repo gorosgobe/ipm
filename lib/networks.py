@@ -214,7 +214,6 @@ class BaselineSimilarParamsAttentionCoord64(torch.nn.Module):
         return out_fc4
 
 
-
 class FullImageNetwork(torch.nn.Module):
     """
     Removes max pool layers, applying only stride, network for full image, predicting
