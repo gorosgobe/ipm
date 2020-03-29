@@ -75,6 +75,24 @@ class MetaDatasetTest(unittest.TestCase):
         self.check_belong_to_global_indexes(130, val_train_demonstration)
         self.check_belong_to_global_indexes(134, val_test_demonstration)
 
+    def test_shuffle_picks_subset(self):
+        training_meta_dataset = MILTipVelocityDataset(
+            demonstration_dataset=self.dataset,
+            split=[0.8, 0.1, 0.1],
+            dataset_type=DatasetType.TRAIN,
+            shuffle_within_demonstration=True,
+            random_provider=MockRandomChoice(0, 1)
+        )
+
+        demonstration = training_meta_dataset[-1]
+        train_demonstration = demonstration["train"]
+        self.assertEqual(len(train_demonstration), self.dataset.get_minimum_demonstration_length())
+        test_demonstration = demonstration["test"]
+        self.assertEqual(len(test_demonstration), self.dataset.get_minimum_demonstration_length())
+
+        self.check_belong_to_global_indexes(0, train_demonstration)
+        self.check_belong_to_global_indexes(1, test_demonstration)
+
 
 if __name__ == '__main__':
     unittest.main()

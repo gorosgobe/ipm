@@ -27,6 +27,7 @@ class TipVelocitiesDataset(torch.utils.data.Dataset):
         with open(metadata, "r") as m:
             metadata_content = m.read()
         self.demonstration_metadata = json.loads(metadata_content)
+        self.minimum_demonstration_length = self.compute_minimum_demonstration_length()
 
     def get_indices_for_demonstration(self, d_idx):
         demonstration_data = self.demonstration_metadata["demonstrations"][str(d_idx)]
@@ -45,6 +46,13 @@ class TipVelocitiesDataset(torch.utils.data.Dataset):
         num_demonstration = self.tip_velocities_frame.iloc[idx, 0].split("image")[0]
         d_data = self.demonstration_metadata["demonstrations"][num_demonstration]
         return d_data
+
+    def compute_minimum_demonstration_length(self):
+        return min(self.demonstration_metadata["demonstrations"][d_str_idx]["num_tip_velocities"]
+                   for d_str_idx in self.demonstration_metadata["demonstrations"])
+
+    def get_minimum_demonstration_length(self):
+        return self.minimum_demonstration_length
 
     def __len__(self):
         return len(self.tip_velocities_frame)

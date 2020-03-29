@@ -1,18 +1,22 @@
+from collections import OrderedDict
+
 import torch
-from torchmeta.utils.data import BatchMetaDataLoader
+from torchmeta.utils.data import BatchMetaDataLoader, MetaDataLoader, SubsetTask
 
 from dataset import ImageTipVelocitiesDataset
-from meta_dataset import MetaTipVelocityDataset, DatasetType
-from meta_networks import MetaNetwork
+from meta_dataset import MILTipVelocityDataset, DatasetType
+from meta_networks import MetaNetwork, MetaAttentionNetworkCoord
 from mil import MetaImitationLearning, MetaAlgorithm
 from utils import set_up_cuda, get_seed, get_preprocessing_transforms
 
+
 if __name__ == '__main__':
-    seed = 2019  # TODO: change accordingly
+    location = "models/pretraining_test"
+    seed = "random"  # TODO: change accordingly
     device = set_up_cuda(seed=get_seed(parsed_seed=seed))
     size = (32, 24)
     preprocessing_transforms, transforms = get_preprocessing_transforms(size=size)
-    model = MetaNetwork()
+    model = MetaAttentionNetworkCoord()
     mil = MetaImitationLearning(
         model=model,
         meta_algorithm=MetaAlgorithm.FOMAML,
@@ -35,23 +39,20 @@ if __name__ == '__main__':
 
     split = [0.8, 0.1, 0.1]
 
-    meta_train_dataset = MetaTipVelocityDataset(
+    meta_train_dataset = MILTipVelocityDataset(
         demonstration_dataset=dataset,
         split=split,
-        dataset_type=DatasetType.TRAIN,
-        num_training_per_demonstration=1,
-        num_test_per_demonstration=1
+        dataset_type=DatasetType.TRAIN
     )
 
-    meta_val_dataset = MetaTipVelocityDataset(
+    meta_val_dataset = MILTipVelocityDataset(
         demonstration_dataset=dataset,
         split=split,
-        dataset_type=DatasetType.VAL,
-        num_training_per_demonstration=1,
-        num_test_per_demonstration=1
+        dataset_type=DatasetType.VAL
     )
 
-    train_batch_dataloader = BatchMetaDataLoader(meta_train_dataset, batch_size=5, num_workers=8)
+    train_batch_dataloader = BatchMetaDataLoader(meta_train_dataset, batch_size=5,
+                                            num_workers=8)
     val_batch_dataloader = BatchMetaDataLoader(meta_val_dataset, batch_size=6, num_workers=8)
 
     mil.train(
