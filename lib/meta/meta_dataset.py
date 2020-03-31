@@ -50,7 +50,7 @@ class MILTipVelocityDataset(MetaDataset):
 
     def __getitem__(self, index):
         # choose two random demonstration indices
-        first, second = self.random_provider(self.num_demonstrations_in_split, 2)
+        first, second = self.random_provider(self.num_demonstrations_in_split, 2, replace=False)
         assert 0 <= first < self.num_demonstrations_in_split and 0 <= second < self.num_demonstrations_in_split
         # compute global demonstration index
         first_demonstration_index = self.get_global_demonstration_index(first)

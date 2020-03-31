@@ -9,9 +9,7 @@ from meta_networks import MetaNetwork, MetaAttentionNetworkCoord
 from mil import MetaImitationLearning, MetaAlgorithm
 from utils import set_up_cuda, get_seed, get_preprocessing_transforms
 
-
 if __name__ == '__main__':
-
     config = dict(
         size=(32, 24),
         seed="random",
@@ -19,7 +17,7 @@ if __name__ == '__main__':
         meta_algorithm=MetaAlgorithm.FOMAML,
         adaptation_steps=1,
         step_size=0.1,
-        optimizer=torch.optim.Adam,
+        optimiser=torch.optim.Adam,
         learning_rate=0.01,
         loss_function=torch.nn.MSELoss(),
         max_batches=10,
@@ -35,7 +33,7 @@ if __name__ == '__main__':
         meta_algorithm=config["meta_algorithms"],
         num_adaptation_steps=config["num_adaptation_steps"],
         step_size=config["step_size"],
-        optimizer=config["optimizer"](model.parameters(), lr=config["learning_rate"]),
+        optimiser=config["optimiser"](model.parameters(), lr=config["learning_rate"]),
         loss_function=config["loss_function"],
         max_batches=config["max_batches"],
         device=device
@@ -63,7 +61,7 @@ if __name__ == '__main__':
     )
 
     train_batch_dataloader = BatchMetaDataLoader(meta_train_dataset, batch_size=5,
-                                            num_workers=8)
+                                                 num_workers=8)
     val_batch_dataloader = BatchMetaDataLoader(meta_val_dataset, batch_size=6, num_workers=8)
 
     mil.train(

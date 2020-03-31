@@ -1,4 +1,10 @@
 import enum
+import json
+import math
+
+import numpy as np
+from scipy import stats
+from matplotlib import pyplot as plt
 
 from lib.controller import IdentityCropper, ControllerType, TruePixelROI, CropDeviationSampler
 from lib.scenes import CameraScene5, CameraScene1, CameraScene4, CameraScene3, CameraScene2
@@ -77,3 +83,86 @@ def get_testing_configs(camera_robot, target_cube):
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
     }
+
+
+def get_latex(means, stds, display_all_values=True, display_std_means=False):
+    # if display_all_values is False, then we display mean +- std
+    def round_to_two_decimals_list(li):
+        return list(map(lambda x: round(x * 100, 2), li))
+
+    def _round(x):
+        return round(x * 100, 2)
+
+    # means is dictionary
+    res_latex = ""
+    count = 0
+    for name in means:
+        list_mean = means[name]
+        list_std = stds[name]
+        count += 1
+        if display_all_values:
+            res_latex += f"{round_to_two_decimals_list(list_mean)}/{round_to_two_decimals_list(list_std)} & "
+        else:
+            res_latex += f"{_round(np.mean(np.array(list_mean)))}$\pm${_round(np.std(np.array(list_mean)))}"
+            if display_std_means:
+                res_latex += f"{_round(np.mean(np.array(list_std)))}$\pm${_round(np.std(np.array(list_std)))}"
+            res_latex += " & "
+        if count % 6 == 0:
+            res_latex += "\n"
+            count = 0
+
+    return res_latex
+
+
+def load_test(test_name):
+    with open(test_name, "r") as f:
+        content = json.loads(f.read())
+        minimum_distances = content["min_distances"]
+        fixed_step_distances = content["fixed_steps_distances"]
+
+    return minimum_distances, fixed_step_distances
+
+
+def compute_95_interval(values):
+    avg = np.mean(np.array(values))
+    n = len(values)
+    variance_estimate = (1 / (n - 1)) * sum(list(map(lambda v: (v - avg) ** 2, values)))
+    alpha = 0.05
+    t = stats.t.ppf(1 - (alpha / 2), n - 1)
+    h = (t * math.sqrt(variance_estimate)) / math.sqrt(n)
+    return avg, h
+
+
+def get_achieved_and_target(distances, minimum_distances, special_distance):
+    test_achieved = []
+    special_distance_count = 0
+    for target_distance in distances:
+        achieved = 0
+        special_distance_count = 0
+        for i_str in minimum_distances:
+            dist = minimum_distances[i_str]
+            if dist <= target_distance:
+                achieved += 1
+            if dist <= special_distance:
+                special_distance_count += 1
+
+        print("Achieved: {} -> {}/{}".format(target_distance, achieved, len(minimum_distances)))
+        test_achieved.append((target_distance, achieved))
+
+    return test_achieved, special_distance_count
+
+
+def plot_achieved(achieved_plot):
+    for t in achieved_plot:
+        name, achieved_data = t
+        target_distances, num_achieved = zip(*achieved_data)
+        plt.plot(target_distances, num_achieved, label=name)
+    plt.legend()
+    plt.show()
+
+
+def add_value_to_test(collection, test_name, res):
+    if test_name not in collection:
+        collection[test_name] = [res]
+    else:
+        collection[test_name].append(res)

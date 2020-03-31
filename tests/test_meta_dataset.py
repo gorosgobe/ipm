@@ -6,7 +6,7 @@ from lib.dataset import ImageTipVelocitiesDataset
 from lib.meta.meta_dataset import MILTipVelocityDataset, DatasetType
 
 
-# Simulates a controllable np.random.choice(x, 2) execution
+# Simulates a controllable np.random.choice(x, 2, replace=False) execution
 class MockRandomChoice(object):
     def __init__(self, first_idx, second_idx):
         self.first_idx = first_idx
