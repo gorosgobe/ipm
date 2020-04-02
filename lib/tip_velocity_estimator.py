@@ -94,7 +94,7 @@ class TipVelocityEstimator(BestSaveable):
         self.training_evaluator = self._create_evaluator()
         self.validation_evaluator = self._create_evaluator(early_stopping=True, patience=self.patience)
 
-    def train(self, data_loader, max_epochs, val_loader, test_loader, validate_epochs=10):
+    def train(self, data_loader, max_epochs, val_loader, test_loader=None, validate_epochs=10):
         """
         validate_epochs: After how many epochs do we want to 
         validate our model against the validation dataset
@@ -170,10 +170,11 @@ class TipVelocityEstimator(BestSaveable):
                 if self.best_val_loss is None or (self.best_val_loss is not None and loss < self.best_val_loss):
                     self.best_val_loss = loss
                     # store test loss information too
-                    # like this, every saved model has information about its test loss
-                    test_loss = self.evaluate_test(self.test_loader)
-                    self.test_loss = test_loss
-                    print("Test loss: ", test_loss)
+                    if self.test_loader is not None:
+                        # like this, every saved model has information about its test loss
+                        test_loss = self.evaluate_test(self.test_loader)
+                        self.test_loss = test_loss
+                        print("Test loss: ", test_loss)
                     # Best model is saved at end of training to minimise number of models saved (not really
                     # checkpointing)
                     self.best_info = self.get_info()
@@ -291,3 +292,6 @@ class TipVelocityEstimator(BestSaveable):
         plt.ylabel("MSE loss")
         plt.legend()
         plt.show()
+
+    def get_best_val_loss(self):
+        return max(self.validation_losses)

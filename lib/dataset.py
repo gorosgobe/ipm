@@ -10,6 +10,22 @@ from torch.utils.data import Subset
 import time
 
 
+class FromListsDataset(torch.utils.data.Dataset):
+    def __init__(self, image_list, velocities_list, rotations_list):
+        self.image_list = image_list
+        self.velocities_list = velocities_list
+        self.rotations_list = rotations_list
+        if not (len(self.image_list) == len(self.velocities_list) == len(self.rotations_list)):
+            raise ValueError("The number of image, velocities and rotations must be the same")
+
+    def __len__(self):
+        return len(self.image_list)
+
+    def __getitem__(self, idx):
+        return {"image": self.image_list[idx], "tip_velocities": self.velocities_list[idx],
+                "rotations": self.rotations_list[idx]}
+
+
 class TipVelocitiesDataset(torch.utils.data.Dataset):
     def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None):
         # convert to absolute path
@@ -160,5 +176,3 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
             sample["image"] = self.transform(sample["image"])
 
         return sample
-
-
