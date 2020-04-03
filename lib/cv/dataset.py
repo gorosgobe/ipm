@@ -11,15 +11,20 @@ import time
 
 
 class FromListsDataset(torch.utils.data.Dataset):
-    def __init__(self, image_list, velocities_list, rotations_list):
+    def __init__(self, image_list, velocities_list, rotations_list, training_split=0.8):
         self.image_list = image_list
         self.velocities_list = velocities_list
         self.rotations_list = rotations_list
+        self.training_split = training_split  # training data, rest will be used for validation
         if not (len(self.image_list) == len(self.velocities_list) == len(self.rotations_list)):
             raise ValueError("The number of image, velocities and rotations must be the same")
 
     def __len__(self):
         return len(self.image_list)
+
+    def split(self):
+        image_idx_boundary = int(self.training_split * len(self.image_list))
+        return Subset(self, np.arange(0, image_idx_boundary)), Subset(self, np.arange(image_idx_boundary, len(self.image_list)))
 
     def __getitem__(self, idx):
         return {"image": self.image_list[idx], "tip_velocities": self.velocities_list[idx],

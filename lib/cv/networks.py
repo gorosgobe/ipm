@@ -234,7 +234,6 @@ class FullImageNetwork(torch.nn.Module):
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
 
     def forward(self, x):
-        print(type(x))
         batch_size = x.size()[0]
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(x)))
         out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))

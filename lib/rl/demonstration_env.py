@@ -2,6 +2,7 @@ from abc import ABC
 
 import gym
 import numpy as np
+import torchvision
 from stable_baselines.common.vec_env import DummyVecEnv
 from torch.utils.data import DataLoader
 
@@ -28,9 +29,7 @@ class SpaceProviderEnv(gym.Env, ABC):
         image_lower_bound_1d = np.full((image_size_1d,), -1.0)
         image_upper_bound_1d = np.full((image_size_1d,), 1.0)
         low = np.concatenate((np.array([-width, -height]), image_lower_bound_1d))
-        print(low.shape)
         high = np.concatenate((np.array([width, height]), image_upper_bound_1d))
-        print(high.shape)
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
 
     def render(self, mode='human'):
@@ -69,26 +68,27 @@ class SlaveEnv(SpaceProviderEnv):
 
 
 class LeaderEnv(SlaveEnv):
-    def __init__(self, n_envs, demonstration_dataset, config):
+    def __init__(self, number_envs, demonstration_dataset, config):
         self.config = config
         super().__init__(self, 0)
-        self.all = [self, *[SlaveEnv(self, i) for i in range(1, n_envs)]]
-        self.n_envs = n_envs  # including leader
+        self.number_envs = number_envs  # including leader
+        self.all = [self, *[SlaveEnv(self, i) for i in range(1, self.number_envs)]]
         # training split must be the same as the one applied to the demonstration dataset
         self.training_split = self.config["split"][0]
         self.demonstration_idxs = {}
-        self.slave_done = {i: True for i in range(n_envs)}
+        self.slave_done = {i: True for i in range(self.number_envs)}
         self.demonstration_dataset = demonstration_dataset
         self.actions = None
         self.cropped_width, self.cropped_height = self.config["cropped_size"]
         self.width, self.height = self.config["size"]
         self.pixel_cropper = TrainingPixelROI(self.cropped_height, self.cropped_width)
+        self.to_tensor = torchvision.transforms.ToTensor()
         # Cache of states of all slaves
         self.states = {}
         # Reward for this round
         self.reward = None
         # Cache of info for slaves
-        self.infos = {}
+        self.infos = {i: {} for i in range(self.number_envs)}
         self.reward_list = []
 
     def request_step(self, id):
@@ -98,7 +98,7 @@ class LeaderEnv(SlaveEnv):
             # Are slaves done with their respective demonstrations?
             self.slave_done = {id: slave.are_you_done() for id, slave in enumerate(self.all)}
             # new observations, applying action on current observation for slaves that aren't done
-            self.states = {id: self.apply_action(id) for id in range(self.n_envs) if not self.slave_done[id]}
+            self.states = {id: self.apply_action(id) if not self.slave_done[id] else self.states[id] for id in range(self.number_envs)}
             # calculate reward of applying actions on old states
             # i.e. how good is our model at predicting targets from cropped images
             self.reward = self.get_reward()
@@ -147,35 +147,47 @@ class LeaderEnv(SlaveEnv):
 
     def get_reward(self):
         # all images are in self.states, train with those
-        cropped_images = [self.pixel_cropper.crop(self.states[id].get_np_image(), self.states[id].get_center_crop())[0]
-                          for id in range(self.n_envs)]
-        tip_velocities = [self.states[id].get_tip_velocity() for id in range(self.n_envs)]
-        rotations = [self.states[id].get_rotations() for id in range(self.n_envs)]
-        dataset = FromListsDataset(cropped_images, tip_velocities, rotations)
-        batch_size = len(dataset)  # train with everything as the batch, its small anyways
+        # TODO: image here is wrong, fix
+        cropped_images_and_bounding_boxes = [
+            self.pixel_cropper.crop(self.states[id].get_np_image(), self.states[id].get_center_crop()) for id in
+            range(self.number_envs)
+        ]
+        cropped_images = map(lambda img_n_box: img_n_box[0], cropped_images_and_bounding_boxes)
+        cropped_images = list(map(lambda img: self.to_tensor(img), cropped_images))
+        tip_velocities = [self.states[id].get_tip_velocity() for id in range(self.number_envs)]
+        rotations = [self.states[id].get_rotations() for id in range(self.number_envs)]
+        training_dataset, validation_dataset = FromListsDataset(cropped_images, tip_velocities, rotations).split()
+        print("Training, validation sizes", len(training_dataset), len(validation_dataset))
+        # train with everything as the batch, its small anyways
         train_data_loader = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            num_workers=4,
+            training_dataset,
+            batch_size=len(training_dataset),
+            num_workers=0,
+            shuffle=True
+        )
+        validation_data_loader = DataLoader(
+            validation_dataset,
+            batch_size=len(validation_dataset),
+            num_workers=0,
             shuffle=True
         )
         estimator = TipVelocityEstimator(
-            batch_size=len(dataset),
+            batch_size=len(training_dataset),
             learning_rate=self.config["learning_rate"],
             image_size=self.config["cropped_size"],  # learning from cropped size
             network_klass=self.config["network_klass"],
             device=self.config["device"],
-            patience=self.config["patience"]
+            patience=self.config["patience"],
+            verbose=False
         )
         estimator.train(
             data_loader=train_data_loader,
             max_epochs=self.config["max_epochs"],
             validate_epochs=self.config["validate_epochs"],
-            val_loader=self.config["validation_data_loader"],
+            val_loader=validation_data_loader,
         )
         reward = -estimator.get_best_val_loss()
         self.reward_list.append(reward)
-        print("Here")
         return reward
 
 

@@ -14,7 +14,7 @@ from networks import FullImageNetwork_32
 if __name__ == '__main__':
     dataset = "scene1/scene1"
     config = dict(
-        n_envs=2,
+        n_envs=4,
         size=(128, 96),
         cropped_size=(32, 24),
         learning_rate=0.0001,
@@ -46,14 +46,7 @@ if __name__ == '__main__':
         root_dir=config["root_dir"],
         transform=preprocessing_transforms,
     )
-    limit_training_coefficient = 0.8  # all training data
-    print("Training coeff limit:", limit_training_coefficient)
 
-    training_demonstrations, val_demonstrations, test_demonstrations = get_demonstrations(dataset, config["split"],
-                                                                                          limit_training_coefficient)
-
-    validation_data_loader = DataLoader(val_demonstrations, batch_size=32, num_workers=8, shuffle=True)
-    config["validation_data_loader"] = validation_data_loader
     env = MultipleSynchronousDemonstrationsEnv(
         n_envs=config["n_envs"],
         demonstration_dataset=dataset,

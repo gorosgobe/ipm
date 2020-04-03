@@ -22,7 +22,7 @@ class AlignmentLoss(object):
 
 
 class TipVelocityEstimatorLoss(object):
-    def __init__(self, is_composite_loss=False, mse_lambda=0.1, l1_lambda=1.0, alignment_lambda=0.005):
+    def __init__(self, is_composite_loss=False, mse_lambda=0.1, l1_lambda=1.0, alignment_lambda=0.005, verbose=True):
         self.mse_loss = torch.nn.MSELoss()
 
         # everything required when using composite loss from:
@@ -35,12 +35,14 @@ class TipVelocityEstimatorLoss(object):
         # alignment component
         self.alignment_loss = AlignmentLoss()
         self.alignment_lambda = alignment_lambda
+        self.verbose = verbose
 
-        if self.is_composite_loss:
-            print(
-                f"Composite L2 ({self.mse_lambda}), L1 ({self.l1_lambda}) and alignment loss ({self.alignment_lambda})")
-        else:
-            print("Standard L2 Loss")
+        if self.verbose:
+            if self.is_composite_loss:
+                print(
+                    f"Composite L2 ({self.mse_lambda}), L1 ({self.l1_lambda}) and alignment loss ({self.alignment_lambda})")
+            else:
+                print("Standard L2 Loss")
 
     def __call__(self, input, target):
         mse_loss = self.mse_loss(input, target)
@@ -53,7 +55,7 @@ class TipVelocityEstimatorLoss(object):
 
 class TipVelocityEstimator(BestSaveable):
     def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None,
-                 patience=10, composite_loss_params=None):
+                 patience=10, composite_loss_params=None, verbose=True):
         super().__init__()
         self.name = name
         self.device = device
@@ -69,9 +71,9 @@ class TipVelocityEstimator(BestSaveable):
 
         # For a composite loss, pass in the parameters as a dictionary
         if self.composite_loss_params is None:
-            self.loss_func = TipVelocityEstimatorLoss()
+            self.loss_func = TipVelocityEstimatorLoss(verbose=verbose)
         else:
-            self.loss_func = TipVelocityEstimatorLoss(is_composite_loss=True, **self.composite_loss_params)
+            self.loss_func = TipVelocityEstimatorLoss(is_composite_loss=True, verbose=verbose, **self.composite_loss_params)
 
         # set in train()
         self.train_data_loader = None
@@ -91,6 +93,8 @@ class TipVelocityEstimator(BestSaveable):
         self.trainer = self._create_trainer()
         self.training_evaluator = self._create_evaluator()
         self.validation_evaluator = self._create_evaluator(early_stopping=True, patience=self.patience)
+
+        self.verbose = verbose
 
     def train(self, data_loader, max_epochs, val_loader, test_loader=None, validate_epochs=10):
         """
@@ -140,7 +144,8 @@ class TipVelocityEstimator(BestSaveable):
 
     def epoch_started(self):
         def static_epoch_started(trainer):
-            print("Epoch {}".format(trainer.state.epoch))
+            if self.verbose:
+                print("Epoch {}".format(trainer.state.epoch))
 
         return static_epoch_started
 
@@ -150,7 +155,8 @@ class TipVelocityEstimator(BestSaveable):
             metrics = self.training_evaluator.state.metrics
             loss = metrics["loss"]
             self.training_losses.append((trainer.state.epoch, loss))
-            print("Training loss {}".format(loss))
+            if self.verbose:
+                print("Training loss {}".format(loss))
 
         return static_epoch_completed
 
@@ -162,7 +168,8 @@ class TipVelocityEstimator(BestSaveable):
                 metrics = self.validation_evaluator.state.metrics
                 loss = metrics["loss"]
                 self.validation_losses.append((trainer.state.epoch, loss))
-                print("Validation loss: {}".format(loss))
+                if self.verbose:
+                    print("Validation loss: {}".format(loss))
                 # save according to best validation loss
 
                 if self.best_val_loss is None or (self.best_val_loss is not None and loss < self.best_val_loss):
@@ -172,7 +179,8 @@ class TipVelocityEstimator(BestSaveable):
                         # like this, every saved model has information about its test loss
                         test_loss = self.evaluate_test(self.test_loader)
                         self.test_loss = test_loss
-                        print("Test loss: ", test_loss)
+                        if self.verbose:
+                            print("Test loss: ", test_loss)
                     # Best model is saved at end of training to minimise number of models saved (not really
                     # checkpointing)
                     self.best_info = self.get_info()
@@ -292,4 +300,5 @@ class TipVelocityEstimator(BestSaveable):
         plt.show()
 
     def get_best_val_loss(self):
-        return min(self.validation_losses)
+        _, validation_losses = zip(*self.validation_losses)
+        return min(validation_losses)
