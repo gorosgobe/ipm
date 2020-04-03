@@ -4,12 +4,11 @@ import numpy as np
 import torch
 from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy
-from torch.utils.data import DataLoader
 
-from common.utils import set_up_cuda, get_preprocessing_transforms, get_seed, get_demonstrations
-from dataset import ImageTipVelocitiesDataset
-from demonstration_env import MultipleSynchronousDemonstrationsEnv
-from networks import FullImageNetwork_32
+from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
+from lib.cv.dataset import ImageTipVelocitiesDataset
+from lib.rl.demonstration_env import MultipleSynchronousDemonstrationsEnv
+from lib.cv.networks import FullImageNetwork_32
 
 if __name__ == '__main__':
     dataset = "scene1/scene1"

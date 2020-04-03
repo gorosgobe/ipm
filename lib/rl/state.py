@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 class State(object):
@@ -59,3 +60,16 @@ class State(object):
     def from_observation(observation):
         # returns a state from an observation
         pass
+
+    def __eq__(self, other):
+        return torch.allclose(self.data["image"], other.data["image"]) and \
+               np.allclose(self.data["tip_velocities"], other.data["tip_velocities"]) and \
+               np.allclose(self.data["rotations"], other.data["rotations"]) and \
+               self.x_center_previous == other.x_center_previous and \
+               self.y_center_previous == other.y_center_previous
+
+    def __str__(self):
+        return f"{self.x_center_previous}, {self.y_center_previous}, image: {self.data['image']}, vel: {self.data['tip_velocities']}, rot: {self.data['rotations']}"
+
+    def __repr__(self):
+        return str(self)

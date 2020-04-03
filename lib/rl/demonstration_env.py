@@ -49,8 +49,10 @@ class SlaveEnv(SpaceProviderEnv):
 
     def step(self, action):
         print("step")
-        self.demonstration_image_idx += 1
         return self.leader.request_step(self.id)
+
+    def next_from_leader(self):
+        self.demonstration_image_idx += 1
 
     def reset(self):
         print("reset")
@@ -68,7 +70,7 @@ class SlaveEnv(SpaceProviderEnv):
 
 
 class LeaderEnv(SlaveEnv):
-    def __init__(self, number_envs, demonstration_dataset, config):
+    def __init__(self, number_envs, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator):
         self.config = config
         super().__init__(self, 0)
         self.number_envs = number_envs  # including leader
@@ -90,6 +92,8 @@ class LeaderEnv(SlaveEnv):
         # Cache of info for slaves
         self.infos = {i: {} for i in range(self.number_envs)}
         self.reward_list = []
+        self.random_provider = random_provider  # for testing purposes
+        self.estimator = estimator  # for testing purposes
 
     def request_step(self, id):
         # should have already received all actions, i.e. set_actions has already been called
@@ -98,7 +102,8 @@ class LeaderEnv(SlaveEnv):
             # Are slaves done with their respective demonstrations?
             self.slave_done = {id: slave.are_you_done() for id, slave in enumerate(self.all)}
             # new observations, applying action on current observation for slaves that aren't done
-            self.states = {id: self.apply_action(id) if not self.slave_done[id] else self.states[id] for id in range(self.number_envs)}
+            self.states = {id: self.apply_action(id) if not self.slave_done[id] else self.states[id] for id in
+                           range(self.number_envs)}
             # calculate reward of applying actions on old states
             # i.e. how good is our model at predicting targets from cropped images
             self.reward = self.get_reward()
@@ -117,7 +122,7 @@ class LeaderEnv(SlaveEnv):
         assert self.slave_done[id]  # slave should be done
         # sample demonstration from training data
         # demonstration index is already global, as training data starts at index 0 in the dataset
-        demonstration_idx = np.random.choice(
+        demonstration_idx = self.random_provider(
             int(self.training_split * self.demonstration_dataset.get_num_demonstrations()))
         start, end = self.demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
         self.demonstration_idxs[id] = demonstration_idx
@@ -137,6 +142,8 @@ class LeaderEnv(SlaveEnv):
         return self.config["size"]
 
     def apply_action(self, id):
+        # move slaves to next
+        self.all[id].next_from_leader()
         state = self.states[id]
         action = self.actions[id]
         # State object: has next image, and previous crop (i.e. previous state + action)
@@ -171,7 +178,7 @@ class LeaderEnv(SlaveEnv):
             num_workers=0,
             shuffle=True
         )
-        estimator = TipVelocityEstimator(
+        estimator = self.estimator(
             batch_size=len(training_dataset),
             learning_rate=self.config["learning_rate"],
             image_size=self.config["cropped_size"],  # learning from cropped size
