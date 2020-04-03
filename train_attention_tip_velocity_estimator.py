@@ -21,8 +21,6 @@ if __name__ == "__main__":
     parser.add_argument("--loss")
     parser.add_argument("--seed")
     parse_result = parser.parse_args()
-    import os
-    print(os.environ["PYTHONPATH"])
 
     loss_params = get_loss(parse_result.loss)
     seed = get_seed(parse_result.seed)
