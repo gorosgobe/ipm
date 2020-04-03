@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from lib.dataset import ImageTipVelocitiesDataset
+from cv.dataset import ImageTipVelocitiesDataset
 from lib.meta.meta_dataset import MILTipVelocityDataset, DatasetType
 
 

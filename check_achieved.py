@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-from lib.test_utils import load_test, add_value_to_test, get_achieved_and_target, get_latex, plot_achieved
+from common.test_utils import load_test, add_value_to_test, get_achieved_and_target, get_latex, plot_achieved
 
 if __name__ == '__main__':
     achieved_plot = []

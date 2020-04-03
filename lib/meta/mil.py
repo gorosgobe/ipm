@@ -1,11 +1,9 @@
 import enum
 
 import numpy as np
-import torch
-import torchmeta
 from lib.meta.pytorch_maml.maml.metalearners import MAML
 from metalearners import FOMAML, MetaSGD
-from saveable import BestSaveable
+from common.saveable import BestSaveable
 
 
 class MetaAlgorithm(enum.Enum):

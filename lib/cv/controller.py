@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torchvision
 
-from lib import utils
+from common import utils
 
 
 class IdentityCropper(object):
@@ -121,21 +121,26 @@ class TruePixelROI(object):
             dy = -(center_y - half_size_height)
 
         # otherwise, crop lies fully inside the image, dx, dy = 0 apply
-
+        print("Center x", center_x)
+        print("Center y", center_y)
         center_x += dx
         center_y += dy
+        print("Center x displaced", center_x)
+        print("Center y displaced", center_y)
 
         y_min = center_y - half_size_height
         y_max = center_y + half_size_height + 1
         x_min = center_x - half_size_width
         x_max = center_x + half_size_width + 1
-
+        print("Bounds", y_min, y_max, x_min, x_max)
+        print("Half sizes", half_size_height, half_size_width)
         # center, top left, top right, bottom left, bottom right
         bounding_box_pixels = [
             (center_x, center_y), (x_min, y_min), (x_max - 1, y_min), (x_min, y_max - 1), (x_max - 1, y_max - 1)
         ]
 
         cropped_image = image[y_min:y_max, x_min:x_max]
+        print("Cropped image shape", cropped_image.shape)
         return cropped_image, bounding_box_pixels
 
 

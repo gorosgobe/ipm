@@ -1,14 +1,12 @@
-import os
-
 import matplotlib.pyplot as plt
 from ignite.engine import (Events, create_supervised_evaluator,
                            create_supervised_trainer)
 from ignite.handlers import EarlyStopping
 from ignite.metrics import Loss
 
-from lib.networks import *
-from lib.utils import ResizeTransform
-from saveable import BestSaveable
+from cv.networks import *
+from common.utils import ResizeTransform
+from common.saveable import BestSaveable
 
 
 class AlignmentLoss(object):
@@ -294,4 +292,4 @@ class TipVelocityEstimator(BestSaveable):
         plt.show()
 
     def get_best_val_loss(self):
-        return max(self.validation_losses)
+        return min(self.validation_losses)

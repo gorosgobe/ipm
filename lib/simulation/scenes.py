@@ -6,7 +6,7 @@ from pyrep.objects.shape import Shape
 
 class Scene(object):
     def __init__(self, scene_file, headless=True):
-        self.scene_file = join(dirname(abspath(__file__)), "../scenes/", scene_file)
+        self.scene_file = join(dirname(abspath(__file__)), "../../scenes/", scene_file)
         self.headless = headless
 
     def __enter__(self):

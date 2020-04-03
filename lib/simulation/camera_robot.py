@@ -1,10 +1,8 @@
 import numpy as np
-import torch
 from pyrep.backend import sim
 
-from lib import utils
-from lib.camera import MovableCamera
-from lib.sim_gt_estimators import SimGTVelocityEstimator, SimGTOrientationEstimator
+from simulation.camera import MovableCamera
+from simulation.sim_gt_estimators import SimGTVelocityEstimator, SimGTOrientationEstimator
 
 
 class CameraRobot(object):

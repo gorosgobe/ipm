@@ -11,6 +11,7 @@ class State(object):
         """
         image = data["image"]
         c, h, w = image.size()
+        print("State created", x_center_previous, y_center_previous)
         self.image = image.permute(1, 2, 0).numpy()  # convert to numpy
         self.data = data  # stored in State, but ignored for observation
         self.x_center_previous = x_center_previous
@@ -26,7 +27,9 @@ class State(object):
 
     def get(self):
         # returns an observation (this state) as an np array
-        return np.concatenate(np.array([self.x_center_previous, self.y_center_previous]), self.image.flatten())
+        center = np.array([self.x_center_previous, self.y_center_previous])
+        flattened = self.image.flatten()
+        return np.concatenate((center, flattened))
 
     def get_np_image(self):
         # returns numpy image
@@ -38,7 +41,14 @@ class State(object):
     def get_rotations(self):
         return self.data["rotations"]
 
+    def get_center_crop(self):
+        return self.x_center_previous, self.y_center_previous
+
     def apply_action(self, data, dx, dy):
+        print("DX", dx)
+        print("DY", dy)
+        print("x center previous", self.x_center_previous)
+        print("y center_previous", self.y_center_previous)
         return State(
             data=data,
             x_center_previous=self.x_center_previous + dx,

@@ -1,13 +1,11 @@
-from collections import OrderedDict
-
 import torch
-from torchmeta.utils.data import BatchMetaDataLoader, MetaDataLoader, SubsetTask
+from torchmeta.utils.data import BatchMetaDataLoader
 
-from dataset import ImageTipVelocitiesDataset
+from cv.dataset import ImageTipVelocitiesDataset
 from meta_dataset import MILTipVelocityDataset, DatasetType
-from meta_networks import MetaNetwork, MetaAttentionNetworkCoord
+from meta_networks import MetaAttentionNetworkCoord
 from mil import MetaImitationLearning, MetaAlgorithm
-from utils import set_up_cuda, get_seed, get_preprocessing_transforms
+from common.utils import set_up_cuda, get_seed, get_preprocessing_transforms
 
 if __name__ == '__main__':
     config = dict(

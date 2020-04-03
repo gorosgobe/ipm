@@ -1,12 +1,11 @@
 import math
 
-import cv2
 import numpy as np
 from pyrep.backend import sim
 from pyrep.objects.cartesian_path import CartesianPath
 from pyrep.objects.vision_sensor import VisionSensor
 
-from lib import utils
+from common import utils
 
 
 class Camera(object):

@@ -3,10 +3,10 @@ import argparse
 import numpy as np
 from torch.utils.data import DataLoader
 
-from lib.dataset import ImageTipVelocitiesDataset
-from lib.networks import *
-from lib.tip_velocity_estimator import TipVelocityEstimator
-from lib.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
+from cv.dataset import ImageTipVelocitiesDataset
+from cv.networks import *
+from cv.tip_velocity_estimator import TipVelocityEstimator
+from common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

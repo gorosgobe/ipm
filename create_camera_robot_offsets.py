@@ -2,8 +2,8 @@ import json
 
 import numpy as np
 
-from lib.camera_robot import CameraRobot
-from lib.scenes import CameraBackgroundObjectsTextureReachCubeSceneV3, CameraScene5
+from simulation.camera_robot import CameraRobot
+from simulation.scenes import CameraScene5
 
 if __name__ == '__main__':
     with CameraScene5(headless=True) as (pr, scene):

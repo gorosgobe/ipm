@@ -5,7 +5,7 @@ from pyrep.backend import sim
 from pyrep.robots.arms.sawyer import Sawyer
 from pyrep.robots.end_effectors.baxter_gripper import BaxterGripper
 
-from lib.camera import WristCamera
+from simulation.camera import WristCamera
 
 class SawyerRobot(object):
     SAWYER = "Sawyer"
