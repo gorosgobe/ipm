@@ -152,6 +152,10 @@ def get_loss(loss_params):
             loss_params = {}  # for the time being set to default hyperparams
         elif loss_params == "compositeV1":
             loss_params = {"mse_lambda": 1.0, "l1_lambda": 0.0, "alignment_lambda": 0.1}
+        elif loss_params == "compositeV2":
+            loss_params = {"mse_lambda": 1.0, "l1_lambda": 0.0, "alignment_lambda": 0.05}
+        elif loss_params == "compositeV3":
+            loss_params = {"mse_lambda": 1.0, "l1_lambda": 0.0, "alignment_lambda": 0.01}
         else:
             raise ValueError("Loss is passed as an argument, but it's not composite.")
 
