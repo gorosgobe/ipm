@@ -10,10 +10,7 @@ class State(object):
         :param x_center_previous: X coordinate of center of crop from previous image
         :param y_center_previous: Y coordinate of center of crop from previous image
         """
-        image = data["image"]
-        c, h, w = image.size()
-        print("State created", x_center_previous, y_center_previous)
-        self.image = image.permute(1, 2, 0).numpy()  # convert to numpy
+        self.image = None
         self.data = data  # stored in State, but ignored for observation
         self.x_center_previous = x_center_previous
         self.y_center_previous = y_center_previous
@@ -21,10 +18,13 @@ class State(object):
         if (self.x_center_previous is None) + (self.y_center_previous is None) == 1:
             raise ValueError(
                 "Either both x,y center coordinates of previous crop have to be provided, or none of them!")
-
-        if self.x_center_previous is None and self.y_center_previous is None:
-            self.x_center_previous = int(w / 2)
-            self.y_center_previous = int(h / 2)
+        if self.data is not None:
+            image = self.data["image"]
+            c, h, w = image.size()
+            self.image = image.permute(1, 2, 0).numpy()  # convert to numpy
+            if self.x_center_previous is None and self.y_center_previous is None:
+                self.x_center_previous = int(w / 2)
+                self.y_center_previous = int(h / 2)
 
     def get(self):
         # returns an observation (this state) as an np array
@@ -46,30 +46,27 @@ class State(object):
         return self.x_center_previous, self.y_center_previous
 
     def apply_action(self, data, dx, dy):
-        print("DX", dx)
-        print("DY", dy)
-        print("x center previous", self.x_center_previous)
-        print("y center_previous", self.y_center_previous)
         return State(
             data=data,
             x_center_previous=self.x_center_previous + dx,
             y_center_previous=self.y_center_previous + dy
         )
 
-    @staticmethod
-    def from_observation(observation):
-        # returns a state from an observation
-        pass
-
     def __eq__(self, other):
-        return torch.allclose(self.data["image"], other.data["image"]) and \
-               np.allclose(self.data["tip_velocities"], other.data["tip_velocities"]) and \
-               np.allclose(self.data["rotations"], other.data["rotations"]) and \
-               self.x_center_previous == other.x_center_previous and \
-               self.y_center_previous == other.y_center_previous
+        comparison = self.x_center_previous == other.x_center_previous and \
+                     self.y_center_previous == other.y_center_previous
+        are_data_none = (self.data is None) + (other.data is None)
+        if are_data_none == 0:
+            comparison = comparison and torch.allclose(self.data["image"], other.data["image"]) and \
+                         np.allclose(self.data["tip_velocities"], other.data["tip_velocities"]) and \
+                         np.allclose(self.data["rotations"], other.data["rotations"])
+
+        return are_data_none != 1 and comparison
 
     def __str__(self):
+        if self.data is None:
+            return f"{self.x_center_previous}, {self.y_center_previous}"
         return f"{self.x_center_previous}, {self.y_center_previous}, image: {self.data['image']}, vel: {self.data['tip_velocities']}, rot: {self.data['rotations']}"
 
     def __repr__(self):
-        return str(self)
+        return self.__str__()

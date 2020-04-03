@@ -48,14 +48,12 @@ class SlaveEnv(SpaceProviderEnv):
         self.demonstration_end = None
 
     def step(self, action):
-        print("step")
         return self.leader.request_step(self.id)
 
     def next_from_leader(self):
         self.demonstration_image_idx += 1
 
     def reset(self):
-        print("reset")
         observation, demonstration_start, demonstration_end = self.leader.request_reset(self.id)
         self.demonstration_start = demonstration_start
         self.demonstration_image_idx = demonstration_start  # initial image in demonstration
@@ -87,6 +85,7 @@ class LeaderEnv(SlaveEnv):
         self.to_tensor = torchvision.transforms.ToTensor()
         # Cache of states of all slaves
         self.states = {}
+        self.new_states = {}
         # Reward for this round
         self.reward = None
         # Cache of info for slaves
@@ -99,17 +98,15 @@ class LeaderEnv(SlaveEnv):
         # should have already received all actions, i.e. set_actions has already been called
         if id == 0:
             # I am the leader, perform all computations for this round
-            # Are slaves done with their respective demonstrations?
-            self.slave_done = {id: slave.are_you_done() for id, slave in enumerate(self.all)}
-            # new observations, applying action on current observation for slaves that aren't done
-            self.states = {id: self.apply_action(id) if not self.slave_done[id] else self.states[id] for id in
-                           range(self.number_envs)}
+            # new observations, applying action on current observation
+            self.new_states = {id: self.apply_action(id) for id in range(self.number_envs)}
             # calculate reward of applying actions on old states
             # i.e. how good is our model at predicting targets from cropped images
             self.reward = self.get_reward()
+            self.states = self.new_states
 
-        observation = self.states[id].get()  # get the actual np array
-        reward = self.reward  # reward is the same for everyone
+        observation = self.states[id].get() if self.states[id].get_np_image() is not None else None  # get the actual np array
+        reward = self.reward  # reward is the same for everyone, if they are done then it will be ignored
         done = self.slave_done[id]
         info = self.infos[id]
 
@@ -117,8 +114,6 @@ class LeaderEnv(SlaveEnv):
 
     def request_reset(self, id):
         # sample demonstration for supplied child id, and keep track of it
-        print(self.slave_done)
-        print("ID:", id)
         assert self.slave_done[id]  # slave should be done
         # sample demonstration from training data
         # demonstration index is already global, as training data starts at index 0 in the dataset
@@ -146,6 +141,9 @@ class LeaderEnv(SlaveEnv):
         self.all[id].next_from_leader()
         state = self.states[id]
         action = self.actions[id]
+        if self.all[id].are_you_done():
+            self.slave_done[id] = True
+            return state.apply_action(None, action[0], action[1])
         # State object: has next image, and previous crop (i.e. previous state + action)
         # guaranteed slave is not done, so can get the next image in the dataset
         _, next_image_idx, _ = self.all[id].get_current_demonstration()
@@ -154,9 +152,9 @@ class LeaderEnv(SlaveEnv):
 
     def get_reward(self):
         # all images are in self.states, train with those
-        # TODO: image here is wrong, fix
+        # apply crop to old image
         cropped_images_and_bounding_boxes = [
-            self.pixel_cropper.crop(self.states[id].get_np_image(), self.states[id].get_center_crop()) for id in
+            self.pixel_cropper.crop(self.states[id].get_np_image(), self.new_states[id].get_center_crop()) for id in
             range(self.number_envs)
         ]
         cropped_images = map(lambda img_n_box: img_n_box[0], cropped_images_and_bounding_boxes)
@@ -164,7 +162,6 @@ class LeaderEnv(SlaveEnv):
         tip_velocities = [self.states[id].get_tip_velocity() for id in range(self.number_envs)]
         rotations = [self.states[id].get_rotations() for id in range(self.number_envs)]
         training_dataset, validation_dataset = FromListsDataset(cropped_images, tip_velocities, rotations).split()
-        print("Training, validation sizes", len(training_dataset), len(validation_dataset))
         # train with everything as the batch, its small anyways
         train_data_loader = DataLoader(
             training_dataset,

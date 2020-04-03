@@ -73,12 +73,14 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(dem_slave_end, end)
 
     def check_observation_image_matches_demonstration_image(self, observation, image_idx):
+        observation_image = np.reshape(observation[2:], (96, 128, 3))
+        dataset_image = self.dataset[image_idx]["image"].permute(1, 2, 0).numpy()
         np.testing.assert_allclose(
-            np.reshape(observation[2:], (96, 128, 3)),
-            self.dataset[image_idx]["image"].permute(1, 2, 0).numpy()
+            observation_image,
+            dataset_image
         )
 
-    def test_correct_observations_are_returned(self):
+    def test_correct_observations_are_returned_and_end_of_episodes_are_handled_properly(self):
         leader = LeaderEnv(
             number_envs=2,
             demonstration_dataset=self.dataset,
@@ -102,18 +104,26 @@ class MyTestCase(unittest.TestCase):
 
         leader.set_actions([[127 + 1, 95 + 5], [127 - 10, 95 + 23]])
 
-        self.check_step(1, all[0], False)
+        self.check_step(1, all[0], False)  # leader step, so states for all should be updated
         states = leader.states
         self.assertEqual(states[0], State(self.dataset[1], x_center_previous=64 + 1, y_center_previous=48 + 5))
         self.assertEqual(states[1], State(self.dataset[35], x_center_previous=64 - 10, y_center_previous=48 + 23))
         self.check_indexes_of_slave(0, 1, 33, all[0])
+        self.check_indexes_of_slave(34, 35, 63, all[1])
 
         self.check_step(35, all[1], False)
-        self.check_indexes_of_slave(34, 35, 63, all[1])
+        for i in range(2, 30):
+            self.check_step(i, all[0], False)
+            self.check_step(34 + i, all[1], False)
+        self.check_step(30, all[0], False)
+        self.check_step(None, all[1], True)
 
     def check_step(self, image_idx, slave, done_gt):
         observation, reward, done, _info = slave.step(-1)
-        self.check_observation_image_matches_demonstration_image(observation, image_idx)
+        if image_idx is None:
+            self.assertEqual(observation, None)
+        else:
+            self.check_observation_image_matches_demonstration_image(observation, image_idx)
         self.assertEqual(reward, -REWARD_TEST)
         self.assertEqual(done, done_gt)
 
