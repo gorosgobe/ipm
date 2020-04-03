@@ -33,6 +33,8 @@ class TruePixelRoiTest(unittest.TestCase):
     CENTER_14_3x3_PIXELS = [(1, 2), (0, 1), (2, 1), (0, 3), (2, 3)]
     CENTER_11_3x3_PIXELS = [(4, 1), (3, 0), (5, 0), (3, 2), (5, 2)]
     EVEN_START_9_2x2_PIXELS = [(2, 1), (2, 1), (3, 1), (2, 2), (3, 2)]
+    ODD_WIDTH_EVEN_HEIGHT_2x3_PIXELS = [(2, 1), (1, 1), (3, 1), (1, 2), (3, 2)]
+    EVEN_WIDTH_ODD_HEIGHT_3x2_PIXELS = [(2, 1), (2, 0), (3, 0), (2, 2), (3, 2)]
 
     def test_centered_crop_returns_correctly_odd_cropped_section(self):
         fpe = FakePixelEstimator((3, 2))
@@ -46,7 +48,7 @@ class TruePixelRoiTest(unittest.TestCase):
         self.assertEqual(pixels, self.CENTER_16_3x3_PIXELS)
 
     def test_centered_crop_returns_correctly_even_cropped_section(self):
-        fpe = FakePixelEstimator((3, 2))
+        fpe = FakePixelEstimator((2, 1))
         roi_estimator = TruePixelROI(2, 2, fpe, FakeObjectWithHandle())
         crop, pixels = roi_estimator.crop(self.FAKE_IMAGE)
         np.testing.assert_array_equal(crop, np.array([
@@ -54,6 +56,27 @@ class TruePixelRoiTest(unittest.TestCase):
             [[15], [16]]
         ]))
         self.assertEqual(pixels, self.EVEN_START_9_2x2_PIXELS)
+
+    def test_centered_crop_returns_correctly_odd_width_even_height_section(self):
+        fpe = FakePixelEstimator((2, 1))
+        roi_estimator = TruePixelROI(2, 3, fpe, FakeObjectWithHandle())
+        crop, pixels = roi_estimator.crop(self.FAKE_IMAGE)
+        np.testing.assert_array_equal(crop, np.array([
+            [[8], [9], [10]],
+            [[14], [15], [16]]
+        ]))
+        self.assertEqual(pixels, self.ODD_WIDTH_EVEN_HEIGHT_2x3_PIXELS)
+
+    def test_centered_crop_returns_correctly_even_width_odd_height_section(self):
+        fpe = FakePixelEstimator((2, 1))
+        roi_estimator = TruePixelROI(3, 2, fpe, FakeObjectWithHandle())
+        crop, pixels = roi_estimator.crop(self.FAKE_IMAGE)
+        np.testing.assert_array_equal(crop, np.array([
+            [[3], [4]],
+            [[9], [10]],
+            [[15], [16]]
+        ]))
+        self.assertEqual(pixels, self.EVEN_WIDTH_ODD_HEIGHT_3x2_PIXELS)
 
     def test_low_crop_compensates_height(self):
         fpe = FakePixelEstimator((3, 3))
@@ -169,7 +192,7 @@ class TruePixelRoiTest(unittest.TestCase):
         fpe = FakePixelEstimator((3, 2))
         roi_estimator = TruePixelROI(3, 3, fpe, FakeObjectWithHandle(), add_spatial_maps=True)
         crop, pixels = roi_estimator.crop(self.FAKE_IMAGE)
-        np.testing.assert_array_equal(crop, np.array([
+        np.testing.assert_allclose(crop, np.array([
             [[9, 2 / 6, 1 / 4], [10, 3 / 6, 1 / 4], [11, 4 / 6, 1 / 4]],
             [[15, 2 / 6, 2 / 4], [16, 3 / 6, 2 / 4], [17, 4 / 6, 2 / 4]],
             [[21, 2 / 6, 3 / 4], [22, 3 / 6, 3 / 4], [23, 4 / 6, 3 / 4]]

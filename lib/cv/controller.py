@@ -128,9 +128,9 @@ class TruePixelROI(object):
         print("Center x displaced", center_x)
         print("Center y displaced", center_y)
 
-        y_min = center_y - half_size_height
+        y_min = center_y - half_size_height + (self.cropped_height % 2 == 0)
         y_max = center_y + half_size_height + 1
-        x_min = center_x - half_size_width
+        x_min = center_x - half_size_width + (self.cropped_width % 2 == 0)
         x_max = center_x + half_size_width + 1
         print("Bounds", y_min, y_max, x_min, x_max)
         print("Half sizes", half_size_height, half_size_width)
