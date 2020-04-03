@@ -3,11 +3,11 @@ import argparse
 import numpy as np
 from torch.utils.data import DataLoader
 
-from cv.controller import TrainingPixelROI, CropDeviationSampler
-from cv.dataset import ImageTipVelocitiesDataset
-from cv.networks import *
-from cv.tip_velocity_estimator import TipVelocityEstimator
-from common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
+from lib.cv.controller import TrainingPixelROI, CropDeviationSampler
+from lib.cv.dataset import ImageTipVelocitiesDataset
+from lib.cv.networks import *
+from lib.cv.tip_velocity_estimator import TipVelocityEstimator
+from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
 
 if __name__ == "__main__":
 
@@ -21,6 +21,8 @@ if __name__ == "__main__":
     parser.add_argument("--loss")
     parser.add_argument("--seed")
     parse_result = parser.parse_args()
+    import os
+    print(os.environ["PYTHONPATH"])
 
     loss_params = get_loss(parse_result.loss)
     seed = get_seed(parse_result.seed)

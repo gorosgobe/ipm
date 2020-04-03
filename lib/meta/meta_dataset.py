@@ -2,7 +2,6 @@ import enum
 from collections import OrderedDict
 
 import numpy as np
-from torchmeta.transforms import ClassSplitter
 from torchmeta.utils.data import MetaDataset, Task, SubsetTask
 
 """

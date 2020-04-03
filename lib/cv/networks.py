@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from cv.controller import SpatialDimensionAdder
+from lib.cv.controller import SpatialDimensionAdder
 
 
 class AttentionNetworkTile(torch.nn.Module):

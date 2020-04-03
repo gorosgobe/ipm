@@ -5,7 +5,7 @@ from pyrep.backend import sim
 from pyrep.objects.cartesian_path import CartesianPath
 from pyrep.objects.vision_sensor import VisionSensor
 
-from common import utils
+from lib.common import utils
 
 
 class Camera(object):

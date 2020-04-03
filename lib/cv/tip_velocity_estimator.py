@@ -4,9 +4,9 @@ from ignite.engine import (Events, create_supervised_evaluator,
 from ignite.handlers import EarlyStopping
 from ignite.metrics import Loss
 
-from cv.networks import *
-from common.utils import ResizeTransform
-from common.saveable import BestSaveable
+from lib.cv.networks import *
+from lib.common.utils import ResizeTransform
+from lib.common.saveable import BestSaveable
 
 
 class AlignmentLoss(object):

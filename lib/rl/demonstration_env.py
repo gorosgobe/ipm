@@ -6,10 +6,10 @@ import torchvision
 from stable_baselines.common.vec_env import DummyVecEnv
 from torch.utils.data import DataLoader
 
-from cv.controller import TrainingPixelROI
-from cv.dataset import FromListsDataset
+from lib.cv.controller import TrainingPixelROI
+from lib.cv.dataset import FromListsDataset
 from state import State
-from cv.tip_velocity_estimator import TipVelocityEstimator
+from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 
 """
 Main problem we have is training on a single sample at a time does not give a good estimate of the loss (reward).
