@@ -56,11 +56,10 @@ if __name__ == '__main__':
     )
 
     env = Monitor(env=env, filename="learn_crop_output_log/")
-    check_env(env)
     env = DummyVecEnv([lambda: env])
 
     model = PPO2(MlpPolicy, env, verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
 
     # model = SAC(MlpPolicy, env, n_steps=32, verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
-    model.learn(total_timesteps=1024)
+    model.learn(total_timesteps=40960)
     # results_plotter.plot_results(["./learn_crop_output_log"], 1e4, results_plotter.X_TIMESTEPS, "Output")

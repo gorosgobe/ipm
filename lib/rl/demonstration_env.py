@@ -27,7 +27,7 @@ class SpaceProviderEnv(gym.Env, ABC):
         width, height = image_size
         self.action_space = gym.spaces.MultiDiscrete([width * 2 - 1, height * 2 - 1])
         image_size_1d = width * height * 3
-        eps = 1e-4
+        eps = 1e-3
         image_lower_bound_1d = np.full((image_size_1d,), -1.0 - eps)
         image_upper_bound_1d = np.full((image_size_1d,), 1.0 + eps)
         low = np.concatenate((np.array([-width - eps, -height - eps]), image_lower_bound_1d))
@@ -85,7 +85,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         return len(self.demonstration_states) == self.end - self.start + 1
 
     def apply_action(self, action):
-        action = np.array(action) - np.array([self.width - 1, self.height - 1])
+        action = np.array(action).astype(np.int32) - np.array([self.width - 1, self.height - 1])
         self.demonstration_img_idx += 1
         if self.done():
             return self.state.apply_action(None, action[0], action[1]), True
