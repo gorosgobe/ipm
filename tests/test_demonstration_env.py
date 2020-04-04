@@ -19,6 +19,7 @@ class MockRandomChoice(object):
 
 
 REWARD_TEST = 0.1234
+NUM_EPOCHS_TRAINED = 15
 
 
 class MockEstimator(object):
@@ -30,6 +31,9 @@ class MockEstimator(object):
 
     def get_best_val_loss(self):
         return REWARD_TEST
+
+    def get_num_epochs_trained(self):
+        return NUM_EPOCHS_TRAINED
 
 
 class MyTestCase(unittest.TestCase):

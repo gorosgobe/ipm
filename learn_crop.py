@@ -2,7 +2,8 @@ import pprint
 
 import numpy as np
 import torch
-from stable_baselines import PPO2
+from stable_baselines import PPO2, results_plotter
+from stable_baselines.common.env_checker import check_env
 from stable_baselines.common.policies import MlpPolicy
 
 from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
@@ -13,7 +14,7 @@ from lib.cv.networks import FullImageNetwork_32
 if __name__ == '__main__':
     dataset = "scene1/scene1"
     config = dict(
-        n_envs=4,
+        n_envs=16,
         size=(128, 96),
         cropped_size=(32, 24),
         learning_rate=0.0001,
@@ -24,7 +25,7 @@ if __name__ == '__main__':
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
         num_workers=4,  # number of workers to compute RL reward
-        split=[0.8, 0.1, 0.1],
+        split=[0.2, 0.1, 0.1],
         patience=3,  # smaller, need to train faster
         max_epochs=50,
         validate_epochs=1
@@ -52,5 +53,8 @@ if __name__ == '__main__':
         config=config
     )
 
-    model = PPO2(MlpPolicy, env, verbose=1)
-    model.learn(total_timesteps=1000)
+    env.setup_monitor(log="learn_crop_output_log/")
+
+    model = PPO2(MlpPolicy, env, n_steps=32, verbose=1, tensorboard_log="./learn_crop_output_log")
+    model.learn(total_timesteps=40960)
+    #results_plotter.plot_results(["./learn_crop_output_log"], 1e4, results_plotter.X_TIMESTEPS, "Output")

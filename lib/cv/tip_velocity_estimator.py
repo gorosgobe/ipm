@@ -302,3 +302,7 @@ class TipVelocityEstimator(BestSaveable):
     def get_best_val_loss(self):
         _, validation_losses = zip(*self.validation_losses)
         return min(validation_losses)
+
+    def get_num_epochs_trained(self):
+        # does not take into account patience
+        return len(self.training_losses)

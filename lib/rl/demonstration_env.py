@@ -3,6 +3,7 @@ from abc import ABC
 import gym
 import numpy as np
 import torchvision
+from stable_baselines.bench import Monitor
 from stable_baselines.common.vec_env import DummyVecEnv
 from torch.utils.data import DataLoader
 
@@ -90,7 +91,7 @@ class LeaderEnv(SlaveEnv):
         self.reward = None
         # Cache of info for slaves
         self.infos = {i: {} for i in range(self.number_envs)}
-        self.reward_list = []
+        self.epoch_list = []
         self.random_provider = random_provider  # for testing purposes
         self.estimator = estimator  # for testing purposes
 
@@ -191,7 +192,7 @@ class LeaderEnv(SlaveEnv):
             val_loader=validation_data_loader,
         )
         reward = -estimator.get_best_val_loss()
-        self.reward_list.append(reward)
+        self.epoch_list.append(estimator.get_num_epochs_trained())
         return reward
 
 
@@ -200,6 +201,10 @@ class MultipleSynchronousDemonstrationsEnv(DummyVecEnv):
         self.leader = LeaderEnv(n_envs, demonstration_dataset, config)
         all = self.leader.get_all()
         super().__init__([(lambda env=env: lambda: env)() for env in all])
+
+    def setup_monitor(self, log):
+        self.leader = Monitor(self.leader, log)
+        return self
 
     def step_async(self, actions):
         # store all actions
