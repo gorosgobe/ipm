@@ -156,6 +156,8 @@ def get_loss(loss_params):
             loss_params = {"mse_lambda": 1.0, "l1_lambda": 0.0, "alignment_lambda": 0.05}
         elif loss_params == "compositeV3":
             loss_params = {"mse_lambda": 1.0, "l1_lambda": 0.0, "alignment_lambda": 0.01}
+        elif loss_params == "compositeV4":
+            loss_params = {"mse_lambda": 1.0, "l1_lambda": 0.0, "alignment_lambda": 0.25}
         else:
             raise ValueError("Loss is passed as an argument, but it's not composite.")
 
