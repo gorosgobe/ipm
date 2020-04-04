@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import FromListsDataset
-from state import State
+from lib.rl.state import State
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 
 """
