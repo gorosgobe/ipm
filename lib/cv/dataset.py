@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 import cv2
 import imageio
@@ -7,7 +8,6 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Subset
-import time
 
 
 class FromListsDataset(torch.utils.data.Dataset):
@@ -16,6 +16,7 @@ class FromListsDataset(torch.utils.data.Dataset):
         self.velocities_list = velocities_list
         self.rotations_list = rotations_list
         self.training_split = training_split  # training data, rest will be used for validation
+        self.shuffle_map = None
         if not (len(self.image_list) == len(self.velocities_list) == len(self.rotations_list)):
             raise ValueError("The number of image, velocities and rotations must be the same")
 
@@ -24,9 +25,17 @@ class FromListsDataset(torch.utils.data.Dataset):
 
     def split(self):
         image_idx_boundary = int(self.training_split * len(self.image_list))
-        return Subset(self, np.arange(0, image_idx_boundary)), Subset(self, np.arange(image_idx_boundary, len(self.image_list)))
+        return Subset(self, np.arange(0, image_idx_boundary)), Subset(self, np.arange(image_idx_boundary,
+                                                                                      len(self.image_list)))
+
+    def shuffle(self):
+        indices = np.random.permutation(len(self.image_list))
+        self.shuffle_map = {i: indices[i] for i in range(len(indices))}
+        return self
 
     def __getitem__(self, idx):
+        if self.shuffle_map is not None:
+            idx = self.shuffle_map[idx]
         return {"image": self.image_list[idx], "tip_velocities": self.velocities_list[idx],
                 "rotations": self.rotations_list[idx]}
 

@@ -2,13 +2,16 @@ import pprint
 
 import numpy as np
 import torch
-from stable_baselines import PPO2, results_plotter
+from stable_baselines import PPO2, results_plotter, SAC
+from stable_baselines.bench import Monitor
 from stable_baselines.common.env_checker import check_env
 from stable_baselines.common.policies import MlpPolicy
+from stable_baselines.common.vec_env import DummyVecEnv
+from torch.utils.data import DataLoader
 
-from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
+from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed, get_demonstrations
 from lib.cv.dataset import ImageTipVelocitiesDataset
-from lib.rl.demonstration_env import MultipleSynchronousDemonstrationsEnv
+from lib.rl.demonstration_env import SingleDemonstrationEnv
 from lib.cv.networks import FullImageNetwork_32
 
 if __name__ == '__main__':
@@ -47,14 +50,17 @@ if __name__ == '__main__':
         transform=preprocessing_transforms,
     )
 
-    env = MultipleSynchronousDemonstrationsEnv(
-        n_envs=config["n_envs"],
+    env = SingleDemonstrationEnv(
         demonstration_dataset=dataset,
         config=config
     )
 
-    env.setup_monitor(log="learn_crop_output_log/")
+    env = Monitor(env=env, filename="learn_crop_output_log/")
+    check_env(env)
+    env = DummyVecEnv([lambda: env])
 
-    model = PPO2(MlpPolicy, env, n_steps=32, verbose=1, tensorboard_log="./learn_crop_output_log")
-    model.learn(total_timesteps=40960)
-    #results_plotter.plot_results(["./learn_crop_output_log"], 1e4, results_plotter.X_TIMESTEPS, "Output")
+    model = PPO2(MlpPolicy, env, verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
+
+    # model = SAC(MlpPolicy, env, n_steps=32, verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
+    model.learn(total_timesteps=1024)
+    # results_plotter.plot_results(["./learn_crop_output_log"], 1e4, results_plotter.X_TIMESTEPS, "Output")
