@@ -14,8 +14,9 @@ from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
 from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.cv.networks import AttentionNetworkCoord_32, AttentionNetworkCoord
 from lib.rl.demonstration_env import SingleDemonstrationEnv
-from lib.common.test_utils import draw_crop, calculate_IoU, downsample_coordinates, get_distance_between_boxes
+from lib.common.test_utils import draw_crop, downsample_coordinates, get_distance_between_boxes
 from lib.cv.utils import CvUtils
+from policies import PPOPolicy
 
 if __name__ == '__main__':
 
@@ -73,7 +74,7 @@ if __name__ == '__main__':
     env = Monitor(env=env, filename="learn_crop_output_log/")
     if parse_result.algo == "ppo":
         dummy = DummyVecEnv([lambda: env])
-        model = PPO2(MlpPolicy, dummy, verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
+        model = PPO2(PPOPolicy, dummy, policy_kwargs=dict(image_size=config["size"]), verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
     elif parse_result.algo == "sac":
         model = SAC(sac.MlpPolicy, env, verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
     else:
