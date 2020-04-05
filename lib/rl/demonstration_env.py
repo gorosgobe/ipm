@@ -12,14 +12,6 @@ from lib.cv.dataset import FromListsDataset
 from lib.rl.state import State
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 
-"""
-Main problem we have is training on a single sample at a time does not give a good estimate of the loss (reward).
-Thus, we need to train on multiple demonstration images at the same time. However, the OpenAI gym environment only
-allows us to return one observation at a time - by using a vectorized environment, we can use multiple environments that in
-reality act like a single one. This allows us to return the same reward in all observations (negative validation loss 
-when trained on crops produced by the RL agent). To train on N images, we need N Slave environments.
-"""
-
 
 class SpaceProviderEnv(gym.Env, ABC):
     def __init__(self, image_size):
@@ -27,15 +19,14 @@ class SpaceProviderEnv(gym.Env, ABC):
         width, height = image_size
         self.action_space = gym.spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0]))
         image_size_1d = width * height * 3
-        eps = 1e-3
-        image_lower_bound_1d = np.full((image_size_1d,), -1.0 - eps)
-        image_upper_bound_1d = np.full((image_size_1d,), 1.0 + eps)
-        low = np.concatenate((np.array([-width - eps, -height - eps]), image_lower_bound_1d))
-        high = np.concatenate((np.array([width + eps, height + eps]), image_upper_bound_1d))
+        image_lower_bound_1d = np.full((image_size_1d,), -1.0)
+        image_upper_bound_1d = np.full((image_size_1d,), 1.0)
+        low = np.concatenate((np.array([-width, -height]), image_lower_bound_1d))
+        high = np.concatenate((np.array([width, height]), image_upper_bound_1d))
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
 
     def render(self, mode='human'):
-        raise NotImplementedError("Environment is not renderable :(")
+        raise NotImplementedError("Environment is not renderable... yet :(")
         # Without pass, PyCharm thinks the method has not been implemented, even if the implementation is to raise the exception
         pass
 
@@ -80,7 +71,8 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         reward = self.get_reward(done)
         center_crop_pixel = self.next_state.get_center_crop()
         self.state = self.next_state
-        return self.state.get() if not done else None, reward, done, dict(center_crop_pixel=center_crop_pixel)
+        # TODO: make np full a bit nicer, without hardcoding
+        return self.state.get() if not done else np.full((128 * 96 * 3 + 2), -1.0), reward, done, dict(center_crop_pixel=center_crop_pixel)
 
     def done(self):
         return len(self.demonstration_states) == self.end - self.start + 1

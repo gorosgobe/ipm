@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from stable_baselines import PPO2, SAC, sac
 from stable_baselines.bench import Monitor
+from stable_baselines.common.env_checker import check_env
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 
@@ -65,6 +66,10 @@ if __name__ == '__main__':
         config=config
     )
 
+    print("Checking environment...")
+    check_env(env)
+    print("Check successful!")
+
     env = Monitor(env=env, filename="learn_crop_output_log/")
     if parse_result.algo == "ppo":
         dummy = DummyVecEnv([lambda: env])
@@ -123,7 +128,7 @@ if __name__ == '__main__':
         predicted_pixel_info_tl = box[0]
         predicted_pixel_info_br = box[3]
         draw_crop(image_gt, predicted_pixel_info_tl, predicted_pixel_info_br, red=True)
-        save_image(image_gt, f"imagetest-{count}.png")
+        save_image(image_gt, f"learn_crop_output_log/imagetest-{count}.png")
 
         width, height = config["size"]
         tl_gt_down = downsample_coordinates(*tl_gt, og_width=640, og_height=480, to_width=width, to_height=height)
