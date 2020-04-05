@@ -25,7 +25,7 @@ class SpaceProviderEnv(gym.Env, ABC):
     def __init__(self, image_size):
         super().__init__()
         width, height = image_size
-        self.action_space = gym.spaces.MultiDiscrete([width * 2 - 1, height * 2 - 1])
+        self.action_space = gym.spaces.Box(low=np.array([-1.0, -1.0]), high=np.array([1.0, 1.0]))
         image_size_1d = width * height * 3
         eps = 1e-3
         image_lower_bound_1d = np.full((image_size_1d,), -1.0 - eps)
@@ -50,7 +50,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.estimator = estimator
         self.cropped_width, self.cropped_height = self.config["cropped_size"]
         self.width, self.height = self.config["size"]
-        self.pixel_cropper = TrainingPixelROI(self.cropped_height, self.cropped_width)
+        self.pixel_cropper = TrainingPixelROI(self.cropped_height, self.cropped_width, add_spatial_maps=True)
         self.to_tensor = torchvision.transforms.ToTensor()
 
         self.demonstration_states = []
@@ -78,20 +78,20 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         # if done is True, still add to record last crop (dummy state with image = None)
         self.demonstration_states.append(self.next_state)
         reward = self.get_reward(done)
+        center_crop_pixel = self.next_state.get_center_crop()
         self.state = self.next_state
-        return self.state.get() if not done else None, reward, done, {}
+        return self.state.get() if not done else None, reward, done, dict(center_crop_pixel=center_crop_pixel)
 
     def done(self):
         return len(self.demonstration_states) == self.end - self.start + 1
 
     def apply_action(self, action):
-        action = np.array(action).astype(np.int32) - np.array([self.width - 1, self.height - 1])
         self.demonstration_img_idx += 1
         if self.done():
-            return self.state.apply_action(None, action[0], action[1]), True
+            return self.state.apply_action(None, action[0], action[1], self.cropped_width, self.cropped_height), True
 
         new_state = self.state.apply_action(self.demonstration_dataset[self.demonstration_img_idx], action[0],
-                                            action[1])
+                                            action[1], self.cropped_width, self.cropped_height)
         return new_state, False
 
     def get_reward(self, done):
@@ -101,14 +101,17 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         # last demonstration state is dummy state to hold last crop
         assert len(self.demonstration_states) == self.end - self.start + 2
         cropped_images_and_bounding_boxes = [
-            self.pixel_cropper.crop(self.demonstration_states[i].get_np_image(), self.demonstration_states[i + 1].get_center_crop()) for i
-            in range(len(self.demonstration_states) - 1)
+            self.pixel_cropper.crop(
+                self.demonstration_states[i].get_np_image(),
+                self.demonstration_states[i + 1].get_center_crop()
+            ) for i in range(len(self.demonstration_states) - 1)
         ]
         cropped_images = map(lambda img_n_box: img_n_box[0], cropped_images_and_bounding_boxes)
         cropped_images = list(map(lambda img: self.to_tensor(img), cropped_images))
         tip_velocities = [state.get_tip_velocity() for state in self.demonstration_states[:-1]]
         rotations = [state.get_rotations() for state in self.demonstration_states[:-1]]
-        training_dataset, validation_dataset = FromListsDataset(cropped_images, tip_velocities, rotations).shuffle().split()
+        training_dataset, validation_dataset = FromListsDataset(cropped_images, tip_velocities,
+                                                                rotations).shuffle().split()
         # train with everything as the batch, its small anyways
         train_data_loader = DataLoader(
             training_dataset,
@@ -140,3 +143,6 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         reward = -estimator.get_best_val_loss()
         self.epoch_list.append(estimator.get_num_epochs_trained())
         return reward
+
+    def get_epoch_list(self):
+        return self.epoch_list

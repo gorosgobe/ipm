@@ -78,7 +78,10 @@ class AttentionNetworkCoord(torch.nn.Module):
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
 
     def forward(self, x):
-        image_batch, top_left_pixel, bottom_right_pixel, original_image_width, original_image_height = x
+        if isinstance(x, tuple):
+            image_batch, top_left_pixel, bottom_right_pixel, original_image_width, original_image_height = x
+        else:
+            image_batch = x
         batch_size = image_batch.size()[0]
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(image_batch)))
         out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))

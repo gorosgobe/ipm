@@ -5,6 +5,7 @@ import torch
 import torchvision
 
 from lib.common import utils
+from lib.cv.utils import CvUtils
 
 
 class IdentityCropper(object):
@@ -105,39 +106,24 @@ class TruePixelROI(object):
             center_x += offset[0]
             center_y += offset[1]
 
-        half_size_height = self.cropped_height // 2
-        half_size_width = self.cropped_width // 2
+        center_x, center_y = CvUtils.fit_crop_to_image(center_x, center_y, height, width, self.cropped_height,
+                                                       self.cropped_width)
 
-        dx = 0
-        dy = 0
-        if center_x + half_size_width >= width:
-            dx = -(center_x + half_size_width - width) - 1
-        elif center_x - half_size_width < 0:
-            dx = -(center_x - half_size_width)
-
-        if center_y + half_size_height >= height:
-            dy = -(center_y + half_size_height - height) - 1
-        elif center_y - half_size_height < 0:
-            dy = -(center_y - half_size_height)
-
-        # otherwise, crop lies fully inside the image, dx, dy = 0 apply
-        center_x += dx
-        center_y += dy
-
-        y_min = center_y - half_size_height + (self.cropped_height % 2 == 0)
-        y_max = center_y + half_size_height + 1
-        x_min = center_x - half_size_width + (self.cropped_width % 2 == 0)
-        x_max = center_x + half_size_width + 1
+        x_min, x_max, y_min, y_max = CvUtils.get_bounding_box_coordinates(center_x, center_y, self.cropped_height,
+                                                                          self.cropped_width)
+        if x_min < 0 or x_max < 0 or y_min < 0 or y_max < 0:
+            raise ValueError("LESS THAN ZERO")
         # center, top left, top right, bottom left, bottom right
         bounding_box_pixels = [
-            (center_x, center_y), (x_min, y_min), (x_max - 1, y_min), (x_min, y_max - 1), (x_max - 1, y_max - 1)
+            (center_x, center_y), *CvUtils.get_bounding_box(x_min, x_max, y_min, y_max)
         ]
 
-        cropped_image = image[y_min:y_max, x_min:x_max]
+        cropped_image = image[y_min:y_max + 1, x_min:x_max + 1]
         return cropped_image, bounding_box_pixels
 
 
 # Pixel ROI for training, used to determine what the model sees at training time
+
 # Pixel is loaded from data, so wrap for interfacing with TruePixelROI
 class LoadedPixelEstimator(object):
     def __init__(self, pixel):

@@ -2,6 +2,7 @@ import enum
 import json
 import math
 
+import cv2
 import numpy as np
 from scipy import stats
 from matplotlib import pyplot as plt
@@ -146,7 +147,6 @@ def get_achieved_and_target(distances, minimum_distances, special_distance):
             if dist <= special_distance:
                 special_distance_count += 1
 
-        print("Achieved: {} -> {}/{}".format(target_distance, achieved, len(minimum_distances)))
         test_achieved.append((target_distance, achieved))
 
     return test_achieved, special_distance_count
@@ -166,3 +166,23 @@ def add_value_to_test(collection, test_name, res):
         collection[test_name] = [res]
     else:
         collection[test_name].append(res)
+
+
+def draw_crop(image, tl_gt, br_gt, red=False, size=1):
+    color = (0, 255, 0) if not red else (255, 0, 0)
+    cv2.rectangle(image, tuple(tl_gt), tuple(br_gt), color, size)
+
+
+def downsample_coordinates(x, y, og_width, og_height, to_width, to_height):
+    downsampled_x = int((x / og_width) * to_width)
+    downsampled_y = int((y / og_height) * to_height)
+    return downsampled_x, downsampled_y
+
+
+def get_distance_between_boxes(tl_gt, predicted_tl):
+    return np.linalg.norm(np.array(tl_gt) - np.array(predicted_tl))
+
+
+def calculate_IoU(tl_gt, br_gt, predicted_tl, predicted_gt):
+    # TODO: ?
+    pass

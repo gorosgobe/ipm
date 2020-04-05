@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 
+from lib.cv.utils import CvUtils
+
 
 class State(object):
     def __init__(self, data, x_center_previous=None, y_center_previous=None):
@@ -45,11 +47,24 @@ class State(object):
     def get_center_crop(self):
         return self.x_center_previous, self.y_center_previous
 
-    def apply_action(self, data, dx, dy):
+    def apply_action(self, data, dx, dy, cropped_width, cropped_height):
+        _c, height, width = self.data["image"].shape
+        assert height == 96 and width == 128
+        x_center_previous = self.x_center_previous + int(dx * (width - 1))
+        y_center_previous = self.y_center_previous + int(dy * (height - 1))
+        x_center_previous, y_center_previous = CvUtils.fit_crop_to_image(
+            center_x=x_center_previous,
+            center_y=y_center_previous,
+            height=height,
+            width=width,
+            cropped_height=cropped_height,
+            cropped_width=cropped_width
+        )
+        assert 0 <= x_center_previous <= width and 0 <= y_center_previous <= height
         return State(
             data=data,
-            x_center_previous=self.x_center_previous + dx,
-            y_center_previous=self.y_center_previous + dy
+            x_center_previous=x_center_previous,
+            y_center_previous=y_center_previous,
         )
 
     def __eq__(self, other):
