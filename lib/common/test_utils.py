@@ -8,10 +8,10 @@ from scipy import stats
 from matplotlib import pyplot as plt
 
 from lib.cv.controller import IdentityCropper, ControllerType, TruePixelROI, CropDeviationSampler
-from lib.simulation.scenes import CameraScene5, CameraScene1, CameraScene4, CameraScene3, CameraScene2
 
 
 def get_scene_and_test_scene_configuration(model_name):
+    from lib.simulation.scenes import CameraScene5, CameraScene1, CameraScene4, CameraScene3, CameraScene2
     if "scene2" in model_name:
         s = CameraScene2
         test = "test_demonstrations/scene2_test.json"
