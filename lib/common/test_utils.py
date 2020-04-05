@@ -7,8 +7,8 @@ import numpy as np
 from scipy import stats
 from matplotlib import pyplot as plt
 
-from cv.controller import IdentityCropper, ControllerType, TruePixelROI, CropDeviationSampler
-from simulation.scenes import CameraScene5, CameraScene1, CameraScene4, CameraScene3, CameraScene2
+from lib.cv.controller import IdentityCropper, ControllerType, TruePixelROI, CropDeviationSampler
+from lib.simulation.scenes import CameraScene5, CameraScene1, CameraScene4, CameraScene3, CameraScene2
 
 
 def get_scene_and_test_scene_configuration(model_name):
