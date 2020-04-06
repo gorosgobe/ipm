@@ -20,6 +20,7 @@ class SpaceProviderEnv(gym.Env, ABC):
         image_lower_bound_1d = np.full((image_size_1d,), -1.0)
         image_upper_bound_1d = np.full((image_size_1d,), 1.0)
         low = np.concatenate((np.array([-width, -height]), image_lower_bound_1d))
+        self.dummy_observation = low
         high = np.concatenate((np.array([width, height]), image_upper_bound_1d))
         self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
 
@@ -82,8 +83,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         reward = self.get_reward(done)
         center_crop_pixel = self.next_state.get_center_crop()
         self.state = self.next_state
-        # TODO: make np full a bit nicer, without hardcoding
-        return self.state.get() if not done else np.full((128 * 96 * 3 + 2), -1.0), reward, done, dict(
+        return self.state.get() if not done else self.dummy_observation, reward, done, dict(
             center_crop_pixel=center_crop_pixel)
 
     def done(self):
@@ -120,13 +120,13 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         train_data_loader = DataLoader(
             training_dataset,
             batch_size=len(training_dataset),
-            num_workers=8,
+            num_workers=self.config["num_workers"],
             shuffle=True
         )
         validation_data_loader = DataLoader(
             validation_dataset,
             batch_size=len(validation_dataset),
-            num_workers=8,
+            num_workers=self.config["num_workers"],
             shuffle=True
         )
         estimator = self.estimator(

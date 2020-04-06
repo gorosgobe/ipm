@@ -11,10 +11,10 @@ from stable_baselines.common.vec_env import DummyVecEnv
 
 from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
 from lib.cv.dataset import ImageTipVelocitiesDataset
-from lib.cv.networks import AttentionNetworkCoord
+from lib.networks import AttentionNetworkCoord, AttentionNetworkCoord_32
 from lib.rl.callbacks import ScoreCallback
 from lib.rl.demonstration_env import SingleDemonstrationEnv
-from lib.rl.policies import PPOPolicy
+from lib.rl.policies import PPOPolicy, SACCustomPolicy
 from lib.common.test_utils import get_distance_between_boxes
 from lib.rl.utils import CropTestModality
 
@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument("--timesteps", type=int)
     parser.add_argument("--name")
     parser.add_argument("--score_every", type=int, default=10)
+    parser.add_argument("--images_every", type=int, default=1000)
     parser.add_argument("--epochs_reward", type=int, default=100)
     parser.add_argument("--epochs_validate", type=int, default=1)
     parse_result = parser.parse_args()
@@ -33,16 +34,16 @@ if __name__ == '__main__':
     config = dict(
         n_envs=16,
         size=(128, 96),
-        cropped_size=(64, 48),
+        cropped_size=(32, 24),
         learning_rate=0.0001,
-        network_klass=AttentionNetworkCoord,
+        network_klass=AttentionNetworkCoord_32,
         seed=get_seed("random"),
         velocities_csv=f"{dataset}/velocities.csv",
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
         num_workers=4,  # number of workers to compute RL reward
-        split=[0.2, 0.1, 0.1],
+        split=[0.8, 0.1, 0.1],
         patience=3,  # smaller, need to train faster
         max_epochs=parse_result.epochs_reward,
         validate_epochs=parse_result.epochs_validate,
@@ -81,7 +82,7 @@ if __name__ == '__main__':
         model = PPO2(PPOPolicy, dummy, policy_kwargs=dict(image_size=config["size"]), verbose=1, gamma=1.0,
                      tensorboard_log=f"./{config['log_dir']}")
     elif parse_result.algo == "sac":
-        model = SAC(sac.MlpPolicy, env, verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
+        model = SAC(SACCustomPolicy, env, policy_kwargs=dict(image_size=config["size"]), verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
     else:
         raise ValueError("Invalid algorithm, please choose ppo or sac")
 
@@ -95,7 +96,7 @@ if __name__ == '__main__':
         crop_test_modality=CropTestModality.TRAINING.value,
         compute_score_every=parse_result.score_every,  # every rollout, for the time being
         number_rollouts=1,
-        save_images_every=10
+        save_images_every=parse_result.images_every
     )
     model.learn(total_timesteps=parse_result.timesteps, callback=CallbackList([score_callback_train]))
     print("Finished training, mean #epochs trained:", np.mean(np.array(env.get_epoch_list())))

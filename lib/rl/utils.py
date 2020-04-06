@@ -26,15 +26,20 @@ class CropTester(object):
             root_dir=config["root_dir"]
         )
         self.resize = ResizeTransform(config["size"])
+        width, height = config["size"]
+        cropped_width, cropped_height = config["size"]
+        divisor_width = int(width / cropped_width)
+        divisor_height = int(height / cropped_height)
+        if cropped_width == 32 and cropped_height == 24:
+            assert divisor_width == 4 and divisor_height == 4
         self.dataset_get_crop_box = ImageTipVelocitiesDataset(
             velocities_csv=config["velocities_csv"],
             rotations_csv=config["rotations_csv"],
             metadata=config["metadata"],
             root_dir=config["root_dir"],
             transform=self.resize,
-            # TODO: automate the // 2 depending on size and cropped size
             initial_pixel_cropper=TrainingPixelROI(
-                480 // 2, 640 // 2, add_spatial_maps=False
+                480 // divisor_height, 640 // divisor_width, add_spatial_maps=False
             )
         )
         # during training we expect reward to go up, but we also want to

@@ -22,7 +22,7 @@ class MILTipVelocityDataset(MetaDataset):
         # split is list of split values. Passed in as [train_proportion, val_proportion, test_proportion]
         self.dataset_type_str, self.dataset_type_idx = dataset_type.value
         super().__init__(meta_split=self.dataset_type_str)
-        if len(split) != 3:
+        if len(split) != 3 or sum(split) != 1.0:
             raise ValueError("Split must contain proportion for train, val and test sets (3 values with sum = 1)")
 
         self.demonstration_dataset = demonstration_dataset
