@@ -28,7 +28,8 @@ if __name__ == "__main__":
     size = (128, 96)
     version = FullImageNetworkCoord if parse_result.version == "coord" else FullImageNetwork
     optimiser_params = get_optimiser_params(parse_result.optim)
-    pprint.pprint("Optimiser params:", optimiser_params)
+    print("Optimiser params:")
+    pprint.pprint(optimiser_params)
     if parse_result.size == 64:
         size = (64, 48)
         version = FullImageNetworkCoord_64 if parse_result.version == "coord" else FullImageNetwork_64
