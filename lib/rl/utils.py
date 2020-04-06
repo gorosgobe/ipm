@@ -2,7 +2,7 @@ import enum
 
 import numpy as np
 
-from demonstration_env import SingleDemonstrationEnv
+from lib.rl.demonstration_env import SingleDemonstrationEnv
 from lib.common.test_utils import draw_crop, downsample_coordinates
 from lib.common.utils import ResizeTransform, save_image
 from lib.cv.controller import TrainingPixelROI
