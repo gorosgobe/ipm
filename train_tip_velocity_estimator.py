@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 from lib.cv.dataset import ImageTipVelocitiesDataset
-from networks import *
+from lib.networks import *
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed, \
     get_optimiser_params

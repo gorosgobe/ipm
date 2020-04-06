@@ -4,7 +4,7 @@ from ignite.engine import (Events, create_supervised_evaluator,
 from ignite.handlers import EarlyStopping
 from ignite.metrics import Loss
 
-from networks import *
+from lib.networks import *
 from lib.common.utils import ResizeTransform
 from lib.common.saveable import BestSaveable
 
