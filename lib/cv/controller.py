@@ -168,8 +168,8 @@ class TrainingPixelROI(object):
 
 
 class ControllerType(enum.Enum):
-    DEFAULT = 0,
-    TOP_LEFT_BOTTOM_RIGHT_PIXELS = 2,
+    DEFAULT = 0
+    TOP_LEFT_BOTTOM_RIGHT_PIXELS = 2
     RELATIVE_POSITION_AND_ORIENTATION = 3
 
 

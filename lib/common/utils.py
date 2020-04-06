@@ -183,4 +183,7 @@ def get_optimiser_params(parsed_optimiser):
             optimiser = {"optim": torch.optim.AdamW, "weight_decay": 0.05}
         elif parsed_optimiser == "V3":
             optimiser = {"optim": torch.optim.AdamW, "weight_decay": 0.1}
+        elif parsed_optimiser == "V4":
+            optimiser = {"optim": torch.optim.AdamW, "weight_decay": 0.001}
+
     return optimiser

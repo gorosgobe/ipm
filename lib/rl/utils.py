@@ -27,19 +27,18 @@ class CropTester(object):
         )
         self.resize = ResizeTransform(config["size"])
         width, height = config["size"]
-        cropped_width, cropped_height = config["size"]
+        cropped_width, cropped_height = config["cropped_size"]
         divisor_width = int(width / cropped_width)
         divisor_height = int(height / cropped_height)
-        if cropped_width == 32 and cropped_height == 24:
-            assert divisor_width == 4 and divisor_height == 4
         self.dataset_get_crop_box = ImageTipVelocitiesDataset(
             velocities_csv=config["velocities_csv"],
             rotations_csv=config["rotations_csv"],
             metadata=config["metadata"],
             root_dir=config["root_dir"],
             transform=self.resize,
+            force_not_cache=True,
             initial_pixel_cropper=TrainingPixelROI(
-                480 // divisor_height, 640 // divisor_width, add_spatial_maps=False
+                480 // divisor_height, 640 // divisor_width
             )
         )
         # during training we expect reward to go up, but we also want to
@@ -79,7 +78,7 @@ class CropTester(object):
             if save_images:
                 numpy_image_plain_gt = self.dataset_plain_images[demonstration_index]
                 image_gt = numpy_image_plain_gt["image"].copy()
-                draw_crop(image_gt, tl_gt, br_gt, size=4)
+                draw_crop(image_gt, tl_gt, br_gt, size=8)
                 image_gt = self.resize(image_gt)
                 draw_crop(image_gt, predicted_pixel_info_tl, predicted_pixel_info_br, red=True)
                 save_image(image_gt, f"{log_dir}/{prefix}-{count}.png")

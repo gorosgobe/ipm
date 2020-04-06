@@ -34,12 +34,12 @@ def get_scene_and_test_scene_configuration(model_name):
 
 
 class TestConfig(enum.Enum):
-    BASELINE = 0,
-    FULL_IMAGE = 1,
-    ATTENTION_64 = 2,
-    ATTENTION_32 = 3,
-    ATTENTION_COORD_64 = 4,
-    ATTENTION_COORD_32 = 5,
+    BASELINE = 0
+    FULL_IMAGE = 1
+    ATTENTION_64 = 2
+    ATTENTION_32 = 3
+    ATTENTION_COORD_64 = 4
+    ATTENTION_COORD_32 = 5
     COORD_32_ST_100 = 6
 
 
