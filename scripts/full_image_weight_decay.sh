@@ -23,6 +23,7 @@ training_list="0.8
 wd_list="V1
 V2
 V3
+V4
 "
 for wd in $wd_list; do
 
