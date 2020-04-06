@@ -119,13 +119,13 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         train_data_loader = DataLoader(
             training_dataset,
             batch_size=len(training_dataset),
-            num_workers=2,
+            num_workers=8,
             shuffle=True
         )
         validation_data_loader = DataLoader(
             validation_dataset,
             batch_size=len(validation_dataset),
-            num_workers=2,
+            num_workers=8,
             shuffle=True
         )
         estimator = self.estimator(
