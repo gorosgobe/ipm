@@ -24,7 +24,9 @@ if __name__ == '__main__':
     parser.add_argument("--algo")
     parser.add_argument("--timesteps", type=int)
     parser.add_argument("--name")
-    parser.add_argument("--score_every", type=int)
+    parser.add_argument("--score_every", type=int, default=10)
+    parser.add_argument("epochs_reward", type=int, default=100)
+    parser.add_argument("epochs_validate", type=int, default=1)
     parse_result = parser.parse_args()
 
     dataset = "scene1/scene1"
@@ -42,8 +44,8 @@ if __name__ == '__main__':
         num_workers=4,  # number of workers to compute RL reward
         split=[0.2, 0.1, 0.1],
         patience=3,  # smaller, need to train faster
-        max_epochs=100,
-        validate_epochs=1,
+        max_epochs=parse_result.epochs_reward,
+        validate_epochs=parse_result.epochs_validate,
         name=parse_result.name or "rl_crop",
         log_dir="learn_crop_output_log"
     )
