@@ -29,8 +29,8 @@ for wd in $wd_list; do
   for training in $training_list; do
     echo "Starting training full image network for training data ${training} and optim params ${wd}."
     training_str=$(echo "$training" | sed -e "s/\.//g")
-    time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_${training_str}" --dataset "$dataset" \
-            --training "$training" --optim "$wd" --seed "$seed" >> "$log_file"
+    time python3 train_tip_velocity_estimator.py --name "FullImageNetworkWD${wd}_${dataset_str}_${training_str}" \
+        --dataset "$dataset" --training "$training" --optim "$wd" --seed "$seed" >> "$log_file"
     echo "Completed training."
   done
 
