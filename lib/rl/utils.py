@@ -35,8 +35,7 @@ class CropTester(object):
             # TODO: automate the // 2 depending on size and cropped size
             initial_pixel_cropper=TrainingPixelROI(
                 480 // 2, 640 // 2, add_spatial_maps=False
-            ),
-            force_not_cache=True
+            )
         )
         # during training we expect reward to go up, but we also want to
         # use this to validate throughout training and to test the model
@@ -58,14 +57,9 @@ class CropTester(object):
         scores = []
         while not done:
             demonstration_index = self.env.demonstration_img_idx
-            numpy_image_plain_gt = self.dataset_plain_images[demonstration_index]
             numpy_pixel_info = self.dataset_get_crop_box[demonstration_index]["pixel_info"]
-            image_gt = numpy_image_plain_gt["image"].copy()
             tl_gt = numpy_pixel_info["top_left"].astype(int)
             br_gt = numpy_pixel_info["bottom_right"].astype(int)
-            if save_images:
-                draw_crop(image_gt, tl_gt, br_gt, size=4)
-            image_gt = self.resize(image_gt)
 
             action, _states = model.predict(obs)
             obs, reward, done, info = self.env.step(action)
@@ -76,7 +70,12 @@ class CropTester(object):
             box = CvUtils.get_bounding_box(*coords)
             predicted_pixel_info_tl = box[0]
             predicted_pixel_info_br = box[3]
+
             if save_images:
+                numpy_image_plain_gt = self.dataset_plain_images[demonstration_index]
+                image_gt = numpy_image_plain_gt["image"].copy()
+                draw_crop(image_gt, tl_gt, br_gt, size=4)
+                image_gt = self.resize(image_gt)
                 draw_crop(image_gt, predicted_pixel_info_tl, predicted_pixel_info_br, red=True)
                 save_image(image_gt, f"{log_dir}/{prefix}-{count}.png")
 

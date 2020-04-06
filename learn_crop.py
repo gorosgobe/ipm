@@ -24,6 +24,7 @@ if __name__ == '__main__':
     parser.add_argument("--algo")
     parser.add_argument("--timesteps", type=int)
     parser.add_argument("--name")
+    parser.add_argument("--score_every", type=int)
     parse_result = parser.parse_args()
 
     dataset = "scene1/scene1"
@@ -90,8 +91,8 @@ if __name__ == '__main__':
         config=config,
         demonstration_dataset=dataset,
         crop_test_modality=CropTestModality.TRAINING.value,
-        compute_score_every=1,  # every rollout, for the time being
-        number_rollouts=5,
+        compute_score_every=parse_result.score_every,  # every rollout, for the time being
+        number_rollouts=1,
         save_images_every=10
     )
     model.learn(total_timesteps=parse_result.timesteps, callback=CallbackList([score_callback_train]))

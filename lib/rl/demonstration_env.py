@@ -10,6 +10,7 @@ from lib.cv.dataset import FromListsDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.rl.state import State
 
+
 class SpaceProviderEnv(gym.Env, ABC):
     def __init__(self, image_size):
         super().__init__()
