@@ -55,7 +55,7 @@ class TipVelocityEstimatorLoss(object):
 
 class TipVelocityEstimator(BestSaveable):
     def __init__(self, batch_size, learning_rate, image_size, network_klass, transforms=None, name="model", device=None,
-                 patience=10, composite_loss_params=None, verbose=True):
+                 patience=10, composite_loss_params=None, verbose=True, optimiser_params=None):
         super().__init__()
         self.name = name
         self.device = device
@@ -66,7 +66,11 @@ class TipVelocityEstimator(BestSaveable):
         width, height = self.image_size
         self.network = network_klass(width, height)
 
-        self.optimiser = torch.optim.Adam(self.network.parameters(), lr=learning_rate)
+        if optimiser_params is None:
+            optimiser_params = dict(optim=torch.optim.Adam)
+
+        optim = optimiser_params.pop("optim")
+        self.optimiser = optim(self.network.parameters(), lr=learning_rate, **optimiser_params)
         self.composite_loss_params = composite_loss_params
 
         # For a composite loss, pass in the parameters as a dictionary

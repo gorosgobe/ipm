@@ -1,12 +1,14 @@
 import argparse
+import pprint
 
 import numpy as np
 from torch.utils.data import DataLoader
 
-from cv.dataset import ImageTipVelocitiesDataset
-from cv.networks import *
-from cv.tip_velocity_estimator import TipVelocityEstimator
-from common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
+from lib.cv.dataset import ImageTipVelocitiesDataset
+from lib.cv.networks import *
+from lib.cv.tip_velocity_estimator import TipVelocityEstimator
+from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed, \
+    get_optimiser_params
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -17,6 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--version")
     parser.add_argument("--loss")
     parser.add_argument("--seed")
+    parser.add_argument("--optim", default=None)
     parse_result = parser.parse_args()
 
     loss_params = get_loss(parse_result.loss)
@@ -24,6 +27,8 @@ if __name__ == "__main__":
     print("Seed:", seed)
     size = (128, 96)
     version = FullImageNetworkCoord if parse_result.version == "coord" else FullImageNetwork
+    optimiser_params = get_optimiser_params(parse_result.optim)
+    pprint.pprint("Optimiser params:", optimiser_params)
     if parse_result.size == 64:
         size = (64, 48)
         version = FullImageNetworkCoord_64 if parse_result.version == "coord" else FullImageNetwork_64
@@ -56,6 +61,7 @@ if __name__ == "__main__":
         save_to_location="models/",
         network_klass=version,
         loss_params=loss_params,
+        optimiser_params=optimiser_params
     )
     print("Name:", config["name"])
 
@@ -92,7 +98,8 @@ if __name__ == "__main__":
         transforms=transforms,
         name=config["name"],
         device=device,
-        composite_loss_params=config["loss_params"]
+        composite_loss_params=config["loss_params"],
+        optimiser_params=config["optimiser_params"]
     )
 
     tip_velocity_estimator.train(

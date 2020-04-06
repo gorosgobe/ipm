@@ -171,3 +171,16 @@ def get_seed(parsed_seed):
         return 2019
     else:
         return int(parsed_seed)
+
+
+def get_optimiser_params(parsed_optimiser):
+    optimiser = None
+    if parsed_optimiser is not None:
+        if parsed_optimiser == "V1":
+            # default AdamW
+            optimiser = {"optim": torch.optim.AdamW, "weight_decay": 0.01}
+        elif parsed_optimiser == "V2":
+            optimiser = {"optim": torch.optim.AdamW, "weight_decay": 0.05}
+        elif parsed_optimiser == "V3":
+            optimiser = {"optim": torch.optim.AdamW, "weight_decay": 0.1}
+    return optimiser

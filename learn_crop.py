@@ -25,8 +25,8 @@ if __name__ == '__main__':
     parser.add_argument("--timesteps", type=int)
     parser.add_argument("--name")
     parser.add_argument("--score_every", type=int, default=10)
-    parser.add_argument("epochs_reward", type=int, default=100)
-    parser.add_argument("epochs_validate", type=int, default=1)
+    parser.add_argument("--epochs_reward", type=int, default=100)
+    parser.add_argument("--epochs_validate", type=int, default=1)
     parse_result = parser.parse_args()
 
     dataset = "scene1/scene1"
