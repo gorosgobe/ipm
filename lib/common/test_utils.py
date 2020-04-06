@@ -179,7 +179,7 @@ def downsample_coordinates(x, y, og_width, og_height, to_width, to_height):
     return downsampled_x, downsampled_y
 
 
-def get_distance_between_boxes(tl_gt, predicted_tl):
+def get_distance_between_boxes(tl_gt, predicted_tl, *_args):
     return np.linalg.norm(np.array(tl_gt) - np.array(predicted_tl))
 
 
