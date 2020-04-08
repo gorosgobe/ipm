@@ -9,6 +9,8 @@ from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import FromListsDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.rl.state import State
+from lib.rl.utils import CropTester, CropTestModality
+from lib.common.test_utils import get_distance_between_boxes
 
 
 class SpaceProviderEnv(gym.Env, ABC):
@@ -32,7 +34,7 @@ class SpaceProviderEnv(gym.Env, ABC):
 
 class SingleDemonstrationEnv(SpaceProviderEnv):
     def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
-                 use_split_idx=0, skip_reward=False):
+                 use_split_idx=0, skip_reward=False, test_reward=False):
         super().__init__(config["size"])
         self.demonstration_dataset = demonstration_dataset
         self.config = config
@@ -52,23 +54,33 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.demonstration_img_idx = None
         self.end = None
         self.next_demonstration_idx = None
+        self.val_next_demonstration_idx = None
 
         self.epoch_list = []
         self.skip_reward = skip_reward  # skip reward computation when testing
+        # ----
+        # Use a simpler, faster reward to test the agent is learning something
+        # In this case, we will use the negative distance between the predicted and the expected crops
+        # Compared to our validation loss based reward, this is not sparse and is very fast to compute
+        self.test_reward = test_reward
+        self.crop_tester = None
+        if self.test_reward:
+            self.crop_tester = CropTester(config, demonstration_dataset, CropTestModality.TRAINING.value, self.__class__)
 
-    def set_next_demonstration(self, idx):
+    def set_next_demonstration(self, idx, val_idx):
         # to manually set the next demonstration and not rely on random demonstrations
         self.next_demonstration_idx = idx
+        self.val_next_demonstration_idx = val_idx
 
     def reset(self):
         # sample new demonstration
         if self.next_demonstration_idx is None:
             # TODO: fix training split so it picks it from the right place
-            demonstration_idx = self.random_provider(
-                int(self.training_split * self.demonstration_dataset.get_num_demonstrations()))
+            demonstration_idx, val_demonstration_idx = self.random_provider(
+                int(self.training_split * self.demonstration_dataset.get_num_demonstrations()), size=2)
         else:
-            demonstration_idx = self.next_demonstration_idx
-            self.next_demonstration_idx = None  # reset, set_next_demonstration needs to be called before every reset
+            demonstration_idx, val_demonstration_idx = self.next_demonstration_idx, self.val_next_demonstration_idx
+            self.next_demonstration_idx = self.val_next_demonstration_idx = None  # reset, set_next_demonstration needs to be called before every reset
         self.start, self.end = self.demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
         self.demonstration_img_idx = self.start
         self.state = State(self.demonstration_dataset[self.start])
@@ -99,7 +111,22 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         return new_state, False
 
     def get_reward(self, done):
-        if self.skip_reward or not done:
+        if self.skip_reward:
+            return 0
+
+        if self.test_reward:
+            distance_between_crops, _, _, _, _ = self.crop_tester.get_score(
+                criterion=get_distance_between_boxes,
+                gt_demonstration_idx=self.demonstration_img_idx - 1,  # index has advanced to next one
+                width=self.width,
+                height=self.height,
+                predicted_center=self.next_state.get_center_crop(),
+                cropped_width=self.cropped_width,
+                cropped_height=self.cropped_height
+            )
+            return -distance_between_crops
+
+        if not done:
             return 0
         # all images are in self.demonstration_states, train with those
         # last demonstration state is dummy state to hold last crop
@@ -116,6 +143,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         rotations = [state.get_rotations() for state in self.demonstration_states[:-1]]
         training_dataset, validation_dataset = FromListsDataset(cropped_images, tip_velocities,
                                                                 rotations).shuffle().split()
+        # TODO: one demonstration for training, one for validation (correlations within demonstration...)
         # train with everything as the batch, its small anyways
         train_data_loader = DataLoader(
             training_dataset,

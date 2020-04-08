@@ -3,6 +3,7 @@ import numpy as np
 
 from stable_baselines.common.callbacks import BaseCallback
 
+from lib.rl.demonstration_env import SingleDemonstrationEnv
 from lib.rl.utils import CropTester
 
 
@@ -12,11 +13,11 @@ class ScoreCallback(BaseCallback):
     """
 
     def __init__(self, score_name, score_function, prefix, config, demonstration_dataset, crop_test_modality,
-                 compute_score_every, log_dir, number_rollouts, save_images_every=-1, verbose=0):
+                 compute_score_every, log_dir, number_rollouts, save_images_every=-1, verbose=0, environment_klass=SingleDemonstrationEnv):
         super().__init__(verbose)
         self.score_name = score_name
         self.score_function = score_function
-        self.crop_tester = CropTester(config, demonstration_dataset, crop_test_modality)
+        self.crop_tester = CropTester(config, demonstration_dataset, crop_test_modality, environment_klass=environment_klass)
         self.log_dir = log_dir
         self.prefix = prefix  # when saving images
         self.compute_score_every = compute_score_every
@@ -34,7 +35,7 @@ class ScoreCallback(BaseCallback):
 
         value_means, value_stds = [], []
         for i in range(self.number_rollouts):
-            value_mean, value_std = self.crop_tester.get_crop_score(
+            value_mean, value_std = self.crop_tester.get_crop_score_per_rollout(
                 criterion=self.score_function,
                 model=self.model,
                 # save images only for one rollout

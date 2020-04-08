@@ -69,7 +69,8 @@ if __name__ == '__main__':
 
     env = SingleDemonstrationEnv(
         demonstration_dataset=dataset,
-        config=config
+        config=config,
+        test_reward=True
     )
 
     print("Checking environment...")
@@ -101,5 +102,5 @@ if __name__ == '__main__':
     model.learn(total_timesteps=parse_result.timesteps, callback=CallbackList([score_callback_train]))
     print("Finished training, mean #epochs trained:", np.mean(np.array(env.get_epoch_list())))
     model.save(config["name"])
-    #score = score_callback_train.crop_tester.get_crop_score(get_distance_between_boxes, model, True, "learn_crop_output_log")
+    score = score_callback_train.crop_tester.get_crop_score_per_rollout(get_distance_between_boxes, model, True, "learn_crop_output_log")
     # results_plotter.plot_results(["./learn_crop_output_log"], 1e4, results_plotter.X_TIMESTEPS, "Output")
