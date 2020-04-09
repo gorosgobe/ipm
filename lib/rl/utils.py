@@ -15,6 +15,47 @@ class CropTestModality(enum.Enum):
     TEST = 2
 
 
+class CropScorer(object):
+    def __init__(self, config):
+        self.config = config
+        self.resize = ResizeTransform(config["size"])
+        width, height = config["size"]
+        cropped_width, cropped_height = config["cropped_size"]
+        divisor_width = int(width / cropped_width)
+        divisor_height = int(height / cropped_height)
+        self.dataset_get_crop_box = ImageTipVelocitiesDataset(
+            velocities_csv=config["velocities_csv"],
+            rotations_csv=config["rotations_csv"],
+            metadata=config["metadata"],
+            root_dir=config["root_dir"],
+            transform=self.resize,
+            force_not_cache=True,
+            initial_pixel_cropper=TrainingPixelROI(
+                480 // divisor_height, 640 // divisor_width
+            )
+        )
+
+    def get_score(self, criterion, gt_demonstration_idx, width, height, predicted_center, cropped_width,
+                  cropped_height):
+        numpy_pixel_info = self.dataset_get_crop_box[gt_demonstration_idx]["pixel_info"]
+        # Expected crop
+        tl_gt = numpy_pixel_info["top_left"].astype(int)
+        br_gt = numpy_pixel_info["bottom_right"].astype(int)
+        tl_gt_down = downsample_coordinates(*tl_gt, og_width=640, og_height=480, to_width=width, to_height=height)
+        br_gt_down = downsample_coordinates(*br_gt, og_width=640, og_height=480, to_width=width, to_height=height)
+
+        # Predicted crop
+        coords = CvUtils.get_bounding_box_coordinates(predicted_center[0], predicted_center[1],
+                                                      cropped_height=cropped_height,
+                                                      cropped_width=cropped_width)
+        box = CvUtils.get_bounding_box(*coords)
+        predicted_pixel_info_tl = box[0]
+        predicted_pixel_info_br = box[3]
+
+        score = criterion(tl_gt_down, predicted_pixel_info_tl, br_gt_down, predicted_pixel_info_br)
+        return score, tl_gt, br_gt, predicted_pixel_info_tl, predicted_pixel_info_br
+
+
 class CropTester(object):
     def __init__(self, config, demonstration_dataset, crop_test_modality, environment_klass):
         self.config = config
@@ -40,6 +81,7 @@ class CropTester(object):
                 480 // divisor_height, 640 // divisor_width
             )
         )
+        self.scorer = CropScorer(config=config)
         # during training we expect reward to go up, but we also want to
         # use this to validate throughout training and to test the model
         self.env = environment_klass(
@@ -67,7 +109,7 @@ class CropTester(object):
             obs, reward, done, info = self.env.step(action)
             center = info["center_crop_pixel"]
 
-            score, tl_gt, br_gt, predicted_pixel_info_tl, predicted_pixel_info_br = self.get_score(
+            score, tl_gt, br_gt, predicted_pixel_info_tl, predicted_pixel_info_br = self.scorer.get_score(
                 criterion=criterion,
                 gt_demonstration_idx=demonstration_index,
                 width=width,
@@ -90,23 +132,3 @@ class CropTester(object):
 
         scores = np.array(scores)
         return np.mean(scores), np.std(scores)
-
-    def get_score(self, criterion, gt_demonstration_idx, width, height, predicted_center, cropped_width,
-                  cropped_height):
-        numpy_pixel_info = self.dataset_get_crop_box[gt_demonstration_idx]["pixel_info"]
-        # Expected crop
-        tl_gt = numpy_pixel_info["top_left"].astype(int)
-        br_gt = numpy_pixel_info["bottom_right"].astype(int)
-        tl_gt_down = downsample_coordinates(*tl_gt, og_width=640, og_height=480, to_width=width, to_height=height)
-        br_gt_down = downsample_coordinates(*br_gt, og_width=640, og_height=480, to_width=width, to_height=height)
-
-        # Predicted crop
-        coords = CvUtils.get_bounding_box_coordinates(predicted_center[0], predicted_center[1],
-                                                      cropped_height=cropped_height,
-                                                      cropped_width=cropped_width)
-        box = CvUtils.get_bounding_box(*coords)
-        predicted_pixel_info_tl = box[0]
-        predicted_pixel_info_br = box[3]
-
-        score = criterion(tl_gt_down, predicted_pixel_info_tl, br_gt_down, predicted_pixel_info_br)
-        return score, tl_gt, br_gt, predicted_pixel_info_tl, predicted_pixel_info_br

@@ -9,7 +9,7 @@ from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import FromListsDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.rl.state import State
-from lib.rl.utils import CropTester, CropTestModality
+from lib.rl.utils import CropTestModality, CropScorer
 from lib.common.test_utils import get_distance_between_boxes
 
 
@@ -55,7 +55,7 @@ class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
         # Use a simpler, faster reward to test the agent is learning something
         # In this case, we will use the negative distance between the predicted and the expected crops
         # Compared to our validation loss based reward, this is not sparse and is very fast to compute
-        self.crop_tester = CropTester(config, demonstration_dataset, CropTestModality.TRAINING.value, self.__class__)
+        self.crop_scorer = CropScorer(config)
 
     def reset(self):
         # sample new demonstration
@@ -91,7 +91,7 @@ class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
         return new_state, False
 
     def get_reward(self, _done):
-        distance_between_crops, _, _, _, _ = self.crop_tester.get_score(
+        distance_between_crops, _, _, _, _ = self.crop_scorer.get_score(
             criterion=get_distance_between_boxes,
             gt_demonstration_idx=self.demonstration_img_idx - 1,  # index has advanced to next one
             width=self.width,
