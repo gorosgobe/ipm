@@ -23,10 +23,11 @@ class FromListsDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.image_list)
 
-    def split(self):
-        image_idx_boundary = int(self.training_split * len(self.image_list))
-        return Subset(self, np.arange(0, image_idx_boundary)), Subset(self, np.arange(image_idx_boundary,
-                                                                                      len(self.image_list)))
+    def split(self, boundary=None):
+        if boundary is None:
+            boundary = int(self.training_split * len(self.image_list))
+
+        return Subset(self, np.arange(0, boundary)), Subset(self, np.arange(boundary, len(self.image_list)))
 
     def shuffle(self):
         indices = np.random.permutation(len(self.image_list))

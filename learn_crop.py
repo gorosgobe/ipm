@@ -13,7 +13,7 @@ from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
 from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.networks import AttentionNetworkCoord, AttentionNetworkCoord_32
 from lib.rl.callbacks import ScoreCallback
-from lib.rl.demonstration_env import SingleDemonstrationEnv
+from lib.rl.demonstration_env import SingleDemonstrationEnv, TestRewardSingleDemonstrationEnv
 from lib.rl.policies import PPOPolicy, SACCustomPolicy
 from lib.common.test_utils import get_distance_between_boxes
 from lib.rl.utils import CropTestModality
@@ -67,17 +67,15 @@ if __name__ == '__main__':
         transform=preprocessing_transforms,
     )
 
-    env = SingleDemonstrationEnv(
+    env = TestRewardSingleDemonstrationEnv(
         demonstration_dataset=dataset,
-        config=config,
-        test_reward=True
+        config=config
     )
 
     print("Checking environment...")
     check_env(env)
     print("Check successful!")
 
-    env = Monitor(env=env, filename=f"{config['log_dir']}/")
     if parse_result.algo == "ppo":
         dummy = DummyVecEnv([lambda: env])
         model = PPO2(PPOPolicy, dummy, policy_kwargs=dict(image_size=config["size"]), verbose=1, gamma=1.0,
@@ -100,7 +98,12 @@ if __name__ == '__main__':
         save_images_every=parse_result.images_every
     )
     model.learn(total_timesteps=parse_result.timesteps, callback=CallbackList([score_callback_train]))
-    print("Finished training, mean #epochs trained:", np.mean(np.array(env.get_epoch_list())))
+
+    try:
+        print("Finished training, mean #epochs trained:", env.get_epoch_list_stats())
+    except (ValueError, NotImplementedError):
+        print("Finished training, no estimators were trained")
+
     model.save(config["name"])
     score = score_callback_train.crop_tester.get_crop_score_per_rollout(get_distance_between_boxes, model, True, "learn_crop_output_log")
     # results_plotter.plot_results(["./learn_crop_output_log"], 1e4, results_plotter.X_TIMESTEPS, "Output")

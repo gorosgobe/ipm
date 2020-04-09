@@ -19,20 +19,24 @@ class State(object):
 
         if (self.x_center_previous is None) + (self.y_center_previous is None) == 1:
             raise ValueError(
-                "Either both x,y center coordinates of previous crop have to be provided, or none of them!")
+                "Either both x,y center coordinates of previous crop have to be provided, or none of them!"
+            )
         if self.data is not None:
             image = self.data["image"]
             c, h, w = image.size()
             self.image = image.permute(1, 2, 0).numpy()  # convert to numpy
             if self.x_center_previous is None and self.y_center_previous is None:
-                self.x_center_previous = int(w / 2)
-                self.y_center_previous = int(h / 2)
+                self.x_center_previous = int((w - 1) / 2)
+                self.y_center_previous = int((h - 1) / 2)
 
     def get(self):
         # returns an observation (this state) as an np array
         center = np.array([self.x_center_previous, self.y_center_previous])
         flattened = self.image.flatten()
         return np.concatenate((center, flattened))
+
+    def get_data(self):
+        return self.data
 
     def get_np_image(self):
         # returns numpy image
@@ -47,9 +51,11 @@ class State(object):
     def get_center_crop(self):
         return self.x_center_previous, self.y_center_previous
 
+    def set_center_crop(self, crop):
+        self.x_center_previous, self.y_center_previous = crop
+
     def apply_action(self, data, dx, dy, cropped_width, cropped_height):
         _c, height, width = self.data["image"].shape
-        assert height == 96 and width == 128
         x_center_previous = self.x_center_previous + int(dx * (width - 1))
         y_center_previous = self.y_center_previous + int(dy * (height - 1))
         x_center_previous, y_center_previous = CvUtils.fit_crop_to_image(
@@ -60,7 +66,7 @@ class State(object):
             cropped_height=cropped_height,
             cropped_width=cropped_width
         )
-        assert 0 <= x_center_previous <= width and 0 <= y_center_previous <= height
+        assert 0 <= x_center_previous < width and 0 <= y_center_previous < height
         return State(
             data=data,
             x_center_previous=x_center_previous,

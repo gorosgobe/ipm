@@ -62,7 +62,7 @@ class CropTester(object):
         cropped_width, cropped_height = self.config["cropped_size"]
 
         while not done:
-            demonstration_index = self.env.demonstration_img_idx
+            demonstration_index = self.env.get_curr_demonstration_idx()
             action, _states = model.predict(obs)
             obs, reward, done, info = self.env.step(action)
             center = info["center_crop_pixel"]
