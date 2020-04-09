@@ -132,8 +132,8 @@ class AttentionNetworkV2(torch.nn.Module):
 
     def normalise(self, pixel_batch, original_image_width, original_image_height):
         w, h = pixel_batch.split((1, 1), dim=1)
-        w = w / original_image_width
-        h = h / original_image_height
+        w = w / (original_image_width - 1)
+        h = h / (original_image_height - 1)
         return torch.cat((w, h), dim=1)
 
 

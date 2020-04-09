@@ -113,8 +113,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.demonstration_dataset = demonstration_dataset
         self.config = config
         self.random_provider = random_provider
-        # TODO: use this properly
-        self.training_split = config["split"][use_split_idx]  # 0 for training, 1 for validation, 2 for test
+        self.split_coeff = sum(config["split"][:use_split_idx])  # 0 for training, 1 for validation, 2 for test
         self.estimator = estimator
         self.cropped_width, self.cropped_height = self.config["cropped_size"]
         self.width, self.height = self.config["size"]
@@ -145,8 +144,9 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.curr_demonstration_img_idx = 0
         self.final_training_crop = None
         # sample new demonstration, one for training and one for validation, both DIFFERENT (replace = False)
+        # but within correct split
         demonstration_idx, val_demonstration_idx = self.random_provider(
-            int(self.training_split * self.demonstration_dataset.get_num_demonstrations()), size=2, replace=False)
+            int(self.split_coeff * self.demonstration_dataset.get_num_demonstrations()), size=2, replace=False)
         # training demonstration
         self.start, self.end = self.demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
         # validation demonstration

@@ -55,9 +55,9 @@ class SpatialDimensionAdder(object):
     @staticmethod
     def get_spatial_dimensions(height, width):
         i = np.tile(np.array(range(width), dtype=np.float32), (height, 1))
-        i = np.expand_dims(i, axis=2) / width
+        i = np.expand_dims(i, axis=2) / (width - 1)
         j = np.tile(np.array(range(height), dtype=np.float32), (width, 1)).T
-        j = np.expand_dims(j, axis=2) / height
+        j = np.expand_dims(j, axis=2) / (height - 1)
         return i, j
 
     @staticmethod
@@ -232,8 +232,3 @@ class TipVelocityController(object):
 
         tip_control = tip_control_single_batch[0]
         return tip_control
-
-    def normalise_pixel(self, pixel, w, h):
-        x, y = pixel
-        p = (x / w, y / h)
-        return p

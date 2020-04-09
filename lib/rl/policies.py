@@ -6,13 +6,15 @@ from stable_baselines.sac.policies import SACPolicy, LOG_STD_MIN, LOG_STD_MAX, g
     apply_squashing_func
 
 
-def extractor(observations, image_size, **kwargs):
+def extractor(observations, image_size, add_coord=False, **kwargs):
     width, height = image_size
     observation_size = observations.shape[1]
     center_previous, images_1d = tf.split(observations, axis=1, num_or_size_splits=[2, int(observation_size - 2)])
     # normalise centers
     center_previous_normalised = center_previous / tf.constant([width, height], dtype=tf.float32)
     images = tf.reshape(images_1d, (-1, height, width, 3))
+    if add_coord:
+        images = add_coord_channels(images, image_size)
     activ = tf.nn.relu
     out_conv1 = activ(conv(images, "c1", n_filters=32, filter_size=8, stride=4, init_scale=np.sqrt(2), **kwargs))
     out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=4, stride=2, init_scale=np.sqrt(2), **kwargs))
@@ -21,6 +23,32 @@ def extractor(observations, image_size, **kwargs):
     out_fc1 = activ(linear(out_conv3_flattened, "fc1", n_hidden=126, init_scale=np.sqrt(2)))
     concatenated = tf.concat(axis=1, values=[out_fc1, center_previous_normalised])
     return activ(linear(concatenated, "fc2", n_hidden=64, init_scale=np.sqrt(2)))
+
+
+def add_coord_channels(image_batch, image_size):
+    # Adapted from code provided in https://arxiv.org/pdf/1807.03247.pdf
+    # An Intriguing Failing of convolutional neural networks and the CoordConv solution, Liu et al., 2018
+    width, height = image_size
+    batch_size_tensor = tf.shape(image_batch)[0]
+    xx_ones = tf.ones([batch_size_tensor, width], dtype=tf.int32)
+    xx_ones = tf.expand_dims(xx_ones, -1)
+    xx_range = tf.tile(tf.expand_dims(tf.range(height), 0), [batch_size_tensor, 1])
+    xx_range = tf.expand_dims(xx_range, 1)
+    xx_channel = tf.matmul(xx_ones, xx_range)
+    xx_channel = tf.expand_dims(xx_channel, -1)
+
+    yy_ones = tf.ones([batch_size_tensor, height], dtype=tf.int32)
+    yy_ones = tf.expand_dims(yy_ones, 1)
+    yy_range = tf.tile(tf.expand_dims(tf.range(width), 0), [batch_size_tensor, 1])
+    yy_range = tf.expand_dims(yy_range, -1)
+    yy_channel = tf.matmul(yy_range, yy_ones)
+    yy_channel = tf.expand_dims(yy_channel, -1)
+
+    xx_channel = tf.cast(xx_channel, "float32") / (width - 1)
+    yy_channel = tf.cast(yy_channel, "float32") / (height - 1)
+    xx_channel = xx_channel * 2 - 1
+    yy_channel = yy_channel * 2 - 1
+    return tf.concat([image_batch, xx_channel, yy_channel], axis=-1)
 
 
 class PPONoScaleCNNFeedForwardPolicy(ActorCriticPolicy):

@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument("--images_every", type=int, default=1000)
     parser.add_argument("--epochs_reward", type=int, default=100)
     parser.add_argument("--epochs_validate", type=int, default=1)
+    parser.add_argument("--version")
     parse_result = parser.parse_args()
 
     dataset = "scene1/scene1"
@@ -48,7 +49,8 @@ if __name__ == '__main__':
         max_epochs=parse_result.epochs_reward,
         validate_epochs=parse_result.epochs_validate,
         name=parse_result.name or "rl_crop",
-        log_dir="learn_crop_output_log"
+        log_dir="learn_crop_output_log",
+        add_coord=parse_result.version == "coord"
     )
     print("Config:")
     pprint.pprint(config)
@@ -78,10 +80,23 @@ if __name__ == '__main__':
 
     if parse_result.algo == "ppo":
         dummy = DummyVecEnv([lambda: env])
-        model = PPO2(PPOPolicy, dummy, policy_kwargs=dict(image_size=config["size"]), verbose=1, gamma=1.0,
-                     tensorboard_log=f"./{config['log_dir']}")
+        model = PPO2(
+            PPOPolicy,
+            dummy,
+            policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"]),
+            verbose=1,
+            gamma=1.0,
+            tensorboard_log=f"./{config['log_dir']}"
+        )
     elif parse_result.algo == "sac":
-        model = SAC(SACCustomPolicy, env, policy_kwargs=dict(image_size=config["size"]), verbose=1, gamma=1.0, tensorboard_log="./learn_crop_output_log")
+        model = SAC(
+            SACCustomPolicy,
+            env,
+            policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"]),
+            verbose=1,
+            gamma=1.0,
+            tensorboard_log="./learn_crop_output_log"
+        )
     else:
         raise ValueError("Invalid algorithm, please choose ppo or sac")
 
