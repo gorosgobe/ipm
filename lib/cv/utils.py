@@ -7,11 +7,11 @@ class CvUtils(object):
         dy = 0
         if center_x + half_size_width >= width:
             dx = -(center_x + half_size_width - width) - 1
-        elif center_x - half_size_width < 0:
+        elif center_x - half_size_width + (cropped_width % 2 == 0) < 0:
             dx = -(center_x - half_size_width)
         if center_y + half_size_height >= height:
             dy = -(center_y + half_size_height - height) - 1
-        elif center_y - half_size_height < 0:
+        elif center_y - half_size_height + (cropped_height % 2 == 0) < 0:
             dy = -(center_y - half_size_height)
         # otherwise, crop lies fully inside the image, dx, dy = 0 apply
         center_x += dx

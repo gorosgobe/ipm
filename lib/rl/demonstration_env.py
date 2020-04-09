@@ -183,7 +183,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             center_crop_pixel=center_crop_pixel)
 
     def training_demonstration_done(self):
-        return self.get_curr_demonstration_idx() == self.val_start
+        return self.curr_demonstration_img_idx < len(self.indices) and self.get_curr_demonstration_idx() == self.val_start
 
     def validation_demonstration_done(self):
         return self.curr_demonstration_img_idx == len(self.indices)
@@ -236,13 +236,13 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             training_dataset,
             batch_size=len(training_dataset),
             num_workers=self.config["num_workers"],
-            shuffle=True
+            shuffle=self.config["shuffle"]
         )
         validation_data_loader = DataLoader(
             validation_dataset,
             batch_size=len(validation_dataset),
             num_workers=self.config["num_workers"],
-            shuffle=True
+            shuffle=self.config["shuffle"]
         )
         estimator = self.estimator(
             batch_size=len(training_dataset),
@@ -251,7 +251,9 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             network_klass=self.config["network_klass"],
             device=self.config["device"],
             patience=self.config["patience"],
-            verbose=False
+            verbose=False,
+            # mainly for testing purposes, but can be used to modify the optimiser too
+            optimiser_params=self.config["optimiser_params"] if "optimiser_params" in self.config else None
         )
         estimator.train(
             data_loader=train_data_loader,
