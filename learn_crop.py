@@ -79,6 +79,7 @@ if __name__ == '__main__':
     print("Check successful!")
 
     if parse_result.algo == "ppo":
+        env = Monitor(env=env, filename=f"{config['log_dir']}/")
         dummy = DummyVecEnv([lambda: env])
         model = PPO2(
             PPOPolicy,
