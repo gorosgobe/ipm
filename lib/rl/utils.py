@@ -87,7 +87,7 @@ class CropTester(object):
         self.env = environment_klass(
             demonstration_dataset=demonstration_dataset,
             config=config,
-            use_split_idx=crop_test_modality,
+            dataset_type_idx=crop_test_modality,
             skip_reward=True
         )
 

@@ -107,7 +107,7 @@ if __name__ == '__main__':
         log_dir=f"{config['log_dir']}/train_{parse_result.algo}",
         config=config,
         demonstration_dataset=dataset,
-        crop_test_modality=CropTestModality.TRAINING.value,
+        crop_test_modality=CropTestModality.TRAINING,
         compute_score_every=parse_result.score_every,  # every rollout, for the time being
         number_rollouts=1,
         save_images_every=parse_result.images_every

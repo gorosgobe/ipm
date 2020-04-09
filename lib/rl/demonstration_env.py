@@ -108,12 +108,14 @@ class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
 
 class SingleDemonstrationEnv(SpaceProviderEnv):
     def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
-                 use_split_idx=0, skip_reward=False):
+                 dataset_type_idx=CropTestModality.TRAINING, skip_reward=False):
         super().__init__(config["size"])
         self.demonstration_dataset = demonstration_dataset
         self.config = config
         self.random_provider = random_provider
-        self.split_coeff = sum(config["split"][:use_split_idx])  # 0 for training, 1 for validation, 2 for test
+        # use_split_idx = 0 for training, 1 for validation, 2 for test
+        self.split = config["split"]
+        self.dataset_type_idx = dataset_type_idx.value
         self.estimator = estimator
         self.cropped_width, self.cropped_height = self.config["cropped_size"]
         self.width, self.height = self.config["size"]
@@ -146,7 +148,9 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         # sample new demonstration, one for training and one for validation, both DIFFERENT (replace = False)
         # but within correct split
         demonstration_idx, val_demonstration_idx = self.random_provider(
-            int(self.split_coeff * self.demonstration_dataset.get_num_demonstrations()), size=2, replace=False)
+            int(self.split[self.dataset_type_idx] * self.demonstration_dataset.get_num_demonstrations()), size=2, replace=False)
+        demonstration_idx = self.get_global_demonstration_index(demonstration_idx)
+        val_demonstration_idx = self.get_global_demonstration_index(val_demonstration_idx)
         # training demonstration
         self.start, self.end = self.demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
         # validation demonstration
@@ -156,6 +160,11 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.state = State(self.get_curr_demonstration_data())
         self.demonstration_states = [self.state]
         return self.state.get()
+
+    def get_global_demonstration_index(self, index):
+        return int(
+            sum(self.split[:self.dataset_type_idx]) * self.demonstration_dataset.get_num_demonstrations()
+        ) + index
 
     def get_curr_demonstration_data(self):
         return self.demonstration_dataset[self.get_curr_demonstration_idx()]
