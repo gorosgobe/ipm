@@ -23,6 +23,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_adaptation_steps", type=int, required=True)
     parser.add_argument("--num_tasks_in_batch", type=int, required=True)
     parser.add_argument("--step_size", type=float, required=True)
+    parser.add_argument("--max_batches", type=int, required=True)
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -50,7 +51,7 @@ if __name__ == '__main__':
         mil_num_tasks_in_batch=parse_result.num_tasks_in_batch,  # number of batches in inner loop
         mil_step_size=parse_result.step_size,
         mil_learning_rate=0.01,
-        mil_max_batches=100,  # if multiplied by batch size of meta data loader -> number of tasks per epoch
+        mil_max_batches=parse_result.mil_max_batches,  # if multiplied by batch size of meta data loader -> number of tasks per epoch
         optimiser=torch.optim.Adam,
         loss_function=torch.nn.MSELoss(),
         split=[0.8, 0.1, 0.1],
