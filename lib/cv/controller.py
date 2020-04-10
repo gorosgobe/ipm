@@ -1,4 +1,6 @@
+import abc
 import enum
+from abc import ABC
 
 import numpy as np
 import torch
@@ -68,7 +70,17 @@ class SpatialDimensionAdder(object):
         return np.concatenate((image, i, j), axis=2)
 
 
-class TruePixelROI(object):
+class ROI(abc.ABC):
+    def is_random_crop(self):
+        raise NotImplementedError("is_random_crop is not implemented")
+
+
+class TrainingROI(ROI, ABC):
+    def crop(self, image, pixel):
+        raise NotImplementedError("crop is not implemented")
+
+
+class TruePixelROI(ROI):
     def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object, add_spatial_maps=False,
                  crop_deviation_sampler=None):
         """
@@ -140,9 +152,9 @@ class FakeHandle(object):
         return None
 
 
-class TrainingPixelROI(object):
+class TrainingPixelROI(TrainingROI):
     """
-    Region of interest for training, where pixel estimator is just the pixel stored for the image.
+    Region of interest for training, where estimated pixel is just the pixel stored for the image.
     """
 
     def __init__(self, cropped_height, cropped_width, add_spatial_maps=False, crop_deviation_sampler=None):
@@ -165,6 +177,31 @@ class TrainingPixelROI(object):
             self.crop_deviation_sampler
         )
         return true_pixel_roi.crop(image)
+
+
+class RandomPixelROI(TrainingPixelROI):
+    """
+    Region of interest for meta-training, where estimated pixel is just a random pixel in the image
+    """
+    def __init__(self, cropped_height, cropped_width, add_spatial_maps=False, random_provider=np.random.choice):
+        super().__init__(cropped_height, cropped_width, add_spatial_maps)
+        self.random_provider = random_provider
+
+    def crop(self, image, _loaded_pixel):
+        # ignore loaded pixel, get a random one from the image
+        height, width, _ = image.shape
+        random_pixel = self.get_random_pixel(height, width)
+        return super().crop(image, random_pixel)
+
+    def get_random_pixel(self, height, width):
+        # size of possible pixels can be computed with convolution formula w/o padding
+        range_x = width - self.cropped_width + 1
+        range_y = height - self.cropped_height + 1
+        start_x = (self.cropped_width // 2) - (self.cropped_width % 2 == 0)
+        start_y = (self.cropped_height // 2) - (self.cropped_height % 2 == 0)
+        dx = self.random_provider(np.arange(range_x))
+        dy = self.random_provider(np.arange(range_y))
+        return start_x + dx, start_y + dy
 
 
 class ControllerType(enum.Enum):

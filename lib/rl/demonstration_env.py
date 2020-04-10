@@ -59,8 +59,9 @@ class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
 
     def reset(self):
         # sample new demonstration
-        demonstration_idx, val_demonstration_idx = self.random_provider(
-            int(self.training_split * self.demonstration_dataset.get_num_demonstrations()), size=2)
+        demonstration_idx = self.random_provider(
+            int(self.training_split * self.demonstration_dataset.get_num_demonstrations())
+        )
         self.start, self.end = self.demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
         self.demonstration_img_idx = self.start
         self.state = State(self.demonstration_dataset[self.start])
