@@ -1,8 +1,8 @@
 import enum
 
 import numpy as np
-from lib.meta.pytorch_maml.maml.metalearners import MAML
-from metalearners import FOMAML, MetaSGD
+from maml.metalearners.maml import FOMAML, MAML
+from maml.metalearners.meta_sgd import MetaSGD
 from lib.common.saveable import BestSaveable
 
 
