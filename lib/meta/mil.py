@@ -53,8 +53,7 @@ class MetaImitationLearning(BestSaveable):
             print("Training outer loss:", mean_outer_train_loss)
             self.mean_outer_train_losses.append(mean_outer_train_loss)
 
-            results = self.maml.evaluate(val_batch_dataloader, max_batches=self.max_batches, verbose=True,
-                                         desc=f"Validation for epoch {epoch + 1}")
+            results = self.maml.evaluate(val_batch_dataloader, max_batches=self.max_batches)
             print(f"Validation outer loss: {results['mean_outer_loss']}")
             self.mean_outer_val_losses.append(results["mean_outer_loss"])
 

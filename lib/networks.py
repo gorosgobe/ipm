@@ -64,7 +64,7 @@ class AttentionNetworkTile_32(AttentionNetworkTile):
 
 
 class AttentionNetworkCoord(torch.nn.Module):
-    def __init__(self, image_width, image_height):
+    def __init__(self, _image_width, _image_height):
         super().__init__()
         # spatial information is encoded as coord feature maps, one for x and one for y dimensions, fourth/fifth channels
         self.conv1 = torch.nn.Conv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)

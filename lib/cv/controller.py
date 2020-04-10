@@ -187,6 +187,9 @@ class RandomPixelROI(TrainingPixelROI):
         super().__init__(cropped_height, cropped_width, add_spatial_maps)
         self.random_provider = random_provider
 
+    def is_random_crop(self):
+        return True
+
     def crop(self, image, _loaded_pixel):
         # ignore loaded pixel, get a random one from the image
         height, width, _ = image.shape
