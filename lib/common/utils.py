@@ -7,6 +7,8 @@ import cv2
 import torch
 import torchvision
 
+from lib.meta.mil import MetaAlgorithm
+
 
 class ResizeTransform(object):
     def __init__(self, size):
@@ -187,3 +189,22 @@ def get_optimiser_params(parsed_optimiser):
             optimiser = {"optim": torch.optim.AdamW, "weight_decay": 0.001}
 
     return optimiser
+
+
+def get_divisors(width, height, cropped_width, cropped_height):
+    divisor_width = int(width / cropped_width)
+    divisor_height = int(height / cropped_height)
+    return divisor_width, divisor_height
+
+
+def get_meta_algorithm(parsed_algo):
+    algo = MetaAlgorithm.FOMAML
+    if parsed_algo == "FOMAML":
+        pass
+    elif parsed_algo == "MAML":
+        algo = MetaAlgorithm.MAML
+    elif parsed_algo == "METASGD":
+        algo = MetaAlgorithm.METASGD
+    else:
+        raise ValueError("Suported meta learning algorithms are FOMAML, MAML and METASGD")
+    return algo

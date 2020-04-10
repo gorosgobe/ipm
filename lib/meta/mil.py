@@ -1,6 +1,8 @@
 import enum
 
 import numpy as np
+import torch
+
 from maml.metalearners.maml import FOMAML, MAML
 from maml.metalearners.meta_sgd import MetaSGD
 from lib.common.saveable import BestSaveable
@@ -22,6 +24,7 @@ class MetaImitationLearning(BestSaveable):
         self.max_batches = max_batches  # Number of batches of tasks per epoch
         self.mean_outer_train_losses = []
         self.mean_outer_val_losses = []
+        self.best_info = None
         self.params = dict(
             model=model,
             optimizer=optimiser,
@@ -43,6 +46,8 @@ class MetaImitationLearning(BestSaveable):
             self.maml = MetaSGD(**copy_params)
 
     def train(self, train_batch_dataloader, val_batch_dataloader, num_epochs):
+        self.best_info = self.get_info()
+        best_val_loss = None
         for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1}")
             train_outer_losses = []
@@ -54,11 +59,27 @@ class MetaImitationLearning(BestSaveable):
             self.mean_outer_train_losses.append(mean_outer_train_loss)
 
             results = self.maml.evaluate(val_batch_dataloader, max_batches=self.max_batches)
-            print(f"Validation outer loss: {results['mean_outer_loss']}")
-            self.mean_outer_val_losses.append(results["mean_outer_loss"])
+            val_mean_outer_loss = results['mean_outer_loss']
+            print(f"Validation outer loss: {val_mean_outer_loss}")
+            self.mean_outer_val_losses.append(val_mean_outer_loss)
+
+            # store best information when val loss is the best
+            if best_val_loss is None:
+                best_val_loss = val_mean_outer_loss
+                self.best_info = self.get_info()
+            elif best_val_loss is not None and val_mean_outer_loss < best_val_loss:
+                best_val_loss = val_mean_outer_loss
+                self.best_info = self.get_info()
 
     def get_model(self):
         return self.model
+
+    @staticmethod
+    def load_best_params(path):
+        info = torch.load(path)
+        # if best saved, these are the best parameters according to the validation tasks
+        # ATM we only support loading the pretrained parameters :)
+        return info["model_state_dict"]
 
     def get_info(self):
         return dict(
@@ -73,8 +94,4 @@ class MetaImitationLearning(BestSaveable):
         )
 
     def get_best_info(self):
-        # TODO: implement
-        return None
-
-    def test(self):
-        pass
+        return self.best_info
