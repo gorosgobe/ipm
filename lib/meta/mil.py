@@ -84,7 +84,7 @@ class MetaImitationLearning(BestSaveable):
     def get_info(self):
         return dict(
             model_state_dict=self.model.state_dict(),
-            optimiser_state_dict=self.params["optimiser"].state_dict(),
+            optimiser_state_dict=self.params["optimizer"].state_dict(),
             num_adaptation_steps=self.params["num_adaptation_steps"],
             network_klass=type(self.model),
             name=self.name,
