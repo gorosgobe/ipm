@@ -85,9 +85,9 @@ if __name__ == '__main__':
             init_from=parse_result.init_from
         )
 
+    monitor = Monitor(env=env, filename=f"{config['log_dir']}/")
     if parse_result.algo == "ppo":
-        env = Monitor(env=env, filename=f"{config['log_dir']}/")
-        dummy = DummyVecEnv([lambda: env])
+        dummy = DummyVecEnv([lambda: monitor])
         model = PPO2(
             PPOPolicy,
             dummy,
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     elif parse_result.algo == "sac":
         model = SAC(
             SACCustomPolicy,
-            env,
+            monitor,
             policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"]),
             verbose=1,
             gamma=1.0,
