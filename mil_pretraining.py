@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_adaptation_steps", type=int, required=True)
     parser.add_argument("--num_tasks_in_batch", type=int, required=True)
     parser.add_argument("--step_size", type=float, required=True)
-    parser.add_argument("--max_batches", type=int, required=True)
+    parser.add_argument("--mil_max_batches", type=int, required=True)
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
