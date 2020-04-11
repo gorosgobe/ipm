@@ -111,7 +111,7 @@ if __name__ == '__main__':
     score_callback_train = ScoreCallback(
         score_name="tl_distance_train",
         score_function=get_distance_between_boxes,
-        prefix="train",
+        prefix=f"{config['name']}_train",
         log_dir=f"{config['log_dir']}/train_{parse_result.algo}",
         config=config,
         demonstration_dataset=dataset,
