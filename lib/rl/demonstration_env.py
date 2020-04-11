@@ -123,6 +123,9 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.dataset_type_idx = dataset_type_idx.value
 
         self.init_from = init_from  # to use pretrained weights as initialisation
+        if self.init_from is not None:
+            self.parameter_state_dict = MetaImitationLearning.load_best_params(
+                f"models/pretraining_test/{self.init_from}")
         self.estimator = estimator
 
         self.cropped_width, self.cropped_height = self.config["cropped_size"]
@@ -267,10 +270,8 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
 
         if self.init_from is not None:
             # load pretrained parameters
-            parameter_state_dict = MetaImitationLearning.load_best_params(
-                f"models/pretraining_test/{self.init_from}")
             network = self.config["network_klass"](-1, -1)
-            network.load_state_dict(parameter_state_dict, strict=False)
+            network.load_state_dict(self.parameter_state_dict, strict=False)
             network_param = dict(network=network)
         else:
             network_param = dict(network_klass=self.config["network_klass"])
