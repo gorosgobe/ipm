@@ -76,7 +76,7 @@ class MetaImitationLearning(BestSaveable):
 
     @staticmethod
     def load_best_params(path):
-        info = torch.load(path)
+        info = torch.load(path, map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         # if best saved, these are the best parameters according to the validation tasks
         # ATM we only support loading the pretrained parameters :)
         return info["model_state_dict"]

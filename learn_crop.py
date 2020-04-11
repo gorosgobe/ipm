@@ -3,32 +3,33 @@ import pprint
 
 import numpy as np
 import torch
-from stable_baselines import PPO2, SAC, sac
+from stable_baselines import PPO2, SAC
 from stable_baselines.bench import Monitor
 from stable_baselines.common.callbacks import CallbackList
-from stable_baselines.common.env_checker import check_env
 from stable_baselines.common.vec_env import DummyVecEnv
 
+from lib.common.test_utils import get_distance_between_boxes
 from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
 from lib.cv.dataset import ImageTipVelocitiesDataset
-from lib.networks import AttentionNetworkCoord, AttentionNetworkCoord_32
+from lib.networks import AttentionNetworkCoord_32
 from lib.rl.callbacks import ScoreCallback
 from lib.rl.demonstration_env import SingleDemonstrationEnv, TestRewardSingleDemonstrationEnv
 from lib.rl.policies import PPOPolicy, SACCustomPolicy
-from lib.common.test_utils import get_distance_between_boxes
 from lib.rl.utils import CropTestModality
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--algo")
-    parser.add_argument("--timesteps", type=int)
-    parser.add_argument("--name")
-    parser.add_argument("--score_every", type=int, default=10)
-    parser.add_argument("--images_every", type=int, default=1000)
-    parser.add_argument("--epochs_reward", type=int, default=100)
-    parser.add_argument("--epochs_validate", type=int, default=1)
-    parser.add_argument("--version")
+    parser.add_argument("--algo", required=True)
+    parser.add_argument("--timesteps", type=int, required=True)
+    parser.add_argument("--name", required=True)
+    parser.add_argument("--score_every", type=int, required=True)
+    parser.add_argument("--images_every", type=int, required=True)
+    parser.add_argument("--epochs_reward", type=int, required=True)
+    parser.add_argument("--epochs_validate", type=int, required=True)
+    parser.add_argument("--version", required=True)
+    parser.add_argument("--env_type", required=True)
+    parser.add_argument("--init_from", )
     parse_result = parser.parse_args()
 
     dataset = "scene1/scene1"
@@ -48,9 +49,10 @@ if __name__ == '__main__':
         patience=3,  # smaller, need to train faster
         max_epochs=parse_result.epochs_reward,
         validate_epochs=parse_result.epochs_validate,
-        name=parse_result.name or "rl_crop",
+        name=parse_result.name,
         log_dir="learn_crop_output_log",
-        add_coord=parse_result.version == "coord"
+        add_coord=parse_result.version == "coord",
+        shuffle=True
     )
     print("Config:")
     pprint.pprint(config)
@@ -69,14 +71,19 @@ if __name__ == '__main__':
         transform=preprocessing_transforms,
     )
 
-    env = TestRewardSingleDemonstrationEnv(
-        demonstration_dataset=dataset,
-        config=config
-    )
-
-    print("Checking environment...")
-    check_env(env)
-    print("Check successful!")
+    if parse_result.env_type == "test":
+        print("Test environment selected")
+        env = TestRewardSingleDemonstrationEnv(
+            demonstration_dataset=dataset,
+            config=config
+        )
+    else:
+        print("Estimator training environment selected")
+        env = SingleDemonstrationEnv(
+            demonstration_dataset=dataset,
+            config=config,
+            init_from=parse_result.init_from
+        )
 
     if parse_result.algo == "ppo":
         env = Monitor(env=env, filename=f"{config['log_dir']}/")
@@ -121,5 +128,9 @@ if __name__ == '__main__':
         print("Finished training, no estimators were trained")
 
     model.save(config["name"])
-    score = score_callback_train.crop_tester.get_crop_score_per_rollout(get_distance_between_boxes, model, True, "learn_crop_output_log")
-    # results_plotter.plot_results(["./learn_crop_output_log"], 1e4, results_plotter.X_TIMESTEPS, "Output")
+
+    try:
+        # save validation losses obtained
+        env.save_validation_losses_list(f"{config['name']}_val_losses")
+    except NotImplementedError:
+        print("Could not save validation losses, no estimators were trained")

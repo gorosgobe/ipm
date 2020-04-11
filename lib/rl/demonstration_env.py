@@ -11,6 +11,7 @@ from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.rl.state import State
 from lib.rl.utils import CropTestModality, CropScorer
 from lib.common.test_utils import get_distance_between_boxes
+from mil import MetaImitationLearning
 
 
 class SpaceProviderEnv(gym.Env, ABC):
@@ -106,10 +107,13 @@ class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
     def get_epoch_list_stats(self):
         raise NotImplementedError("No estimators are trained")
 
+    def save_validation_losses_list(self, path):
+        raise NotImplementedError("No estimators are trained")
+
 
 class SingleDemonstrationEnv(SpaceProviderEnv):
     def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
-                 dataset_type_idx=CropTestModality.TRAINING, skip_reward=False):
+                 dataset_type_idx=CropTestModality.TRAINING, skip_reward=False, init_from=None):
         super().__init__(config["size"])
         self.demonstration_dataset = demonstration_dataset
         self.config = config
@@ -117,7 +121,10 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         # use_split_idx = 0 for training, 1 for validation, 2 for test
         self.split = config["split"]
         self.dataset_type_idx = dataset_type_idx.value
+
+        self.init_from = init_from  # to use pretrained weights as initialisation
         self.estimator = estimator
+
         self.cropped_width, self.cropped_height = self.config["cropped_size"]
         self.width, self.height = self.config["size"]
         self.pixel_cropper = TrainingPixelROI(self.cropped_height, self.cropped_width, add_spatial_maps=True)
@@ -141,6 +148,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.final_training_crop = None
 
         self.epoch_list = []
+        self.validation_list = []
         self.skip_reward = skip_reward  # skip reward computation when testing
 
     def reset(self):
@@ -149,7 +157,8 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         # sample new demonstration, one for training and one for validation, both DIFFERENT (replace = False)
         # but within correct split
         demonstration_idx, val_demonstration_idx = self.random_provider(
-            int(self.split[self.dataset_type_idx] * self.demonstration_dataset.get_num_demonstrations()), size=2, replace=False)
+            int(self.split[self.dataset_type_idx] * self.demonstration_dataset.get_num_demonstrations()), size=2,
+            replace=False)
         demonstration_idx = self.get_global_demonstration_index(demonstration_idx)
         val_demonstration_idx = self.get_global_demonstration_index(val_demonstration_idx)
         # training demonstration
@@ -193,7 +202,8 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             center_crop_pixel=center_crop_pixel)
 
     def training_demonstration_done(self):
-        return self.curr_demonstration_img_idx < len(self.indices) and self.get_curr_demonstration_idx() == self.val_start
+        return self.curr_demonstration_img_idx < len(
+            self.indices) and self.get_curr_demonstration_idx() == self.val_start
 
     def validation_demonstration_done(self):
         return self.curr_demonstration_img_idx == len(self.indices)
@@ -254,17 +264,29 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             num_workers=self.config["num_workers"],
             shuffle=self.config["shuffle"]
         )
+
+        if self.init_from is not None:
+            # load pretrained parameters
+            parameter_state_dict = MetaImitationLearning.load_best_params(
+                f"models/pretraining_test/{self.init_from}")
+            network = self.config["network_klass"](-1, -1)
+            network.load_state_dict(parameter_state_dict, strict=False)
+            network_param = dict(network=network)
+        else:
+            network_param = dict(network_klass=self.config["network_klass"])
+
         estimator = self.estimator(
             batch_size=len(training_dataset),
             learning_rate=self.config["learning_rate"],
             image_size=self.config["cropped_size"],  # learning from cropped size
-            network_klass=self.config["network_klass"],
+            **network_param,  # either initialise from class or from model
             device=self.config["device"],
             patience=self.config["patience"],
             verbose=False,
             # mainly for testing purposes, but can be used to modify the optimiser too
             optimiser_params=self.config["optimiser_params"] if "optimiser_params" in self.config else None
         )
+
         estimator.train(
             data_loader=train_data_loader,
             max_epochs=self.config["max_epochs"],
@@ -273,6 +295,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         )
         reward = -estimator.get_best_val_loss()
         self.epoch_list.append(estimator.get_num_epochs_trained())
+        self.validation_list.append(estimator.get_val_losses())
         return reward
 
     def get_epoch_list_stats(self):
@@ -280,3 +303,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             raise ValueError("No estimators were trained")
         arr = np.array(self.epoch_list)
         return np.mean(arr), np.std(arr)
+
+    def save_validation_losses_list(self, path):
+        import torch
+        torch.save(dict(validation_list=self.validation_list), path)
