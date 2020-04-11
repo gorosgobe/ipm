@@ -11,7 +11,7 @@ from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.rl.state import State
 from lib.rl.utils import CropTestModality, CropScorer
 from lib.common.test_utils import get_distance_between_boxes
-from mil import MetaImitationLearning
+from lib.meta.mil import MetaImitationLearning
 
 
 class SpaceProviderEnv(gym.Env, ABC):
