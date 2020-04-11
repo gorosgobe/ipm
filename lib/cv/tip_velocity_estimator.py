@@ -268,7 +268,10 @@ class TipVelocityEstimator(BestSaveable):
         name = info["name"]
         network_klass = info["network_klass"]
 
-        estimator = TipVelocityEstimator(batch_size, learning_rate, image_size, network_klass, transforms, name)
+        estimator = TipVelocityEstimator(
+            batch_size=batch_size, learning_rate=learning_rate, image_size=image_size, network_klass=network_klass,
+            transforms=transforms, name=name
+        )
         estimator.test_loss = info["test_loss"]
 
         def setup_state(engine):

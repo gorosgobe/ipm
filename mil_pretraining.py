@@ -51,7 +51,8 @@ if __name__ == '__main__':
         mil_num_tasks_in_batch=parse_result.num_tasks_in_batch,  # number of batches in inner loop
         mil_step_size=parse_result.step_size,
         mil_learning_rate=0.01,
-        mil_max_batches=parse_result.mil_max_batches,  # if multiplied by batch size of meta data loader -> number of tasks per epoch
+        mil_max_batches=parse_result.mil_max_batches,
+        # if multiplied by batch size of meta data loader -> number of tasks per epoch
         optimiser=torch.optim.Adam,
         loss_function=torch.nn.MSELoss(),
         split=[0.8, 0.1, 0.1],
@@ -104,8 +105,10 @@ if __name__ == '__main__':
         dataset_type=DatasetType.VAL
     )
 
-    train_batch_dataloader = BatchMetaDataLoader(meta_train_dataset, batch_size=config["mil_num_tasks_in_batch"], num_workers=8)
-    val_batch_dataloader = BatchMetaDataLoader(meta_val_dataset, batch_size=config["mil_num_tasks_in_batch"], num_workers=8)
+    train_batch_dataloader = BatchMetaDataLoader(meta_train_dataset, batch_size=config["mil_num_tasks_in_batch"],
+                                                 num_workers=8)
+    val_batch_dataloader = BatchMetaDataLoader(meta_val_dataset, batch_size=config["mil_num_tasks_in_batch"],
+                                               num_workers=8)
 
     mil.train(
         train_batch_dataloader=train_batch_dataloader,
@@ -113,4 +116,4 @@ if __name__ == '__main__':
         num_epochs=config["mil_epochs"]
     )
 
-    mil.save_best_model(f"mil_{config['name']}.pt")
+    mil.save_best_model(f"{config['save_to_location']}")
