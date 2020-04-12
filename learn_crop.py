@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser.add_argument("--epochs_validate", type=int, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--env_type", required=True)
+    parser.add_argument("--patience", required=True)
     parser.add_argument("--init_from", )
     parse_result = parser.parse_args()
 
@@ -44,9 +45,9 @@ if __name__ == '__main__':
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        num_workers=2,  # number of workers to compute RL reward
+        num_workers=0,  # number of workers to compute RL reward
         split=[0.8, 0.1, 0.1],
-        patience=10,
+        patience=parse_result.patience,
         max_epochs=parse_result.epochs_reward,
         validate_epochs=parse_result.epochs_validate,
         name=parse_result.name,
@@ -57,8 +58,6 @@ if __name__ == '__main__':
     print("Config:")
     pprint.pprint(config)
 
-    np.random.seed(config["seed"])
-    torch.manual_seed(config["seed"])
     device = set_up_cuda(config["seed"])
     config["device"] = device
     preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"])

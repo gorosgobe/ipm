@@ -4,6 +4,7 @@ import os
 import random
 
 import cv2
+import numpy as np
 import torch
 import torchvision
 
@@ -168,11 +169,16 @@ def get_loss(loss_params):
 
 def get_seed(parsed_seed):
     if parsed_seed == "random":
-        return random.getrandbits(32)
+        seed = random.getrandbits(32)
     elif parsed_seed is None:
-        return 2019
+        seed = 2019
     else:
-        return int(parsed_seed)
+        seed = int(parsed_seed)
+
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
+    return seed
 
 
 def get_optimiser_params(parsed_optimiser):

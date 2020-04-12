@@ -11,18 +11,18 @@ def extractor(observations, image_size, add_coord=False, **kwargs):
     observation_size = observations.shape[1]
     center_previous, images_1d = tf.split(observations, axis=1, num_or_size_splits=[2, int(observation_size - 2)])
     # normalise centers
-    center_previous_normalised = center_previous / tf.constant([width, height], dtype=tf.float32)
+    center_previous_normalised = center_previous / tf.constant([width - 1, height - 1], dtype=tf.float32)
     images = tf.reshape(images_1d, (-1, height, width, 3))
     if add_coord:
         images = add_coord_channels(images, image_size)
     activ = tf.nn.relu
-    out_conv1 = activ(conv(images, "c1", n_filters=32, filter_size=8, stride=4, init_scale=np.sqrt(2), **kwargs))
-    out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=4, stride=2, init_scale=np.sqrt(2), **kwargs))
-    out_conv3 = activ(conv(out_conv2, "c3", n_filters=64, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+    out_conv1 = activ(conv(images, "c1", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+    out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+    out_conv3 = activ(conv(out_conv2, "c3", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
     out_conv3_flattened = conv_to_fc(out_conv3)
-    out_fc1 = activ(linear(out_conv3_flattened, "fc1", n_hidden=126, init_scale=np.sqrt(2)))
+    out_fc1 = activ(linear(out_conv3_flattened, "fc1", n_hidden=62, init_scale=np.sqrt(2)))
     concatenated = tf.concat(axis=1, values=[out_fc1, center_previous_normalised])
-    return activ(linear(concatenated, "fc2", n_hidden=64, init_scale=np.sqrt(2)))
+    return concatenated
 
 
 def add_coord_channels(image_batch, image_size):

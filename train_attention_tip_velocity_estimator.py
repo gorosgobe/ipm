@@ -88,8 +88,6 @@ if __name__ == "__main__":
 
     print("Name:", config["name"])
 
-    np.random.seed(config["seed"])
-    torch.manual_seed(config["seed"])
     device = set_up_cuda(config["seed"])
     preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"], is_coord=add_spatial_maps)
 

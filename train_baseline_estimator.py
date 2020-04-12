@@ -45,8 +45,6 @@ if __name__ == "__main__":
 
     print("Name:", config["name"])
 
-    np.random.seed(config["seed"])
-    torch.manual_seed(config["seed"])
     device = set_up_cuda(config["seed"])
 
     dataset = BaselineTipVelocitiesDataset(

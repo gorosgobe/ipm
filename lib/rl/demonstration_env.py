@@ -5,13 +5,13 @@ import numpy as np
 import torchvision
 from torch.utils.data import DataLoader
 
+from lib.common.test_utils import get_distance_between_boxes
 from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import FromListsDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
+from lib.meta.mil import MetaImitationLearning
 from lib.rl.state import State
 from lib.rl.utils import CropTestModality, CropScorer
-from lib.common.test_utils import get_distance_between_boxes
-from lib.meta.mil import MetaImitationLearning
 
 
 class SpaceProviderEnv(gym.Env, ABC):
@@ -41,7 +41,6 @@ class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
         self.config = config
         self.random_provider = random_provider
         self.training_split = config["split"][use_split_idx]  # 0 for training, 1 for validation, 2 for test
-        self.estimator = estimator
         self.cropped_width, self.cropped_height = self.config["cropped_size"]
         self.width, self.height = self.config["size"]
 

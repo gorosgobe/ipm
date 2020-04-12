@@ -1,3 +1,5 @@
+import random
+
 import matplotlib.pyplot as plt
 from ignite.engine import (Events, create_supervised_evaluator,
                            create_supervised_trainer)
@@ -116,7 +118,7 @@ class TipVelocityEstimator(BestSaveable):
         self.validate_epochs = validate_epochs
         self.val_loader = val_loader
         self.test_loader = test_loader
-        return self.trainer.run(data_loader, max_epochs)
+        return self.trainer.run(data_loader, max_epochs, seed=random.getrandbits(32))
 
     def get_network(self):
         return self.network
@@ -162,7 +164,7 @@ class TipVelocityEstimator(BestSaveable):
 
     def epoch_completed(self):
         def static_epoch_completed(trainer):
-            self.training_evaluator.run(self.train_data_loader)
+            self.training_evaluator.run(self.train_data_loader, seed=random.getrandbits(32))
             metrics = self.training_evaluator.state.metrics
             loss = metrics["loss"]
             self.training_losses.append((trainer.state.epoch, loss))
@@ -175,7 +177,7 @@ class TipVelocityEstimator(BestSaveable):
         def static_epoch_validate(trainer):
             if trainer.state.epoch % self.validate_epochs == 0:
                 # validate against validation dataset
-                self.validation_evaluator.run(self.val_loader)
+                self.validation_evaluator.run(self.val_loader, seed=random.getrandbits(32))
                 metrics = self.validation_evaluator.state.metrics
                 loss = metrics["loss"]
                 self.validation_losses.append((trainer.state.epoch, loss))
@@ -300,7 +302,7 @@ class TipVelocityEstimator(BestSaveable):
 
     def evaluate_test(self, test_loader):
         test_evaluator = self._create_evaluator()
-        test_evaluator.run(test_loader)
+        test_evaluator.run(test_loader, seed=random.getrandbits(32))
         return test_evaluator.state.metrics["loss"]
 
     def plot_train_val_losses(self):
