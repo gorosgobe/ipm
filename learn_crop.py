@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument("--epochs_validate", type=int, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--env_type", required=True)
-    parser.add_argument("--patience", required=True)
+    parser.add_argument("--patience", type=int, required=True)
     parser.add_argument("--init_from", )
     parse_result = parser.parse_args()
 
