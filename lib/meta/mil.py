@@ -45,7 +45,7 @@ class MetaImitationLearning(BestSaveable):
             del copy_params["step_size"]
             self.maml = MetaSGD(**copy_params)
 
-    def train(self, train_batch_dataloader, val_batch_dataloader, num_epochs):
+    def train(self, train_batch_dataloader, val_batch_dataloader, num_epochs, disable_validation):
         self.best_info = self.get_info()
         best_val_loss = None
         for epoch in range(num_epochs):
@@ -63,6 +63,9 @@ class MetaImitationLearning(BestSaveable):
             print(f"Validation outer loss: {val_mean_outer_loss}")
             self.mean_outer_val_losses.append(val_mean_outer_loss)
 
+            if disable_validation:
+                continue
+
             # store best information when val loss is the best
             if best_val_loss is None:
                 best_val_loss = val_mean_outer_loss
@@ -70,6 +73,9 @@ class MetaImitationLearning(BestSaveable):
             elif best_val_loss is not None and val_mean_outer_loss < best_val_loss:
                 best_val_loss = val_mean_outer_loss
                 self.best_info = self.get_info()
+
+        if disable_validation:
+            self.best_info = self.get_info()
 
     def get_model(self):
         return self.model

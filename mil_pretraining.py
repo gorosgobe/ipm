@@ -65,8 +65,6 @@ if __name__ == '__main__':
     print("Config:")
     pprint.pprint(config)
 
-    np.random.seed(config["seed"])
-    torch.manual_seed(config["seed"])
     device = set_up_cuda(seed=get_seed(parsed_seed=config["seed"]))
     preprocessing_transforms, _ = get_preprocessing_transforms(size=config["cropped_size"], is_coord=True)
 
@@ -110,10 +108,13 @@ if __name__ == '__main__':
     val_batch_dataloader = BatchMetaDataLoader(meta_val_dataset, batch_size=config["mil_num_tasks_in_batch"],
                                                num_workers=8)
 
+    # Why don't we need validation here?
+    # A:
     mil.train(
         train_batch_dataloader=train_batch_dataloader,
         val_batch_dataloader=val_batch_dataloader,
-        num_epochs=config["mil_epochs"]
+        num_epochs=config["mil_epochs"],
+        disable_validation=True
     )
 
     mil.save_best_model(f"{config['save_to_location']}")
