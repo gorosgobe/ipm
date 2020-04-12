@@ -58,13 +58,13 @@ class MetaImitationLearning(BestSaveable):
             print("Training outer loss:", mean_outer_train_loss)
             self.mean_outer_train_losses.append(mean_outer_train_loss)
 
+            if disable_validation:
+                continue
+
             results = self.maml.evaluate(val_batch_dataloader, max_batches=self.max_batches)
             val_mean_outer_loss = results['mean_outer_loss']
             print(f"Validation outer loss: {val_mean_outer_loss}")
             self.mean_outer_val_losses.append(val_mean_outer_loss)
-
-            if disable_validation:
-                continue
 
             # store best information when val loss is the best
             if best_val_loss is None:
