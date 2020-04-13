@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("--buffer_size", type=int, required=True)
     parser.add_argument("--target_updates", type=int, required=True)
     parser.add_argument("--training", type=float)
+    parser.add_argument("--restrict_crop_move", type=int)
     parser.add_argument("--init_from", )
     parse_result = parser.parse_args()
 
@@ -60,7 +61,8 @@ if __name__ == '__main__':
         log_dir="learn_crop_output_log",
         add_coord=parse_result.version == "coord",
         tile=parse_result.tile == "yes",
-        shuffle=True
+        shuffle=True,
+        restrict_crop_move=parse_result.restrict_crop_move
     )
     print("Config:")
     pprint.pprint(config)

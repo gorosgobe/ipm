@@ -35,8 +35,7 @@ class SpaceProviderEnv(gym.Env, ABC):
 
 
 class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
-    def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
-                 use_split_idx=0, **_kwargs):
+    def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, use_split_idx=0, **_kwargs):
         super().__init__(config["size"])
         self.demonstration_dataset = demonstration_dataset
         self.config = config
@@ -86,10 +85,12 @@ class TestRewardSingleDemonstrationEnv(SpaceProviderEnv):
     def apply_action(self, action):
         self.demonstration_img_idx += 1
         if self.done():
-            return self.state.apply_action(None, action[0], action[1], self.cropped_width, self.cropped_height), True
+            return self.state.apply_action(None, action[0], action[1], self.cropped_width, self.cropped_height,
+                                           restrict_crop_move=self.config["restrict_crop_move"]), True
 
         new_state = self.state.apply_action(self.demonstration_dataset[self.demonstration_img_idx], action[0],
-                                            action[1], self.cropped_width, self.cropped_height)
+                                            action[1], self.cropped_width, self.cropped_height,
+                                            restrict_crop_move=self.config["restrict_crop_move"])
         return new_state, False
 
     def get_reward(self, _done):
@@ -219,15 +220,18 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             # return starting state for validation demonstration
             # store final crop to apply to last training demonstration image
             self.final_training_crop = self.state.apply_action(
-                None, action[0], action[1], self.cropped_width, self.cropped_height
+                None, action[0], action[1], self.cropped_width, self.cropped_height,
+                restrict_crop_move=self.config["restrict_crop_move"]
             ).get_center_crop()
             return State(self.get_curr_demonstration_data()), False
 
         if self.validation_demonstration_done():
-            return self.state.apply_action(None, action[0], action[1], self.cropped_width, self.cropped_height), True
+            return self.state.apply_action(None, action[0], action[1], self.cropped_width, self.cropped_height,
+                                           restrict_crop_move=self.config["restrict_crop_move"]), True
 
         new_state = self.state.apply_action(self.get_curr_demonstration_data(), action[0], action[1],
-                                            self.cropped_width, self.cropped_height)
+                                            self.cropped_width, self.cropped_height,
+                                            restrict_crop_move=self.config["restrict_crop_move"])
         return new_state, False
 
     def get_reward(self, done):

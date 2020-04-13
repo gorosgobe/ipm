@@ -54,10 +54,14 @@ class State(object):
     def set_center_crop(self, crop):
         self.x_center_previous, self.y_center_previous = crop
 
-    def apply_action(self, data, dx, dy, cropped_width, cropped_height):
+    def apply_action(self, data, dx, dy, cropped_width, cropped_height, restrict_crop_move=None):
         _c, height, width = self.data["image"].shape
-        x_center_previous = self.x_center_previous + int(dx * (width - 1))
-        y_center_previous = self.y_center_previous + int(dy * (height - 1))
+        x_center_previous = self.x_center_previous + int(
+            dx * ((min(width, restrict_crop_move) if restrict_crop_move is not None else width) - 1)
+        )
+        y_center_previous = self.y_center_previous + int(
+            dy * ((min(height, restrict_crop_move) if restrict_crop_move is not None else height) - 1)
+        )
         x_center_previous, y_center_previous = CvUtils.fit_crop_to_image(
             center_x=x_center_previous,
             center_y=y_center_previous,

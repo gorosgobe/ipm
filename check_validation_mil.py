@@ -15,12 +15,27 @@ if __name__ == '__main__':
     plot = True
     disable_std = True
     validations = OrderedDict()
+    mean_num_epochs = OrderedDict()
 
     for test in tests:
         info = torch.load(f"models/pretraining_test/val_losses/{test}")
         validation_list = info["validation_list"]
         test_basename = os.path.basename(test)
         add_value_to_test(validations, test_basename, validation_list)
+        add_value_to_test(mean_num_epochs, test_basename, validation_list)
+
+    for overall_test_name in mean_num_epochs:
+        num_epochs = []
+        for test_validations in mean_num_epochs[overall_test_name]:
+            epochs_test = []
+            for nn_validations in test_validations:
+                epochs_test.append(len(nn_validations))
+            num_epochs.append(np.mean(np.array(epochs_test)))
+        num_epochs_array = np.array(num_epochs)
+        mean_num_epochs[overall_test_name] = (np.mean(num_epochs_array), np.std(num_epochs_array))
+
+    print("Mean epochs")
+    pprint.pprint(mean_num_epochs)
 
     # get some initial validation losses to see progression and remove epoch number
     for overall_test_name in validations:
@@ -31,7 +46,6 @@ if __name__ == '__main__':
                 # extend, as not all networks train for the same time, and some will train only for "patience" num epochs
                 validation_losses.extend([0 for _ in range(num_val_losses - len(validation_losses))])
                 validations[overall_test_name][idx][idx_nn] = validation_losses[:num_val_losses]
-
     limited_np_validations = OrderedDict()
     for overall_test_name in validations:
         all = []
