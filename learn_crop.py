@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument("--patience", type=int, required=True)
     parser.add_argument("--buffer_size", type=int, required=True)
     parser.add_argument("--target_updates", type=int, required=True)
+    parser.add_argument("--training", type=float)
     parser.add_argument("--init_from", )
     parse_result = parser.parse_args()
 
@@ -51,7 +52,7 @@ if __name__ == '__main__':
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
         num_workers=0,  # number of workers to compute RL reward
-        split=[0.8, 0.1, 0.1],
+        split=[(parse_result.training or 0.8), 0.1, 0.1],
         patience=parse_result.patience,
         max_epochs=parse_result.epochs_reward,
         validate_epochs=parse_result.epochs_validate,

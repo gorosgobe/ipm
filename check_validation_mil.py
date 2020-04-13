@@ -13,6 +13,7 @@ if __name__ == '__main__':
     tests = sys.argv[1:]
     num_val_losses = 20
     plot = True
+    disable_std = True
     validations = OrderedDict()
 
     for test in tests:
@@ -39,20 +40,26 @@ if __name__ == '__main__':
         limited_np_validations[overall_test_name] = np.concatenate(all, axis=0)
 
     means = []
+    standard_deviations = []
     for overall_test_name in limited_np_validations:
-        print(limited_np_validations[overall_test_name].shape)
         sum = np.sum(limited_np_validations[overall_test_name], axis=0)
         div = np.count_nonzero(limited_np_validations[overall_test_name], axis=0)
-        print("Sum shape", sum.shape)
-        print("Div shape", div.shape)
-        means.append((overall_test_name, sum / div))
+        m = sum / div
+        means.append((overall_test_name, m))
+        squared_difference = np.square(limited_np_validations[overall_test_name] - m)
+        std_sum = np.sum(squared_difference, axis=0)
+        std = np.sqrt(std_sum / len(limited_np_validations[overall_test_name]))
+        standard_deviations.append((overall_test_name, std))
 
     pprint.pprint(means)
 
     if plot:
-        for test_means in means:
+        for idx, test_means in enumerate(means):
             test_means_name, test_means_values = test_means
+            _, test_stds_values = standard_deviations[idx]
             plt.plot(range(1, num_val_losses + 1), test_means_values, label=test_means_name)
+            if not disable_std:
+                plt.fill_between(range(1, num_val_losses + 1), test_means_values-test_stds_values, test_means_values+test_stds_values, alpha=0.2)
         plt.xticks(range(1, num_val_losses + 1))
         plt.yscale("log")
         plt.xlabel("# epochs")
