@@ -6,6 +6,7 @@ import torchvision
 from torch.utils.data import DataLoader
 
 from lib.common.test_utils import get_distance_between_boxes
+from lib.common.utils import get_network_param_if_init_from
 from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import FromListsDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
@@ -267,13 +268,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
             shuffle=self.config["shuffle"]
         )
 
-        if self.init_from is not None:
-            # load pretrained parameters
-            network = self.config["network_klass"](-1, -1)
-            network.load_state_dict(self.parameter_state_dict, strict=False)
-            network_param = dict(network=network)
-        else:
-            network_param = dict(network_klass=self.config["network_klass"])
+        network_param = get_network_param_if_init_from(self.init_from, self.config, self.parameter_state_dict)
 
         estimator = self.estimator(
             batch_size=len(training_dataset),

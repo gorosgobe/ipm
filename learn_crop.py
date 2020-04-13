@@ -49,7 +49,7 @@ if __name__ == '__main__':
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        num_workers=0,  # number of workers to compute RL reward
+        num_workers=2,  # number of workers to compute RL reward
         split=[0.8, 0.1, 0.1],
         patience=parse_result.patience,
         max_epochs=parse_result.epochs_reward,

@@ -7,7 +7,9 @@ from lib.cv.controller import TrainingPixelROI, CropDeviationSampler
 from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.networks import *
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
-from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed
+from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed, \
+    get_network_param_if_init_from
+from lib.meta.mil import MetaImitationLearning
 
 if __name__ == "__main__":
 
@@ -20,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("--random_std", type=int)
     parser.add_argument("--loss")
     parser.add_argument("--seed")
+    parser.add_argument("--init_from")
     parse_result = parser.parse_args()
 
     loss_params = get_loss(parse_result.loss)
@@ -111,11 +114,18 @@ if __name__ == "__main__":
     validation_data_loader = DataLoader(val_demonstrations, batch_size=32, num_workers=8, shuffle=True)
     test_data_loader = DataLoader(test_demonstrations, batch_size=32, num_workers=8, shuffle=True)
 
+    network_param = get_network_param_if_init_from(
+        config["init_from"], config,
+        MetaImitationLearning.load_best_params(
+            f"models/pretraining_test/{config['init_from']}"
+        ) if config["init_from"] is not None else None
+    )
+
     tip_velocity_estimator = TipVelocityEstimator(
         batch_size=config["batch_size"],
         learning_rate=config["learning_rate"],
         image_size=config["size"],
-        network_klass=config["network_klass"],
+        **network_param,
         # transforms without initial resize, so they can be pickled correctly
         transforms=transforms,
         name=config["name"],

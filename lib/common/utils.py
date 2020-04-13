@@ -214,3 +214,15 @@ def get_meta_algorithm(parsed_algo):
     else:
         raise ValueError("Suported meta learning algorithms are FOMAML, MAML and METASGD")
     return algo
+
+
+def get_network_param_if_init_from(init_from, config, parameter_state_dict):
+    if init_from is not None:
+        # load pretrained parameters
+        network = config["network_klass"](-1, -1)
+        network.load_state_dict(parameter_state_dict, strict=False)
+        network_param = dict(network=network)
+    else:
+        network_param = dict(network_klass=config["network_klass"])
+
+    return network_param
