@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument("--epochs_reward", type=int, required=True)
     parser.add_argument("--epochs_validate", type=int, required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--tile", required=True)
     parser.add_argument("--env_type", required=True)
     parser.add_argument("--patience", type=int, required=True)
     parser.add_argument("--buffer_size", type=int, required=True)
@@ -57,6 +58,7 @@ if __name__ == '__main__':
         name=parse_result.name,
         log_dir="learn_crop_output_log",
         add_coord=parse_result.version == "coord",
+        tile=parse_result.tile == "yes",
         shuffle=True
     )
     print("Config:")
@@ -94,7 +96,7 @@ if __name__ == '__main__':
         model = PPO2(
             PPOPolicy,
             dummy,
-            policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"]),
+            policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"], tile=config["tile"]),
             verbose=1,
             gamma=1.0,
             tensorboard_log=f"./{config['log_dir']}"
@@ -103,7 +105,7 @@ if __name__ == '__main__':
         model = SAC(
             SACCustomPolicy,
             monitor,
-            policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"]),
+            policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"], tile=config["tile"]),
             verbose=1,
             gamma=1.0,
             buffer_size=config["buffer_size"],

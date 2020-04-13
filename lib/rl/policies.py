@@ -6,23 +6,63 @@ from stable_baselines.sac.policies import SACPolicy, LOG_STD_MIN, LOG_STD_MAX, g
     apply_squashing_func
 
 
-def extractor(observations, image_size, add_coord=False, **kwargs):
+def extractor(observations, image_size, crop_size=(32, 24), add_coord=False, tile=False, **kwargs):
     width, height = image_size
     observation_size = observations.shape[1]
     center_previous, images_1d = tf.split(observations, axis=1, num_or_size_splits=[2, int(observation_size - 2)])
-    # normalise centers
-    center_previous_normalised = center_previous / tf.constant([width - 1, height - 1], dtype=tf.float32)
     images = tf.reshape(images_1d, (-1, height, width, 3))
     if add_coord:
         images = add_coord_channels(images, image_size)
     activ = tf.nn.relu
     out_conv1 = activ(conv(images, "c1", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
-    out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
-    out_conv3 = activ(conv(out_conv2, "c3", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
-    out_conv3_flattened = conv_to_fc(out_conv3)
-    out_fc1 = activ(linear(out_conv3_flattened, "fc1", n_hidden=62, init_scale=np.sqrt(2)))
-    concatenated = tf.concat(axis=1, values=[out_fc1, center_previous_normalised])
-    return concatenated
+
+    if not tile:
+        out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+        out_conv3 = activ(conv(out_conv2, "c3", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+        out_conv3_flattened = conv_to_fc(out_conv3)
+        out_fc1 = activ(linear(out_conv3_flattened, "fc1", n_hidden=62, init_scale=np.sqrt(2)))
+        # normalise centers to -1, 1
+        center_previous_normalised = (center_previous / tf.constant([width - 1, height - 1], dtype=tf.float32)) * 2 - 1
+        out = tf.concat(axis=1, values=[out_fc1, center_previous_normalised])
+    else:
+        out_conv2 = activ(conv(out_conv1, "c2", n_filters=62, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+        conv2_shape = tf.shape(out_conv2)
+
+        tl, br = get_tl_br(center_previous, *crop_size)
+        # normalise tl, br to -1, 1
+        tl = (tl / tf.constant([width - 1, height - 1], dtype=tf.float32)) * 2 - 1
+        br = (tl / tf.constant([width - 1, height - 1], dtype=tf.float32)) * 2 - 1
+
+        tl_tiled = get_tile_map(tl, conv2_shape[1], conv2_shape[2])
+        br_tiled = get_tile_map(br, conv2_shape[1], conv2_shape[2])
+        # concatenate tile maps for center_previous_normalised
+        out_conv2_tile = tf.concat(axis=-1, values=[out_conv2, tl_tiled, br_tiled])
+        out_conv3 = activ(conv(out_conv2_tile, "c3", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+        out_conv3_flattened = conv_to_fc(out_conv3)
+        out = activ(linear(out_conv3_flattened, "fc1", n_hidden=64, init_scale=np.sqrt(2)))
+
+    return out
+
+
+def get_tl_br(centers, cropped_width, cropped_height):
+    tl = centers - tf.constant([cropped_width // 2, cropped_height // 2], dtype=tf.float32)
+    br = centers + tf.constant([cropped_width // 2, cropped_height // 2], dtype=tf.float32)
+
+    if cropped_width % 2 == 0:
+        tl = tl + tf.constant([1, 0], dtype=tf.float32)
+
+    if cropped_height % 2 == 0:
+        tl = tl + tf.constant([0, 1], dtype=tf.float32)
+
+    return tl, br
+
+
+def get_tile_map(corner, h, w):
+    w_tiled = tf.tile(corner, [1, w // 2])
+    w_tiled_expanded = tf.expand_dims(w_tiled, 1)
+    w_h_tiled = tf.tile(w_tiled_expanded, [1, h, 1])
+    out = tf.expand_dims(w_h_tiled, -1)
+    return out
 
 
 def add_coord_channels(image_batch, image_size):
