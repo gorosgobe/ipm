@@ -14,18 +14,18 @@ def extractor(observations, image_size, crop_size=(32, 24), add_coord=False, til
     if add_coord:
         images = add_coord_channels(images, image_size)
     activ = tf.nn.relu
-    out_conv1 = activ(conv(images, "c1", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+    out_conv1 = activ(conv(images, "c1", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
 
     if not tile:
-        out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
-        out_conv3 = activ(conv(out_conv2, "c3", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+        out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
+        out_conv3 = activ(conv(out_conv2, "c3", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
         out_conv3_flattened = conv_to_fc(out_conv3)
         out_fc1 = activ(linear(out_conv3_flattened, "fc1", n_hidden=62, init_scale=np.sqrt(2)))
         # normalise centers to -1, 1
         center_previous_normalised = (center_previous / tf.constant([width - 1, height - 1], dtype=tf.float32)) * 2 - 1
         out = tf.concat(axis=1, values=[out_fc1, center_previous_normalised])
     else:
-        out_conv2 = activ(conv(out_conv1, "c2", n_filters=62, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+        out_conv2 = activ(conv(out_conv1, "c2", n_filters=62, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
         conv2_shape = tf.shape(out_conv2)
 
         tl, br = get_tl_br(center_previous, *crop_size)
@@ -37,7 +37,7 @@ def extractor(observations, image_size, crop_size=(32, 24), add_coord=False, til
         br_tiled = get_tile_map(br, conv2_shape[1], conv2_shape[2])
         # concatenate tile maps for center_previous_normalised
         out_conv2_tile = tf.concat(axis=-1, values=[out_conv2, tl_tiled, br_tiled])
-        out_conv3 = activ(conv(out_conv2_tile, "c3", n_filters=64, filter_size=5, stride=2, init_scale=np.sqrt(2), **kwargs))
+        out_conv3 = activ(conv(out_conv2_tile, "c3", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
         out_conv3_flattened = conv_to_fc(out_conv3)
         out = activ(linear(out_conv3_flattened, "fc1", n_hidden=64, init_scale=np.sqrt(2)))
 
