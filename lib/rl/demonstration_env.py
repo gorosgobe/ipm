@@ -123,6 +123,7 @@ class SingleDemonstrationEnv(SpaceProviderEnv):
         self.dataset_type_idx = dataset_type_idx.value
 
         self.init_from = init_from  # to use pretrained weights as initialisation
+        self.parameter_state_dict = None
         if self.init_from is not None:
             self.parameter_state_dict = MetaImitationLearning.load_best_params(
                 f"models/pretraining_test/{self.init_from}")
