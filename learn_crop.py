@@ -30,12 +30,16 @@ if __name__ == '__main__':
     parser.add_argument("--version", required=True)
     parser.add_argument("--env_type", required=True)
     parser.add_argument("--patience", type=int, required=True)
+    parser.add_argument("--buffer_size", type=int, required=True)
+    parser.add_argument("--target_updates", type=int, required=True)
     parser.add_argument("--init_from", )
     parse_result = parser.parse_args()
 
     dataset = "scene1/scene1"
     config = dict(
         n_envs=16,
+        buffer_size=parse_result.buffer_size,
+        target_updates=parse_result.target_updates,
         size=(128, 96),
         cropped_size=(32, 24),
         learning_rate=0.0001,
@@ -102,6 +106,8 @@ if __name__ == '__main__':
             policy_kwargs=dict(image_size=config["size"], add_coord=config["add_coord"]),
             verbose=1,
             gamma=1.0,
+            buffer_size=config["buffer_size"],
+            target_update_interval=config["target_updates"],
             tensorboard_log="./learn_crop_output_log"
         )
     else:
