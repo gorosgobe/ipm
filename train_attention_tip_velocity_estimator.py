@@ -86,7 +86,8 @@ if __name__ == "__main__":
         validate_epochs=1,
         save_to_location="models/",
         network_klass=version,
-        loss_params=loss_params
+        loss_params=loss_params,
+        init_from=parse_result.init_from
     )
 
     print("Name:", config["name"])
