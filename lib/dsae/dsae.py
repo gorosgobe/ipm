@@ -136,10 +136,8 @@ class DSAE_Loss(object):
         self.mse_loss = nn.MSELoss(reduction="sum")
 
     def __call__(self, reconstructed, target, ft_minus1=None, ft=None, ft_plus1=None):
-        b, _, _, _ = reconstructed.size()
         loss = self.mse_loss(reconstructed, target)
-        print("Before", loss)
+        g_slow_contrib = torch.zeros(1)
         if self.add_g_slow:
-            loss += self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
-        print("After", loss)
-        return loss / b
+            g_slow_contrib = self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
+        return loss, g_slow_contrib

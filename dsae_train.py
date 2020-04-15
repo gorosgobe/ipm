@@ -57,6 +57,9 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--g_slow", default="yes")
+    # set to 2 or 4
+    # 4 might be too small, and features that might produce a big error with normal sized image might not be tracked
+    parser.add_argument("--output_divisor", type=int, required=True)
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -72,14 +75,15 @@ if __name__ == '__main__':
         lr=0.001,
         num_epochs=parse_result.epochs,
         batch_size=128,
-        add_g_slow=parse_result.g_slow == "yes"
+        add_g_slow=parse_result.g_slow == "yes",
+        output_divisor=parse_result.output_divisor
     )
 
     height, width = config["size"]
     _, preprocessing_without_resize = get_preprocessing_transforms((width, height))
     # transform for comparison between real and outputted image
     reduce_grayscale = transforms.Compose([
-        transforms.Resize(size=(height // 4, width // 4)),
+        transforms.Resize(size=(height // config["output_divisor"], width // config["output_divisor"])),
         transforms.Grayscale()
     ])
 
@@ -102,7 +106,7 @@ if __name__ == '__main__':
         out_channels=(64, 32, 16),
         latent_dimension=32,
         # in the paper they output a reconstructed image 4 times smaller
-        image_output_size=(height // 4, width // 4),
+        image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
         normalise=True
     )
     optimiser = torch.optim.Adam(model.parameters(), lr=config["lr"])
@@ -125,6 +129,8 @@ if __name__ == '__main__':
 
     for epoch in range(config["num_epochs"]):
         loss_epoch = 0
+        recon_loss_epoch = 0
+        g_slow_contrib_epoch = 0
         for batch_idx, batch in enumerate(dataloader):
             optimiser.zero_grad()
             images = batch["images"].to(device)
@@ -141,13 +147,20 @@ if __name__ == '__main__':
                 ft = model.encoder(images[batch_size_range, 1, :])
                 ft_plus1 = model.encoder(images[batch_size_range, 2, :])
 
-            loss = criterion(reconstructed=reconstructed, target=targets, ft_minus1=ft_minus1, ft=ft, ft_plus1=ft_plus1)
+            recon_loss, g_slow_contrib = criterion(reconstructed=reconstructed, target=targets, ft_minus1=ft_minus1,
+                                                   ft=ft, ft_plus1=ft_plus1)
+            loss = (recon_loss + g_slow_contrib) / len(batch_size_range)
             loss_epoch += loss.item()
+            recon_loss_epoch += recon_loss.item()
+            g_slow_contrib_epoch += g_slow_contrib.item()
 
             loss.backward()
             optimiser.step()
 
-        print(f"Epoch {epoch + 1}: {loss_epoch / len(dataloader.dataset)}")
+        print((
+            f"Epoch {epoch + 1}: {loss_epoch / len(dataloader.dataset)}, Recon loss "
+            f"{recon_loss_epoch / len(dataloader.dataset)}, g_slow loss {g_slow_contrib_epoch}"
+        ))
         plot_images(epoch, config["name"], model, upsample_transform, grayscale, device)
 
     torch.save(model.state_dict(), f"{config['name']}.pt")
