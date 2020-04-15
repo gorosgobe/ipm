@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 from torch.utils.data import Dataset
 
 from lib.cv.dataset import ImagesOnlyDataset
@@ -47,14 +46,3 @@ class DSAE_Dataset(Dataset):
         grayscaled = self.reduced_transform(sample["images"][center])
         return dict(**sample, target=grayscaled)
 
-
-class DSAE_Loss(object):
-    def __init__(self, add_g_slow=True):
-        self.add_g_slow = add_g_slow
-        self.mse_loss = nn.MSELoss()
-
-    def __call__(self, reconstructed, target, ft_minus1, ft, ft_plus1):
-        loss = self.mse_loss(reconstructed, target)
-        if self.add_g_slow:
-            loss += self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
-        return loss

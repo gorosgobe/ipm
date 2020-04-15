@@ -9,7 +9,8 @@ from torchvision import transforms
 
 from lib.common.utils import get_seed, set_up_cuda, get_preprocessing_transforms
 from lib.dsae.dsae import DeepSpatialAutoencoder
-from lib.dsae.dsae_misc import DSAE_Dataset, DSAE_Loss
+from lib.dsae.dsae_misc import DSAE_Dataset
+from dsae.dsae import DSAE_Loss
 
 
 def plot_images(epoch, name, model, upsample_transform, grayscale, device):
@@ -44,6 +45,7 @@ def plot_images(epoch, name, model, upsample_transform, grayscale, device):
         axarr[1].imshow(u_r_image)
 
     plt.savefig(f"{name}_{epoch}.png")
+    plt.close()
     model.train()
 
 
@@ -67,7 +69,7 @@ if __name__ == '__main__':
         size=(96, 128),
         lr=0.001,
         num_epochs=parse_result.epochs,
-        batch_size=64
+        batch_size=128
     )
 
     height, width = config["size"]
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     model = model.to(config["device"])
     model.train()
 
-    criterion = DSAE_Loss(add_g_slow=False)
+    criterion = DSAE_Loss()
 
     upsample_transform = transforms.Compose([
         transforms.ToPILImage(),
@@ -127,7 +129,12 @@ if __name__ == '__main__':
             batch_size_range = torch.arange(images.size()[0])
             center_images = images[batch_size_range, centers, :]
             reconstructed = model(center_images)
-            loss = criterion(reconstructed=reconstructed, target=targets, ft_minus1=None, ft=None, ft_plus1=None)
+
+            ft_minus1 = model.encoder(images[batch_size_range, 0, :])
+            ft = model.encoder(images[batch_size_range, 1, :])
+            ft_plus_1 = model.encoder(images[batch_size_range, 2, :])
+            loss = criterion(reconstructed=reconstructed, target=targets, ft_minus1=ft_minus1, ft=ft,
+                             ft_plus1=ft_plus_1)
             loss_epoch += loss.item()
 
             loss.backward()

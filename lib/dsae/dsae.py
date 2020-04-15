@@ -102,6 +102,15 @@ class DSAE_Decoder(nn.Module):
 class DeepSpatialAutoencoder(nn.Module):
     def __init__(self, image_output_size, in_channels=3, out_channels=(64, 32, 16), latent_dimension=32,
                  temperature=None, normalise=False):
+        """
+        Creates a deep spatial autoencoder. Default parameters are the ones used in [1]. See docs for encoder and decoder.
+        :param image_output_size: Reconstructed image size
+        :param in_channels: Number of channels of input image
+        :param out_channels: Output channels of each conv layer in the encoder.
+        :param latent_dimension: Input dimension for decoder
+        :param temperature: Temperature parameter, None if it is to be learnt
+        :param normalise: Should spatial features be normalised to [-1, 1]?
+        """
         super().__init__()
         if out_channels[-1] * 2 != latent_dimension:
             raise ValueError("Spatial SoftArgmax produces a location (x,y) per feature map!")
@@ -115,3 +124,19 @@ class DeepSpatialAutoencoder(nn.Module):
         n, c, _2 = spatial_features.size()
         # (N, C * 2 = latent dimension)
         return self.decoder(spatial_features.view(n, c * 2))
+
+
+class DSAE_Loss(object):
+    def __init__(self, add_g_slow=True):
+        """
+        Loss for deep spatial autoencoder.
+        :param add_g_slow: Should g_slow contribution be added? See [1].
+        """
+        self.add_g_slow = add_g_slow
+        self.mse_loss = nn.MSELoss(reduction="sum")
+
+    def __call__(self, reconstructed, target, ft_minus1=None, ft=None, ft_plus1=None):
+        loss = self.mse_loss(reconstructed, target)
+        if self.add_g_slow:
+            loss += self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
+        return torch.mean(loss, dim=0)
