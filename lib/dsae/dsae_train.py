@@ -30,7 +30,6 @@ def plot_images(epoch, model, upsample_transform, grayscale, axarr):
         # draw spatial features on image
         for pos in features:
             x, y = pos
-            print("Pos", x, y)
             # x, y are in [-1, 1]
             x_pix = int((x + 1) * (128 - 1) / 2)
             y_pix = int((y + 1) * (96 - 1) / 2)
