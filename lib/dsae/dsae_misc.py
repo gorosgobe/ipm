@@ -1,11 +1,12 @@
 import torch
 from torch.utils.data import Dataset
-
+from torchvision import transforms
+import matplotlib.pyplot as plt
 from lib.cv.dataset import ImagesOnlyDataset
-
+import numpy as np
 
 class DSAE_Dataset(Dataset):
-    def __init__(self, velocities_csv, metadata, root_dir, reduced_transform, transform=None):
+    def __init__(self, velocities_csv, metadata, root_dir, reduced_transform, input_resize_transform, normalising_transform):
         # dataset that loads three successor images
         # for idx t, returns t-1, t, t+1
         # if at the boundary of demonstration, return t=0, 1, 2 or t=n-2, n-1, n
@@ -14,8 +15,10 @@ class DSAE_Dataset(Dataset):
             velocities_csv=velocities_csv,
             metadata=metadata,
             root_dir=root_dir,
-            transform=transform
+            as_uint=True
         )
+        self.input_resize_transform = input_resize_transform
+        self.normalising_transform = normalising_transform
         self.reduced_transform = reduced_transform
 
     def __len__(self):
@@ -37,12 +40,21 @@ class DSAE_Dataset(Dataset):
             idx -= 1
             center = 2
 
-        prev_img = self.images_dataset[idx - 1]
-        center_img = self.images_dataset[idx]
-        next_img = self.images_dataset[idx + 1]
+        # resize to input size
+        prev_img = self.input_resize_transform(self.images_dataset[idx - 1])
+        center_img = self.input_resize_transform(self.images_dataset[idx])
+        next_img = self.input_resize_transform(self.images_dataset[idx + 1])
+        imgs = (prev_img, center_img, next_img)
 
-        sample = dict(images=torch.stack((prev_img, center_img, next_img), dim=0), center=center)
         # get grayscaled output target image
-        grayscaled = self.reduced_transform(sample["images"][center])
-        return dict(**sample, target=grayscaled)
+        grayscaled = self.reduced_transform(imgs[center])  # resize to 32, 24 and grayscale
+        sample = dict(
+            images=torch.stack(list(map(lambda i: self.normalising_transform(i), imgs)), dim=0),
+            center=center,
+            target=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5])
+            ])(grayscaled)
+        )
+        return sample
 

@@ -133,10 +133,11 @@ class DSAE_Loss(object):
         :param add_g_slow: Should g_slow contribution be added? See [1].
         """
         self.add_g_slow = add_g_slow
-        self.mse_loss = nn.MSELoss(reduction="sum")
+        self.mse_loss = nn.MSELoss(reduction="mean")
 
     def __call__(self, reconstructed, target, ft_minus1=None, ft=None, ft_plus1=None):
+        b, _, _, _ = reconstructed.size()
         loss = self.mse_loss(reconstructed, target)
-        if self.add_g_slow:
-            loss += self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
-        return torch.mean(loss, dim=0)
+        # if self.add_g_slow:
+        #     loss += self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
+        return loss

@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from lib.common.utils import get_seed, set_up_cuda, get_preprocessing_transforms
+from lib.dsae.dsae import DSAE_Loss
 from lib.dsae.dsae import DeepSpatialAutoencoder
 from lib.dsae.dsae_misc import DSAE_Dataset
-from lib.dsae.dsae import DSAE_Loss
 
 
 def plot_images(epoch, name, model, upsample_transform, grayscale, device):
@@ -73,24 +73,26 @@ if __name__ == '__main__':
     )
 
     height, width = config["size"]
-    preprocessing, _ = get_preprocessing_transforms((width, height))
+    _, preprocessing_without_resize = get_preprocessing_transforms((width, height))
     # transform for comparison between real and outputted image
     reduce_grayscale = transforms.Compose([
-        transforms.ToPILImage(),
         transforms.Resize(size=(height // 4, width // 4)),
-        transforms.Grayscale(),
-        transforms.ToTensor()
+        transforms.Grayscale()
     ])
 
     dataset = DSAE_Dataset(
         root_dir=dataset_name,
         velocities_csv=f"{dataset_name}/velocities.csv",
         metadata=f"{dataset_name}/metadata.json",
+        input_resize_transform=transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize(size=(height, width))
+        ]),
         reduced_transform=reduce_grayscale,
-        transform=preprocessing
+        normalising_transform=preprocessing_without_resize
     )
 
-    dataloader = DataLoader(dataset=dataset, batch_size=config["batch_size"], shuffle=True, num_workers=8)
+    dataloader = DataLoader(dataset=dataset, batch_size=config["batch_size"], shuffle=True, num_workers=16)
 
     model = DeepSpatialAutoencoder(
         in_channels=3,
@@ -104,7 +106,7 @@ if __name__ == '__main__':
     model = model.to(config["device"])
     model.train()
 
-    criterion = DSAE_Loss()
+    criterion = DSAE_Loss(add_g_slow=False)
 
     upsample_transform = transforms.Compose([
         transforms.ToPILImage(),
@@ -130,11 +132,15 @@ if __name__ == '__main__':
             center_images = images[batch_size_range, centers, :]
             reconstructed = model(center_images)
 
-            ft_minus1 = model.encoder(images[batch_size_range, 0, :])
-            ft = model.encoder(images[batch_size_range, 1, :])
-            ft_plus_1 = model.encoder(images[batch_size_range, 2, :])
-            loss = criterion(reconstructed=reconstructed, target=targets, ft_minus1=ft_minus1, ft=ft,
-                             ft_plus1=ft_plus_1)
+            # ft_minus1 = model.encoder(images[batch_size_range, 0, :])
+            # print(ft_minus1.size())
+            # ft = model.encoder(images[batch_size_range, 1, :])
+            # print(ft.size())
+            # ft_plus1 = model.encoder(images[batch_size_range, 2, :])
+            # print(ft_plus1.size())
+            loss = criterion(reconstructed=reconstructed, target=targets)
+            # loss = criterion(reconstructed=reconstructed, target=targets, ft_minus1=ft_minus1, ft=ft,
+            #                  ft_plus1=ft_plus1)
             loss_epoch += loss.item()
 
             loss.backward()
