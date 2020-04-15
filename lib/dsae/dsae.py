@@ -11,6 +11,19 @@ import torch
 from torch import nn
 
 
+class CoordinateUtils(object):
+    @staticmethod
+    def get_image_coordinates(h, w, normalise):
+        x_range = torch.arange(w, dtype=torch.float32)
+        y_range = torch.arange(h, dtype=torch.float32)
+        if normalise:
+            x_range = (x_range / (w - 1)) * 2 - 1
+            y_range = (y_range / (h - 1)) * 2 - 1
+        image_x = x_range.unsqueeze(0).repeat_interleave(h, 0)
+        image_y = y_range.unsqueeze(0).repeat_interleave(w, 0).t()
+        return image_x, image_y
+
+
 class SpatialSoftArgmax(nn.Module):
     def __init__(self, temperature=None, normalise=False):
         """
@@ -33,13 +46,7 @@ class SpatialSoftArgmax(nn.Module):
         spatial_softmax = spatial_softmax_per_map.view(n, c, h, w)
 
         # calculate image coordinate maps
-        x_range = torch.arange(w, dtype=torch.float32)
-        y_range = torch.arange(h, dtype=torch.float32)
-        if self.normalise:
-            x_range = (x_range / (w - 1)) * 2 - 1
-            y_range = (y_range / (h - 1)) * 2 - 1
-        image_x = x_range.unsqueeze(0).repeat_interleave(h, 0)
-        image_y = y_range.unsqueeze(0).repeat_interleave(w, 0).t()
+        image_x, image_y = CoordinateUtils.get_image_coordinates(h, w, normalise=self.normalise)
         # size (H, W, 2)
         image_coordinates = torch.cat((image_x.unsqueeze(-1), image_y.unsqueeze(-1)), dim=-1)
         # send to device

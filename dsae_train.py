@@ -7,7 +7,7 @@ from skimage import draw
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from lib.common.utils import get_seed, set_up_cuda, get_preprocessing_transforms
+from lib.common.utils import get_seed, set_up_cuda
 from lib.dsae.dsae import DSAE_Loss
 from lib.dsae.dsae import DeepSpatialAutoencoder
 from lib.dsae.dsae_misc import DSAE_Dataset
@@ -31,7 +31,7 @@ def plot_images(epoch, name, model, upsample_transform, grayscale, device):
             features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
 
             # normalise to 0, 255 (for PIL, ToTensor then turns it into 0, 1)
-            image = (image + 1) * 255 / 2
+            image = (image[:3, :, :] + 1) * 255 / 2
             numpy_g_image = grayscale(image.type(torch.uint8)).numpy().transpose(1, 2, 0)
             # draw spatial features on image
             idx_features = len(features) - 1
@@ -58,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--g_slow", default="yes")
+    parser.add_argument("--coord", default="no")
     # set to 2 or 4
     # 4 might be too small, and features that might produce a big error with normal sized image might not be tracked
     parser.add_argument("--output_divisor", type=int, required=True)
@@ -77,11 +78,11 @@ if __name__ == '__main__':
         num_epochs=parse_result.epochs,
         batch_size=128,
         add_g_slow=parse_result.g_slow == "yes",
+        coord=parse_result.coord == "yes",
         output_divisor=parse_result.output_divisor
     )
 
     height, width = config["size"]
-    _, preprocessing_without_resize = get_preprocessing_transforms((width, height))
     # transform for comparison between real and outputted image
     reduce_grayscale = transforms.Compose([
         transforms.Resize(size=(height // config["output_divisor"], width // config["output_divisor"])),
@@ -97,13 +98,14 @@ if __name__ == '__main__':
             transforms.Resize(size=(height, width))
         ]),
         reduced_transform=reduce_grayscale,
-        normalising_transform=preprocessing_without_resize
+        add_coord=config["coord"],
+        size=config["size"]
     )
 
     dataloader = DataLoader(dataset=dataset, batch_size=config["batch_size"], shuffle=True, num_workers=16)
 
     model = DeepSpatialAutoencoder(
-        in_channels=3,
+        in_channels=3 if not config["coord"] else 5,
         out_channels=(64, 32, 16),
         latent_dimension=32,
         # in the paper they output a reconstructed image 4 times smaller
@@ -118,7 +120,7 @@ if __name__ == '__main__':
 
     upsample_transform = transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize((96, 128)),
+        transforms.Resize(config["size"]),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: torch.cat((x, x, x))),
     ])
