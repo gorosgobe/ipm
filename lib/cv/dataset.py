@@ -120,6 +120,25 @@ class BaselineTipVelocitiesDataset(TipVelocitiesDataset):
         return sample
 
 
+class ImagesOnlyDataset(TipVelocitiesDataset):
+    def __init__(self, velocities_csv, metadata, root_dir, transform=None):
+        # still reads velocities to reuse functionality from superclass
+        super().__init__(velocities_csv=velocities_csv, metadata=metadata, root_dir=root_dir)
+        self.transform = transform
+
+    def __getitem__(self, idx):
+        img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
+
+        image = imageio.imread(img_name)
+        if image.dtype == np.uint8:
+            image = (image / 255).astype("float32")
+
+        if self.transform is not None:
+            image = self.transform(image)
+
+        return image
+
+
 class ImageTipVelocitiesDataset(TipVelocitiesDataset):
     def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None,
                  initial_pixel_cropper=None, debug=False, force_not_cache=False):
