@@ -121,17 +121,21 @@ class BaselineTipVelocitiesDataset(TipVelocitiesDataset):
 
 
 class ImagesOnlyDataset(TipVelocitiesDataset):
-    def __init__(self, velocities_csv, metadata, root_dir, transform=None):
+    def __init__(self, velocities_csv, metadata, root_dir, transform=None, as_uint=False):
         # still reads velocities to reuse functionality from superclass
         super().__init__(velocities_csv=velocities_csv, metadata=metadata, root_dir=root_dir)
         self.transform = transform
+        self.as_uint = as_uint
 
     def __getitem__(self, idx):
         img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
 
         image = imageio.imread(img_name)
-        if image.dtype == np.uint8:
+        if not self.as_uint and image.dtype == np.uint8:
             image = (image / 255).astype("float32")
+        else:
+            # because torchvision is absolutely shit, we need this option
+            image = image.astype("uint8")
 
         if self.transform is not None:
             image = self.transform(image)
