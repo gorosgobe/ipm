@@ -14,24 +14,25 @@ from lib.dsae.dsae_misc import DSAE_Dataset
 
 
 def plot_images(epoch, name, model, upsample_transform, grayscale, device):
-    f, axarr = plt.subplots(4, 2, figsize=(15, 15), dpi=250)
+    f, axarr = plt.subplots(5, 2, figsize=(10, 15), dpi=100)
+    plt.tight_layout()
     model.eval()
     with torch.no_grad():
-        for i in range(4):
-            sample = dataset[34 + i]
+        for i in range(5):
+            sample = dataset[34 + i * 4]
             # get image and reconstruction in [0, 1] range
             image = sample["images"][0]
             reconstruction = (
-                    (model(image.to(device).unsqueeze(0)) + 1) / 2
-            ).cpu()
+                    (model(image.to(device).unsqueeze(0)) + 1) * 255 / 2
+            ).type(torch.uint8).cpu()
             u_r_image = upsample_transform(reconstruction.squeeze(0)).numpy().transpose(1, 2, 0)
 
             # get spatial features (C, 2)
             features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
 
-            # normalise to 0, 1 (for drawing)
-            image = (image + 1) / 2
-            numpy_g_image = grayscale(image).numpy().transpose(1, 2, 0)
+            # normalise to 0, 255 (for PIL, ToTensor then turns it into 0, 1)
+            image = (image + 1) * 255 / 2
+            numpy_g_image = grayscale(image.type(torch.uint8)).numpy().transpose(1, 2, 0)
             # draw spatial features on image
             idx_features = len(features) - 1
             for idx, pos in enumerate(features):
@@ -159,7 +160,7 @@ if __name__ == '__main__':
 
         print((
             f"Epoch {epoch + 1}: {loss_epoch / len(dataloader.dataset)}, Recon loss "
-            f"{recon_loss_epoch / len(dataloader.dataset)}, g_slow loss {g_slow_contrib_epoch}"
+            f"{recon_loss_epoch / len(dataloader.dataset)}, g_slow loss {g_slow_contrib_epoch / len(dataloader.dataset)}"
         ))
         plot_images(epoch, config["name"], model, upsample_transform, grayscale, device)
 
