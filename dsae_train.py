@@ -10,7 +10,7 @@ from torchvision import transforms
 from lib.common.utils import get_seed, set_up_cuda, get_preprocessing_transforms
 from lib.dsae.dsae import DeepSpatialAutoencoder
 from lib.dsae.dsae_misc import DSAE_Dataset
-from dsae.dsae import DSAE_Loss
+from lib.dsae.dsae import DSAE_Loss
 
 
 def plot_images(epoch, name, model, upsample_transform, grayscale, device):
