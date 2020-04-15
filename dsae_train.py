@@ -17,16 +17,17 @@ def plot_images(epoch, model, upsample_transform, grayscale, axarr, device):
     with torch.no_grad():
         sample = dataset[0]
         # get image and reconstruction in [0, 1] range
-        image = sample["images"][0].to(device)
-        reconstruction = (model(image.unsqueeze(0)) + 1) / 2
+        image = sample["images"][0]
+        reconstruction = (
+                (model(image.to(device).unsqueeze(0)) + 1) / 2
+        ).cpu()
 
         # get spatial features (C, 2)
-        features = model.encoder(image.unsqueeze(0)).squeeze(0)
+        features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
 
         # normalise to 0, 1 (for drawing)
         image = (image + 1) / 2
-        g_image = grayscale(image)
-        numpy_g_image = g_image.numpy().transpose(1, 2, 0)
+        numpy_g_image = grayscale(image).numpy().transpose(1, 2, 0)
         # draw spatial features on image
         for pos in features:
             x, y = pos
@@ -129,7 +130,7 @@ if __name__ == '__main__':
             loss.backward()
             optimiser.step()
 
-        print(f"Epoch {epoch + 1}: {loss_epoch / len(dataloader)}")
+        print(f"Epoch {epoch + 1}: {loss_epoch / len(dataloader.dataset)}")
         plot_images(epoch, model, upsample_transform, grayscale, axarr, device)
 
     plt.savefig(f"{config['name']}.png")
