@@ -12,12 +12,12 @@ from lib.dsae.dsae_misc import DSAE_Dataset, DSAE_Loss
 from skimage import draw
 
 
-def plot_images(epoch, model, upsample_transform, grayscale, axarr):
+def plot_images(epoch, model, upsample_transform, grayscale, axarr, device):
     model.eval()
     with torch.no_grad():
         sample = dataset[0]
         # get image and reconstruction in [0, 1] range
-        image = sample["images"][0]
+        image = sample["images"][0].to(device)
         reconstruction = (model(image.unsqueeze(0)) + 1) / 2
 
         # get spatial features (C, 2)
@@ -130,7 +130,7 @@ if __name__ == '__main__':
             optimiser.step()
 
         print(f"Epoch {epoch + 1}: {loss_epoch / len(dataloader)}")
-        plot_images(epoch, model, upsample_transform, grayscale, axarr)
+        plot_images(epoch, model, upsample_transform, grayscale, axarr, device)
 
     plt.savefig(f"{config['name']}.png")
 
