@@ -3,16 +3,17 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from skimage import draw
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from lib.common.utils import get_seed, set_up_cuda, get_preprocessing_transforms
 from lib.dsae.dsae import DeepSpatialAutoencoder
 from lib.dsae.dsae_misc import DSAE_Dataset, DSAE_Loss
-from skimage import draw
 
 
-def plot_images(epoch, model, upsample_transform, grayscale, axarr, device):
+def plot_images(epoch, name, model, upsample_transform, grayscale, device):
+    f, axarr = plt.subplots(1, 2)
     model.eval()
     with torch.no_grad():
         sample = dataset[0]
@@ -21,6 +22,7 @@ def plot_images(epoch, model, upsample_transform, grayscale, axarr, device):
         reconstruction = (
                 (model(image.to(device).unsqueeze(0)) + 1) / 2
         ).cpu()
+        u_r_image = upsample_transform(reconstruction.squeeze(0)).numpy().transpose(1, 2, 0)
 
         # get spatial features (C, 2)
         features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
@@ -29,16 +31,19 @@ def plot_images(epoch, model, upsample_transform, grayscale, axarr, device):
         image = (image + 1) / 2
         numpy_g_image = grayscale(image).numpy().transpose(1, 2, 0)
         # draw spatial features on image
-        for pos in features:
+        idx_features = len(features) - 1
+        for idx, pos in enumerate(features):
             x, y = pos
             # x, y are in [-1, 1]
             x_pix = int((x + 1) * (128 - 1) / 2)
             y_pix = int((y + 1) * (96 - 1) / 2)
-            rr, cc = draw.circle(x_pix, y_pix, radius=2, shape=numpy_g_image.shape)
-            numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0])
-        u_r_image = upsample_transform(reconstruction.squeeze(0))
-        axarr[epoch, 0].imshow(numpy_g_image)
-        axarr[epoch, 1].imshow(u_r_image.numpy().transpose(1, 2, 0))
+            rr, cc = draw.circle(x_pix, y_pix, radius=1.5, shape=numpy_g_image.shape)
+            numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / idx_features) + np.array(
+                [0.0, 1.0, 0.0]) * idx / idx_features
+        axarr[0].imshow(numpy_g_image)
+        axarr[1].imshow(u_r_image)
+
+    plt.savefig(f"{name}_{epoch}.png")
     model.train()
 
 
@@ -111,8 +116,6 @@ if __name__ == '__main__':
         transforms.ToTensor()
     ])
 
-    f, axarr = plt.subplots(config["num_epochs"], 2)
-
     for epoch in range(config["num_epochs"]):
         loss_epoch = 0
         for batch_idx, batch in enumerate(dataloader):
@@ -131,7 +134,6 @@ if __name__ == '__main__':
             optimiser.step()
 
         print(f"Epoch {epoch + 1}: {loss_epoch / len(dataloader.dataset)}")
-        plot_images(epoch, model, upsample_transform, grayscale, axarr, device)
+        plot_images(epoch, config["name"], model, upsample_transform, grayscale, device)
 
-    plt.savefig(f"{config['name']}.png")
-
+    torch.save(model.state_dict(), f"{config['name']}.pt")
