@@ -42,6 +42,8 @@ class SpatialSoftArgmax(nn.Module):
         image_y = y_range.unsqueeze(0).repeat_interleave(w, 0).t()
         # size (H, W, 2)
         image_coordinates = torch.cat((image_x.unsqueeze(-1), image_y.unsqueeze(-1)), dim=-1)
+        # send to device
+        image_coordinates = image_coordinates.to(device=x.device)
 
         # multiply coordinates by the softmax and sum over height and width, like in [2]
         expanded_spatial_softmax = spatial_softmax.unsqueeze(-1)
