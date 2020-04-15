@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     seed = get_seed(parse_result.seed)
     device = set_up_cuda(seed)
-    dataset_name = f"../../{parse_result.dataset}"
+    dataset_name = parse_result.dataset
 
     config = dict(
         seed=seed,
