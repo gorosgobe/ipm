@@ -1,12 +1,13 @@
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
-import matplotlib.pyplot as plt
+
 from lib.cv.dataset import ImagesOnlyDataset
-import numpy as np
+
 
 class DSAE_Dataset(Dataset):
-    def __init__(self, velocities_csv, metadata, root_dir, reduced_transform, input_resize_transform, normalising_transform):
+    def __init__(self, velocities_csv, metadata, root_dir, reduced_transform, input_resize_transform,
+                 normalising_transform):
         # dataset that loads three successor images
         # for idx t, returns t-1, t, t+1
         # if at the boundary of demonstration, return t=0, 1, 2 or t=n-2, n-1, n
@@ -57,4 +58,3 @@ class DSAE_Dataset(Dataset):
             ])(grayscaled)
         )
         return sample
-

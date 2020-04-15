@@ -14,35 +14,36 @@ from lib.dsae.dsae_misc import DSAE_Dataset
 
 
 def plot_images(epoch, name, model, upsample_transform, grayscale, device):
-    f, axarr = plt.subplots(1, 2)
+    f, axarr = plt.subplots(4, 2, figsize=(15, 15), dpi=250)
     model.eval()
     with torch.no_grad():
-        sample = dataset[0]
-        # get image and reconstruction in [0, 1] range
-        image = sample["images"][0]
-        reconstruction = (
-                (model(image.to(device).unsqueeze(0)) + 1) / 2
-        ).cpu()
-        u_r_image = upsample_transform(reconstruction.squeeze(0)).numpy().transpose(1, 2, 0)
+        for i in range(4):
+            sample = dataset[34 + i]
+            # get image and reconstruction in [0, 1] range
+            image = sample["images"][0]
+            reconstruction = (
+                    (model(image.to(device).unsqueeze(0)) + 1) / 2
+            ).cpu()
+            u_r_image = upsample_transform(reconstruction.squeeze(0)).numpy().transpose(1, 2, 0)
 
-        # get spatial features (C, 2)
-        features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
+            # get spatial features (C, 2)
+            features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
 
-        # normalise to 0, 1 (for drawing)
-        image = (image + 1) / 2
-        numpy_g_image = grayscale(image).numpy().transpose(1, 2, 0)
-        # draw spatial features on image
-        idx_features = len(features) - 1
-        for idx, pos in enumerate(features):
-            x, y = pos
-            # x, y are in [-1, 1]
-            x_pix = int((x + 1) * (128 - 1) / 2)
-            y_pix = int((y + 1) * (96 - 1) / 2)
-            rr, cc = draw.circle(x_pix, y_pix, radius=1.5, shape=numpy_g_image.shape)
-            numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / idx_features) + np.array(
-                [0.0, 1.0, 0.0]) * idx / idx_features
-        axarr[0].imshow(numpy_g_image)
-        axarr[1].imshow(u_r_image)
+            # normalise to 0, 1 (for drawing)
+            image = (image + 1) / 2
+            numpy_g_image = grayscale(image).numpy().transpose(1, 2, 0)
+            # draw spatial features on image
+            idx_features = len(features) - 1
+            for idx, pos in enumerate(features):
+                x, y = pos
+                # x, y are in [-1, 1]
+                x_pix = int((x + 1) * (128 - 1) / 2)
+                y_pix = int((y + 1) * (96 - 1) / 2)
+                rr, cc = draw.circle(x_pix, y_pix, radius=1.5, shape=numpy_g_image.shape)
+                numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / idx_features) + np.array(
+                    [0.0, 1.0, 0.0]) * idx / idx_features
+            axarr[i, 0].imshow(numpy_g_image)
+            axarr[i, 1].imshow(u_r_image)
 
     plt.savefig(f"{name}_{epoch}.png")
     plt.close()
@@ -55,6 +56,7 @@ if __name__ == '__main__':
     parser.add_argument("--epochs", type=int, required=True)
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--seed", default="random")
+    parser.add_argument("--g_slow", default="yes")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -69,7 +71,8 @@ if __name__ == '__main__':
         size=(96, 128),
         lr=0.001,
         num_epochs=parse_result.epochs,
-        batch_size=128
+        batch_size=128,
+        add_g_slow=parse_result.g_slow == "yes"
     )
 
     height, width = config["size"]
@@ -106,7 +109,7 @@ if __name__ == '__main__':
     model = model.to(config["device"])
     model.train()
 
-    criterion = DSAE_Loss(add_g_slow=False)
+    criterion = DSAE_Loss(add_g_slow=config["add_g_slow"])
 
     upsample_transform = transforms.Compose([
         transforms.ToPILImage(),
@@ -132,15 +135,13 @@ if __name__ == '__main__':
             center_images = images[batch_size_range, centers, :]
             reconstructed = model(center_images)
 
-            # ft_minus1 = model.encoder(images[batch_size_range, 0, :])
-            # print(ft_minus1.size())
-            # ft = model.encoder(images[batch_size_range, 1, :])
-            # print(ft.size())
-            # ft_plus1 = model.encoder(images[batch_size_range, 2, :])
-            # print(ft_plus1.size())
-            loss = criterion(reconstructed=reconstructed, target=targets)
-            # loss = criterion(reconstructed=reconstructed, target=targets, ft_minus1=ft_minus1, ft=ft,
-            #                  ft_plus1=ft_plus1)
+            ft_minus1 = ft = ft_plus1 = None
+            if config["add_g_slow"]:
+                ft_minus1 = model.encoder(images[batch_size_range, 0, :])
+                ft = model.encoder(images[batch_size_range, 1, :])
+                ft_plus1 = model.encoder(images[batch_size_range, 2, :])
+
+            loss = criterion(reconstructed=reconstructed, target=targets, ft_minus1=ft_minus1, ft=ft, ft_plus1=ft_plus1)
             loss_epoch += loss.item()
 
             loss.backward()

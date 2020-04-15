@@ -133,11 +133,13 @@ class DSAE_Loss(object):
         :param add_g_slow: Should g_slow contribution be added? See [1].
         """
         self.add_g_slow = add_g_slow
-        self.mse_loss = nn.MSELoss(reduction="mean")
+        self.mse_loss = nn.MSELoss(reduction="sum")
 
     def __call__(self, reconstructed, target, ft_minus1=None, ft=None, ft_plus1=None):
         b, _, _, _ = reconstructed.size()
         loss = self.mse_loss(reconstructed, target)
-        # if self.add_g_slow:
-        #     loss += self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
-        return loss
+        print("Before", loss)
+        if self.add_g_slow:
+            loss += self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
+        print("After", loss)
+        return loss / b
