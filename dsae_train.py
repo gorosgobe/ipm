@@ -72,7 +72,7 @@ if __name__ == '__main__':
         name=parse_result.name,
         dataset_name=dataset_name,
         device=device,
-        size=(96, 128),
+        size=(240, 240),
         lr=0.001,
         num_epochs=parse_result.epochs,
         batch_size=128,
@@ -101,24 +101,24 @@ if __name__ == '__main__':
 
     dataloader = DataLoader(dataset=dataset, batch_size=config["batch_size"], shuffle=False, num_workers=16)
 
-    # model = DeepSpatialAutoencoder(
-    #     in_channels=3,
-    #     out_channels=(64, 32, 16),
-    #     latent_dimension=32,
-    #     # in the paper they output a reconstructed image 4 times smaller
-    #     image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
-    #     normalise=True
-    # )
-
-    encoder = CustomDSAE_Encoder()
-    decoder = DSAE_Decoder(
+    model = DeepSpatialAutoencoder(
+        in_channels=3,
+        out_channels=(64, 32, 16),
+        latent_dimension=32,
+        # in the paper they output a reconstructed image 4 times smaller
         image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
-        latent_dimension=32
+        normalise=True
     )
-    model = CustomDeepSpatialAutoencoder(
-        encoder=encoder,
-        decoder=decoder
-    )
+
+    # encoder = CustomDSAE_Encoder()
+    # decoder = DSAE_Decoder(
+    #     image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
+    #     latent_dimension=32
+    # )
+    # model = CustomDeepSpatialAutoencoder(
+    #     encoder=encoder,
+    #     decoder=decoder
+    # )
     optimiser = torch.optim.Adam(model.parameters(), lr=config["lr"])
     model = model.to(config["device"])
     model.train()
