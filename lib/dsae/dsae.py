@@ -144,7 +144,7 @@ class DSAE_Loss(object):
 
     def __call__(self, reconstructed, target, ft_minus1=None, ft=None, ft_plus1=None):
         loss = self.mse_loss(reconstructed, target)
-        g_slow_contrib = torch.zeros(1)
+        g_slow_contrib = torch.zeros(1, device=loss.device)
         if self.add_g_slow:
             g_slow_contrib = self.mse_loss(ft_plus1 - ft, ft - ft_minus1)
         return loss, g_slow_contrib
