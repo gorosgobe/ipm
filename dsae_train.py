@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from lib.common.utils import get_seed, set_up_cuda
-from lib.dsae.dsae import DSAE_Loss
+from lib.dsae.dsae import DSAE_Loss, CustomDeepSpatialAutoencoder, DSAE_Encoder, DSAE_Decoder
 from lib.dsae.dsae import DeepSpatialAutoencoder
-from lib.dsae.dsae_misc import DSAE_Dataset
+from lib.dsae.dsae_misc import DSAE_Dataset, CustomDSAE_Decoder, CustomDSAE_Encoder
 
 
 def plot_images(epoch, name, model, upsample_transform, grayscale, device):
@@ -101,13 +101,23 @@ if __name__ == '__main__':
 
     dataloader = DataLoader(dataset=dataset, batch_size=config["batch_size"], shuffle=False, num_workers=16)
 
-    model = DeepSpatialAutoencoder(
-        in_channels=3,
-        out_channels=(64, 32, 16),
-        latent_dimension=32,
-        # in the paper they output a reconstructed image 4 times smaller
+    # model = DeepSpatialAutoencoder(
+    #     in_channels=3,
+    #     out_channels=(64, 32, 16),
+    #     latent_dimension=32,
+    #     # in the paper they output a reconstructed image 4 times smaller
+    #     image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
+    #     normalise=True
+    # )
+
+    encoder = CustomDSAE_Encoder()
+    decoder = DSAE_Decoder(
         image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
-        normalise=True
+        latent_dimension=32
+    )
+    model = CustomDeepSpatialAutoencoder(
+        encoder=encoder,
+        decoder=decoder
     )
     optimiser = torch.optim.Adam(model.parameters(), lr=config["lr"])
     model = model.to(config["device"])

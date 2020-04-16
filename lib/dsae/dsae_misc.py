@@ -1,9 +1,10 @@
 import torch
+from torch import nn
 from torch.utils.data import Dataset
 from torchvision import transforms
 
 from lib.cv.dataset import ImagesOnlyDataset
-from lib.dsae.dsae import CoordinateUtils
+from lib.dsae.dsae import CoordinateUtils, SpatialSoftArgmax
 
 
 class DSAE_Dataset(Dataset):
@@ -64,3 +65,64 @@ class DSAE_Dataset(Dataset):
             ])(grayscaled)
         )
         return sample
+
+
+class CustomDSAE_Encoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        out_channels = (256, 128, 64, 32, 16)
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=out_channels[0], kernel_size=7, stride=2)
+        self.batch_norm1 = nn.BatchNorm2d(out_channels[0])
+        self.conv2 = nn.Conv2d(in_channels=out_channels[0], out_channels=out_channels[1], kernel_size=5)
+        self.batch_norm2 = nn.BatchNorm2d(out_channels[1])
+        self.conv3 = nn.Conv2d(in_channels=out_channels[1], out_channels=out_channels[2], kernel_size=5)
+        self.batch_norm3 = nn.BatchNorm2d(out_channels[2])
+        self.activ = nn.ReLU()
+        self.conv4 = nn.Conv2d(in_channels=out_channels[2], out_channels=out_channels[3], kernel_size=5)
+        self.batch_norm4 = nn.BatchNorm2d(out_channels[3])
+        self.conv5 = nn.Conv2d(in_channels=out_channels[3], out_channels=out_channels[4], kernel_size=5)
+        self.batch_norm5 = nn.BatchNorm2d(out_channels[4])
+        self.spatial_soft_argmax = SpatialSoftArgmax(normalise=True)
+
+    def forward(self, x):
+        out_conv1 = self.activ(self.batch_norm1(self.conv1(x)))
+        out_conv2 = self.activ(self.batch_norm2(self.conv2(out_conv1)))
+        out_conv3 = self.activ(self.batch_norm3(self.conv3(out_conv2)))
+        out_conv4 = self.activ(self.batch_norm4(self.conv4(out_conv3)))
+        out_conv5 = self.activ(self.batch_norm5(self.conv5(out_conv4)))
+        out = self.spatial_soft_argmax(out_conv5)
+        return out
+
+
+class CustomDSAE_Decoder(nn.Module):
+    def __init__(self, image_output_size, latent_dimension):
+        """
+        Creates a Deep Spatial Autoencoder decoder
+        :param image_output_size: (height, width) of the output, grayscale image
+        :param latent_dimension: dimension of the low-dimensional encoded features.
+        """
+        super().__init__()
+        self.height, self.width = image_output_size
+        self.latent_dimension = latent_dimension
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(latent_dimension, latent_dimension // 2, (3, 4)),
+            nn.BatchNorm2d(latent_dimension // 2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(latent_dimension // 2, latent_dimension // 4, 4, 2, 1),
+            nn.BatchNorm2d(latent_dimension // 4),
+            nn.ReLU(),
+            nn.ConvTranspose2d(latent_dimension // 4, latent_dimension // 8, 4, 2, 1),
+            nn.BatchNorm2d(latent_dimension // 8),
+            nn.ReLU(),
+            nn.ConvTranspose2d(latent_dimension // 8, latent_dimension // 16, 4, 2, 1),  # 24x32
+            nn.BatchNorm2d(latent_dimension // 16),
+            nn.ReLU(),
+            nn.ConvTranspose2d(latent_dimension // 16, 1, 4, 2, 1),  # 48x64
+            nn.Tanh()
+        )
+
+    def forward(self, x):
+        out = self.decoder(x.unsqueeze(-1).unsqueeze(-1))
+        b, c, h, w = out.size()
+        assert h == self.height and w == self.width
+        return out

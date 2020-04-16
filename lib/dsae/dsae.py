@@ -89,19 +89,21 @@ class DSAE_Encoder(nn.Module):
 
 
 class DSAE_Decoder(nn.Module):
-    def __init__(self, image_output_size, latent_dimension):
+    def __init__(self, image_output_size, latent_dimension, normalise=True):
         """
         Creates a Deep Spatial Autoencoder decoder
         :param image_output_size: (height, width) of the output, grayscale image
         :param latent_dimension: dimension of the low-dimensional encoded features.
+        :param normalise: True if output in range [-1, 1], False for range [0, 1]
         """
         super().__init__()
         self.height, self.width = image_output_size
         self.latent_dimension = latent_dimension
         self.decoder = nn.Linear(in_features=latent_dimension, out_features=self.height * self.width)
+        self.activ = nn.Tanh() if normalise else nn.Sigmoid()
 
     def forward(self, x):
-        out = self.decoder(x)
+        out = self.activ(self.decoder(x))
         out = out.view(-1, 1, self.height, self.width)
         return out
 
@@ -127,6 +129,24 @@ class DeepSpatialAutoencoder(nn.Module):
 
     def forward(self, x):
         # (N, C, 2)
+        spatial_features = self.encoder(x)
+        n, c, _2 = spatial_features.size()
+        # (N, C * 2 = latent dimension)
+        return self.decoder(spatial_features.view(n, c * 2))
+
+
+class CustomDeepSpatialAutoencoder(nn.Module):
+    def __init__(self, encoder, decoder):
+        """
+        Same as DeepSpatialAutoencoder, but with your own custom modules
+        :param encoder: Encoder
+        :param decoder: Decoder
+        """
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def forward(self, x):
         spatial_features = self.encoder(x)
         n, c, _2 = spatial_features.size()
         # (N, C * 2 = latent dimension)
