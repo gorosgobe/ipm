@@ -40,7 +40,7 @@ def plot_images(epoch, name, model, upsample_transform, grayscale, device):
                 # x, y are in [-1, 1]
                 x_pix = int((x + 1) * (128 - 1) / 2)
                 y_pix = int((y + 1) * (96 - 1) / 2)
-                rr, cc = draw.circle(x_pix, y_pix, radius=1.5, shape=numpy_g_image.shape)
+                rr, cc = draw.circle(y_pix, x_pix, radius=2, shape=numpy_g_image.shape)
                 numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / idx_features) + np.array(
                     [0.0, 1.0, 0.0]) * idx / idx_features
             axarr[i, 0].imshow(numpy_g_image)
@@ -58,7 +58,6 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--g_slow", default="yes")
-    parser.add_argument("--coord", default="no")
     # set to 2 or 4
     # 4 might be too small, and features that might produce a big error with normal sized image might not be tracked
     parser.add_argument("--output_divisor", type=int, required=True)
@@ -78,7 +77,6 @@ if __name__ == '__main__':
         num_epochs=parse_result.epochs,
         batch_size=128,
         add_g_slow=parse_result.g_slow == "yes",
-        coord=parse_result.coord == "yes",
         output_divisor=parse_result.output_divisor
     )
 
@@ -98,14 +96,13 @@ if __name__ == '__main__':
             transforms.Resize(size=(height, width))
         ]),
         reduced_transform=reduce_grayscale,
-        add_coord=config["coord"],
         size=config["size"]
     )
 
-    dataloader = DataLoader(dataset=dataset, batch_size=config["batch_size"], shuffle=True, num_workers=16)
+    dataloader = DataLoader(dataset=dataset, batch_size=config["batch_size"], shuffle=False, num_workers=16)
 
     model = DeepSpatialAutoencoder(
-        in_channels=3 if not config["coord"] else 5,
+        in_channels=3,
         out_channels=(64, 32, 16),
         latent_dimension=32,
         # in the paper they output a reconstructed image 4 times smaller
