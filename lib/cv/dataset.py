@@ -120,37 +120,15 @@ class BaselineTipVelocitiesDataset(TipVelocitiesDataset):
         return sample
 
 
-class ImagesOnlyDataset(TipVelocitiesDataset):
-    def __init__(self, velocities_csv, metadata, root_dir, transform=None, as_uint=False):
-        # still reads velocities to reuse functionality from superclass
-        super().__init__(velocities_csv=velocities_csv, metadata=metadata, root_dir=root_dir)
-        self.transform = transform
-        self.as_uint = as_uint
-
-    def __getitem__(self, idx):
-        img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
-
-        image = imageio.imread(img_name)
-        if not self.as_uint and image.dtype == np.uint8:
-            image = (image / 255).astype("float32")
-        else:
-            # because torchvision is absolutely shit, we need this option
-            image = image.astype("uint8")
-
-        if self.transform is not None:
-            image = self.transform(image)
-
-        return image
-
-
 class ImageTipVelocitiesDataset(TipVelocitiesDataset):
     def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None,
-                 initial_pixel_cropper=None, debug=False, force_not_cache=False):
+                 initial_pixel_cropper=None, debug=False, force_not_cache=False, as_uint=False):
         super().__init__(velocities_csv=velocities_csv, metadata=metadata, root_dir=root_dir,
                          rotations_csv=rotations_csv)
         self.transform = transform
         self.initial_pixel_cropper = initial_pixel_cropper
         self.debug = debug
+        self.as_uint = as_uint
         self.cache = None
         self.force_not_cache = force_not_cache
         self.initialising = True
@@ -168,7 +146,6 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
         self.initialising = False
 
     def __getitem__(self, idx):
-
         # to avoid continuously cropping, for simple, static simulation-based attention
         if not self.force_not_cache and self.initial_pixel_cropper is not None and \
                 not self.initialising and not self.initial_pixel_cropper.is_random_crop():
@@ -177,8 +154,11 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
         img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])
 
         image = imageio.imread(img_name)
-        if image.dtype == np.uint8:
+        if not self.as_uint and image.dtype == np.uint8:
             image = (image / 255).astype("float32")
+        else:
+            # because torchvision is absolutely shit, we need this option
+            image = image.astype("uint8")
 
         tip_velocities = self.tip_velocities_frame.iloc[idx, 1:]
         tip_velocities = np.array(tip_velocities, dtype=np.float32)
@@ -189,12 +169,11 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
             rotations = np.array(rotations, dtype=np.float32)
             sample["rotations"] = rotations
 
-        d_data = self.get_demonstration_metadata(idx)
-        instance_demonstration_idx = idx - d_data["start"]
-
         # if dataset is of type crop pixel, crop image using the metadata pixel, and add pixel information
         # if mode is relative quantities, we avoid this for efficiency
         if self.initial_pixel_cropper is not None:
+            d_data = self.get_demonstration_metadata(idx)
+            instance_demonstration_idx = idx - d_data["start"]
             pixels = d_data["crop_pixels"]
             pixel = pixels[instance_demonstration_idx]
             original_h, original_w, _channels = image.shape

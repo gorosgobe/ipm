@@ -48,6 +48,7 @@ def get_preprocessing_transforms(size, is_coord=False):
 
 
 def get_demonstrations(dataset, split, limit_train_coeff=-1):
+    # Takes in a TipVelocitiesDataset
     total_demonstrations = dataset.get_num_demonstrations()
 
     training_demonstrations, n_training_dems = dataset.get_split(split[0], total_demonstrations, 0)

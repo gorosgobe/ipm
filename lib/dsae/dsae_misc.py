@@ -3,18 +3,18 @@ from torch import nn
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from lib.cv.dataset import ImagesOnlyDataset
-from lib.dsae.dsae import CoordinateUtils, SpatialSoftArgmax
+from dataset import ImageTipVelocitiesDataset
+from lib.dsae.dsae import SpatialSoftArgmax, DSAE_Decoder, DSAE_Loss
 
 
-class DSAE_Dataset(Dataset):
-    def __init__(self, velocities_csv, metadata, root_dir, reduced_transform, input_resize_transform, size):
+class DSAE_Dataset(ImageTipVelocitiesDataset):
+    def __init__(self, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
+                 size):
         # dataset that loads three successor images
-        # for idx t, returns t-1, t, t+1
-        # if at the boundary of demonstration, return t=0, 1, 2 or t=n-2, n-1, n
-        # so images for t=0 are same for t=1; images for t=n-1 are the same as t=n
-        self.images_dataset = ImagesOnlyDataset(
+        # if at boundary, load the boundary image twice
+        super().__init__(
             velocities_csv=velocities_csv,
+            rotations_csv=rotations_csv,
             metadata=metadata,
             root_dir=root_dir,
             as_uint=True
@@ -24,47 +24,92 @@ class DSAE_Dataset(Dataset):
         self.h, self.w = size
 
     def __len__(self):
-        return self.images_dataset.__len__()
+        return super().__len__()
 
     def __getitem__(self, idx):
-        d_data = self.images_dataset.get_demonstration_metadata(idx)
+        d_data = super().get_demonstration_metadata(idx)
         start_idx = d_data["start"]
         end_idx = d_data["end"]
-        center = 1
+        idx_prev = idx - 1
+        idx_next = idx + 1
 
         if idx == start_idx:
-            # idx, idx + 1, idx + 2
-            idx += 1
-            center = 0
+            # idx, idx, idx + 1
+            idx_prev = idx
 
         if idx == end_idx:
-            # idx _2, idx - 1, idx
-            idx -= 1
-            center = 2
+            # idx - 1, idx, idx
+            idx_next = idx
 
         # resize to input size
-        prev_img = self.input_resize_transform(self.images_dataset[idx - 1])
-        center_img = self.input_resize_transform(self.images_dataset[idx])
-        next_img = self.input_resize_transform(self.images_dataset[idx + 1])
+        prev_img = self.input_resize_transform(super().__getitem__(idx_prev)["image"])
+
+        curr_sample = super().__getitem__(idx)
+        center_img = self.input_resize_transform(curr_sample["image"])
+        center_target_vel_rot = torch.cat((
+            torch.tensor(curr_sample["tip_velocities"]), torch.tensor(curr_sample["rotations"])
+        ))
+        next_img = self.input_resize_transform(super().__getitem__(idx_next)["image"])
+
         imgs = (prev_img, center_img, next_img)
 
-        # add coord maps if necessary
         normalising_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ])
 
         # get grayscaled output target image
-        grayscaled = self.reduced_transform(imgs[center])  # resize to reduced size and grayscale
+        grayscaled = self.reduced_transform(imgs[1])  # resize to reduced size and grayscale
         sample = dict(
             images=torch.stack(list(map(lambda i: normalising_transform(i), imgs)), dim=0),
-            center=center,
-            target=transforms.Compose([
+            target_image=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5])
-            ])(grayscaled)
+            ])(grayscaled),
+            target_vel_rot=center_target_vel_rot
         )
         return sample
+
+
+# Networks
+
+class TargetDecoder(nn.Module):
+    """
+    All Decoders inheriting from this class must return two values from their forward method:
+    the reconstruction loss and the predicted action (usually tip velocity and rotation)
+    """
+    pass
+
+
+class TargetVectorDSAE_Decoder(TargetDecoder):
+    def __init__(self, image_output_size, latent_dimension, normalise):
+        super().__init__()
+        self.default_decoder = DSAE_Decoder(
+            image_output_size=image_output_size,
+            latent_dimension=latent_dimension,
+            normalise=normalise
+        )
+        self.fc1 = nn.Linear(in_features=32, out_features=64)
+        self.fc2 = nn.Linear(in_features=64, out_features=6)
+        self.activ = nn.ReLU()
+
+    def forward(self, x):
+        b, _ = x.size()
+        recon = self.default_decoder(x)
+        out_fc1 = self.activ(self.fc1(x))
+        target_vel_rot = self.fc2(out_fc1)
+        return recon, target_vel_rot
+
+
+class TargetVectorLoss(object):
+    def __init__(self, add_g_slow):
+        self.dsae_loss = DSAE_Loss(add_g_slow=add_g_slow)
+        self.loss = nn.MSELoss(reduction="sum")
+
+    def __call__(self, reconstructed, target, ft_minus1, ft, ft_plus1, pred_vel_rot, target_vel_rot):
+        return (
+            *self.dsae_loss(reconstructed, target, ft_minus1, ft, ft_plus1), self.loss(pred_vel_rot, target_vel_rot)
+        )
 
 
 class CustomDSAE_Encoder(nn.Module):
@@ -96,11 +141,6 @@ class CustomDSAE_Encoder(nn.Module):
 
 class CustomDSAE_Decoder(nn.Module):
     def __init__(self, image_output_size, latent_dimension):
-        """
-        Creates a Deep Spatial Autoencoder decoder
-        :param image_output_size: (height, width) of the output, grayscale image
-        :param latent_dimension: dimension of the low-dimensional encoded features.
-        """
         super().__init__()
         self.height, self.width = image_output_size
         self.latent_dimension = latent_dimension

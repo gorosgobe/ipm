@@ -109,10 +109,11 @@ class DSAE_Decoder(nn.Module):
 
 
 class DeepSpatialAutoencoder(nn.Module):
-    def __init__(self, image_output_size, in_channels=3, out_channels=(64, 32, 16), latent_dimension=32,
+    def __init__(self, image_output_size=(60, 60), in_channels=3, out_channels=(64, 32, 16), latent_dimension=32,
                  temperature=None, normalise=False):
         """
-        Creates a deep spatial autoencoder. Default parameters are the ones used in [1]. See docs for encoder and decoder.
+        Creates a deep spatial autoencoder. Default parameters are the ones used in [1], with the original input image
+        being 3x240x240. See docs for encoder and decoder.
         :param image_output_size: Reconstructed image size
         :param in_channels: Number of channels of input image
         :param out_channels: Output channels of each conv layer in the encoder.
@@ -163,6 +164,17 @@ class DSAE_Loss(object):
         self.mse_loss = nn.MSELoss(reduction="sum")
 
     def __call__(self, reconstructed, target, ft_minus1=None, ft=None, ft_plus1=None):
+        """
+        Performs the loss computation, and returns both loss components.
+        For the start of a trajectory, where ft_minus1 = ft, simply pass in ft_minus1=ft, ft=ft
+        For the end of a trajectory, where ft_plus1 = ft, simply pass in ft=ft, ft_plus1=ft
+        :param reconstructed: Reconstructed, grayscale image
+        :param target: Target, grayscale image
+        :param ft_minus1: Features produced by the encoder for the previous image in the trajectory to the target one
+        :param ft: Features produced by the encoder for the target image
+        :param ft_plus1: Features produced by the encoder for the next image in the trajectory to the target one
+        :return: A tuple (mse, g_slow) where mse = the MSE reconstruction loss and g_slow = g_slow contribution term ([1])
+        """
         loss = self.mse_loss(reconstructed, target)
         g_slow_contrib = torch.zeros(1, device=loss.device)
         if self.add_g_slow:
