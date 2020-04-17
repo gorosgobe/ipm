@@ -1,41 +1,45 @@
 import argparse
 
-import numpy as np
 from torch.utils.data import DataLoader
 
-from lib.cv.controller import TrainingPixelROI, CropDeviationSampler
-from lib.cv.dataset import ImageTipVelocitiesDataset
-from lib.networks import *
-from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed, \
     get_network_param_if_init_from
+from lib.cv.controller import TrainingPixelROI, CropDeviationSampler
+from lib.cv.dataset import ImageTipVelocitiesDataset
+from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.meta.mil import MetaImitationLearning
+from lib.networks import *
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--name")
+    parser.add_argument("--name", required=True)
     parser.add_argument("--training", type=float)
-    parser.add_argument("--dataset")
-    parser.add_argument("--version")
-    parser.add_argument("--size", type=int)
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--version", required=True)
+    parser.add_argument("--size", type=int, required=True)
     parser.add_argument("--random_std", type=int)
     parser.add_argument("--loss")
     parser.add_argument("--seed")
     parser.add_argument("--init_from")
+    parser.add_argument("--pos_dim")
     parse_result = parser.parse_args()
 
     loss_params = get_loss(parse_result.loss)
     seed = get_seed(parse_result.seed)
     print("Seed:", seed)
 
-    version = parse_result.version or "V1"
+    version = parse_result.version
 
-    size = (64, 48)
-    divisor = 2
     if parse_result.size == 32:
         size = (32, 24)
         divisor = 4
+    elif parse_result.size == 64:
+        size = (64, 48)
+        divisor = 2
+    else:
+        raise ValueError("Invalid size!")
+
     print("Cropped image size:", size)
     print("Training cropper divisor:", divisor)
     print("Attention network version:", version)
@@ -50,10 +54,17 @@ if __name__ == "__main__":
         add_spatial_maps = True
     elif version.lower() == "tile":
         version = AttentionNetworkTile_32 if parse_result.size == 32 else AttentionNetworkTile
+    elif version.lower() == "pos":
+        if parse_result.pos_dim is None:
+            raise ValueError("Positional encoding dimension 'pos_dim' has to be specified!")
+        version = AttentionNetworkPos_32.create(
+            parse_result.pos_dim
+        ) if parse_result.size == 32 else AttentionNetworkPos.create(parse_result.pos_dim)
+        add_spatial_maps = True
     else:
         raise ValueError(f"Attention network version {version} is not available")
 
-    dataset = parse_result.dataset or "text_camera_rand"
+    dataset = parse_result.dataset
     print("Dataset: ", dataset)
 
     # random crop, if required
@@ -80,7 +91,7 @@ if __name__ == "__main__":
         cache_images=False,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name=parse_result.name or "AttentionNetworkRand",
+        name=parse_result.name,
         learning_rate=0.0001,
         max_epochs=250,
         validate_epochs=1,
