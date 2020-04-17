@@ -4,11 +4,12 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from dsae.dsae_trainer import DSAETrainer
+from lib.dsae.dsae_manager import DSAEManager
 from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
 from lib.dsae.dsae import DSAE_Loss, CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae import DeepSpatialAutoencoder
-from lib.dsae.dsae_misc import DSAE_Dataset, TargetVectorDSAE_Decoder, TargetVectorLoss
+from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder, TargetVectorLoss
+from dsae.dsae_dataset import DSAE_Dataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -17,9 +18,10 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--g_slow", required=True)
+    parser.add_argument("--loss_params", nargs=3, type=float, required=True)
     parser.add_argument("--mse_only", required=True)
     parser.add_argument("--training", type=float, required=True)
-    # TODO: add option for loss parameters and add option for choice of decoder
+    # TODO: add option for choice of decoder
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, required=True)
     parse_result = parser.parse_args()
@@ -42,7 +44,8 @@ if __name__ == '__main__':
         mse_only=parse_result.mse_only == "yes",
         output_divisor=parse_result.output_divisor,
         split=[0.8, 0.1, 0.1],
-        training=parse_result.training
+        training=parse_result.training,
+        criterion_params=parse_result.loss_params
     )
 
     height, width = config["size"]
@@ -112,21 +115,22 @@ if __name__ == '__main__':
         transforms.ToTensor()
     ])
 
-    trainer = DSAETrainer(
+    trainer = DSAEManager(
         name=config["name"],
         model=model,
         num_epochs=config["num_epochs"],
         optimiser=optimiser,
         device=device,
         criterion=criterion,
-        criterion_params=(0.01, 1.0, 1.0),
+        criterion_params=config["criterion_params"],
         add_g_slow=config["add_g_slow"],
         patience=10,
         plot=True,
         plot_params=dict(
             dataset=training_demonstrations,
             upsample_transform=upsample_transform,
-            grayscale=grayscale
+            grayscale=grayscale,
+            latent_dimension=config["latent_dimension"]
         )
     )
 

@@ -1,12 +1,13 @@
 import torch
 
-from lib.dsae.dsae_misc import TargetVectorLoss, TargetDecoder
-from lib.dsae.dsae_plot import plot_reconstruction_images
+from lib.dsae.dsae_networks import TargetVectorLoss, TargetDecoder
+from lib.dsae.dsae_plot import plot_reconstruction_images, plot_full_demonstration
 from lib.common.saveable import BestSaveable
 
 
-class DSAETrainer(BestSaveable):
-    def __init__(self, name, model, num_epochs, optimiser, device, criterion, criterion_params, add_g_slow, patience, plot,
+class DSAEManager(BestSaveable):
+    def __init__(self, name, model, num_epochs, optimiser, device, criterion, criterion_params, add_g_slow, patience,
+                 plot,
                  plot_params):
         super().__init__()
         self.name = name
@@ -140,14 +141,17 @@ class DSAETrainer(BestSaveable):
                 self.validation_losses.append(complete_val_loss)
 
                 if self.plot:
-                    if epoch % 1 == 0:
+                    if epoch % 5 == 0:
                         plot_reconstruction_images(
                             epoch, self.name, self.plot_params["dataset"], self.model,
                             self.plot_params["upsample_transform"],
-                            self.plot_params["grayscale"], self.device)
-                    if epoch % 10 == 0:
-                        pass
-                        # plot_full_demonstration(epoch, config["name"], dataset, model, grayscale, device, config["latent_dimension"])
+                            self.plot_params["grayscale"], self.device
+                        )
+                    if epoch % 20 == 0:
+                        plot_full_demonstration(
+                            epoch, self.name, self.plot_params["dataset"], self.model,
+                            self.plot_params["grayscale"], self.device, self.plot_params["latent_dimension"]
+                        )
 
             if self.early_stopping_count == self.patience:
                 print(f"Stopping, patience {self.patience} reached.")

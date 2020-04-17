@@ -174,7 +174,7 @@ class TrainingPixelROI(TrainingROI):
             loaded_pixel_estimator,
             FakeHandle(),
             self.add_spatial_maps,
-            self.crop_deviation_sampler
+            self.crop_deviation_sampler,
         )
         return true_pixel_roi.crop(image)
 
