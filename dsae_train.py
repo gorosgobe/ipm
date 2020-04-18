@@ -9,7 +9,7 @@ from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
 from lib.dsae.dsae import DSAE_Loss, CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae import DeepSpatialAutoencoder
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder, TargetVectorLoss, SoftTargetVectorDSAE_Decoder
-from dsae.dsae_dataset import DSAE_Dataset
+from lib.dsae.dsae_dataset import DSAE_Dataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
