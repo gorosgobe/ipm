@@ -1,9 +1,11 @@
+import pprint
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from skimage import draw
 
-from lib.dsae.dsae_networks import TargetDecoder
+from lib.dsae.dsae_networks import TargetDecoder, SoftTargetVectorDSAE_Decoder
 
 
 def plot_reconstruction_images(epoch, name, dataset, model, upsample_transform, grayscale, device):
@@ -41,6 +43,16 @@ def plot_reconstruction_images(epoch, name, dataset, model, upsample_transform, 
                 rr, cc = draw.circle(y_pix, x_pix, radius=2, shape=numpy_g_image.shape)
                 numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / idx_features) + np.array(
                     [0.0, 1.0, 0.0]) * idx / idx_features
+
+            if isinstance(model.decoder, SoftTargetVectorDSAE_Decoder):
+                x, y = model.decoder.attended_location.squeeze(0)
+                attend_x_pix = int((x + 1) * (128 - 1) / 2)
+                attend_y_pix = int((y + 1) * (96 - 1) / 2)
+                rr_nofill, cc_nofill = draw.circle_perimeter(
+                    attend_y_pix, attend_x_pix, radius=4, shape=numpy_g_image.shape
+                )
+                numpy_g_image[rr_nofill, cc_nofill] = np.array([0.0, 0.0, 1.0])
+
             axarr[i, 0].imshow(numpy_g_image)
             axarr[i, 1].imshow(u_r_image)
 
@@ -55,6 +67,7 @@ def plot_full_demonstration(epoch, name, dataset, model, grayscale, device, late
     plt.tight_layout()
     model.eval()
     feature_positions = {i: [] for i in range(latent_dim // 2)}
+
     with torch.no_grad():
         image = dataset[34]["images"][1]  # initial image for first demonstration
         # normalise to 0, 255 (for PIL, ToTensor then turns it into 0, 1)

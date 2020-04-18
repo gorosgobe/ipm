@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from lib.dsae.dsae import SpatialSoftArgmax, DSAE_Decoder, DSAE_Loss
@@ -11,6 +12,55 @@ class TargetDecoder(nn.Module):
     the reconstruction loss and the predicted action (usually tip velocity and rotation)
     """
     pass
+
+
+class SoftTargetVectorDSAE_Decoder(TargetDecoder):
+    def __init__(self, image_output_size, latent_dimension, normalise, encoder):
+        # TODO: for the time being, assume only one attended feature -> there might be more
+        super().__init__()
+        self.default_decoder = DSAE_Decoder(
+            image_output_size=image_output_size,
+            latent_dimension=latent_dimension,
+            normalise=normalise
+        )
+        # from a single point, predict the target
+        # TODO: for multi attention to K points, in_features should be 2 * K
+        self.fc1 = nn.Linear(in_features=2, out_features=64)
+        self.fc2 = nn.Linear(in_features=64, out_features=6)
+        self.activ = nn.ReLU()
+
+        # Attention part
+        self.encoder_ref = encoder
+        # TODO: do not assume only one object attended to
+        self.target_spatial = SpatialSoftArgmax(normalise=True)
+        # one alpha per feature map
+        self.att_param = nn.Parameter(torch.ones(latent_dimension // 2, 2))
+        self.temperature = nn.Parameter(torch.ones(1))
+        self.attended_location = None
+
+    def forward(self, x):
+        # TODO: minimise entropy too?
+        b, _ = x.size()
+        recon = self.default_decoder(x)
+        visual_features = self.encoder_ref.visual_features
+        b, c, h, w = visual_features.size()
+        # spatial features (B, C*2) -> (B, C, 2)
+        spatial_features = x.view(b, c, 2)
+        # attention per point (C, 2)
+        # dot product between spatial feature of dimension two with weights, gives (B, C)
+        weighted_spatial_features = torch.sum(spatial_features * self.att_param, dim=-1)
+        # attention weights (B, C)
+        attention_weights = nn.functional.softmax(weighted_spatial_features / self.temperature, dim=1)
+        # use attention weights on visual features to estimate a single feature map
+        # (B, C, H * W)
+        mult_visual_vectors = visual_features.view(b, c, h * w) * attention_weights.unsqueeze(-1)
+        attended_visual_feature_map = torch.sum(mult_visual_vectors.view(b, c, h, w), dim=1, keepdim=True)
+        # extract spatial location from this visual feature map of (B, 1, H, W) -> (B, 1, 2) and remove the 1
+        self.attended_location = self.target_spatial(attended_visual_feature_map).squeeze(1)
+        # use spatial point to predict target
+        out_fc1 = self.activ(self.fc1(self.attended_location))
+        target_vel_rot = self.fc2(out_fc1)
+        return recon, target_vel_rot
 
 
 class TargetVectorDSAE_Decoder(TargetDecoder):

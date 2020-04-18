@@ -147,7 +147,7 @@ class DSAEManager(BestSaveable):
                             self.plot_params["upsample_transform"],
                             self.plot_params["grayscale"], self.device
                         )
-                    if epoch % 20 == 0:
+                    if epoch % 5 == 0:
                         plot_full_demonstration(
                             epoch, self.name, self.plot_params["dataset"], self.model,
                             self.plot_params["grayscale"], self.device, self.plot_params["latent_dimension"]

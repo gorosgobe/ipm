@@ -34,6 +34,7 @@ class SpatialSoftArgmax(nn.Module):
         super().__init__()
         self.temperature = nn.Parameter(torch.ones(1)) if temperature is None else torch.tensor([temperature])
         self.normalise = normalise
+        self.spatial_softmax = None
 
     def forward(self, x):
         """
@@ -43,7 +44,8 @@ class SpatialSoftArgmax(nn.Module):
         """
         n, c, h, w = x.size()
         spatial_softmax_per_map = nn.functional.softmax(x.view(n * c, h * w) / self.temperature, dim=1)
-        spatial_softmax = spatial_softmax_per_map.view(n, c, h, w)
+        # store spatial softmax so other modules can use the result
+        self.spatial_softmax = spatial_softmax_per_map.view(n, c, h, w)
 
         # calculate image coordinate maps
         image_x, image_y = CoordinateUtils.get_image_coordinates(h, w, normalise=self.normalise)
@@ -53,7 +55,7 @@ class SpatialSoftArgmax(nn.Module):
         image_coordinates = image_coordinates.to(device=x.device)
 
         # multiply coordinates by the softmax and sum over height and width, like in [2]
-        expanded_spatial_softmax = spatial_softmax.unsqueeze(-1)
+        expanded_spatial_softmax = self.spatial_softmax.unsqueeze(-1)
         image_coordinates = image_coordinates.unsqueeze(0)
         out = torch.sum(expanded_spatial_softmax * image_coordinates, dim=[2, 3])
         # (N, C, 2)
@@ -79,11 +81,13 @@ class DSAE_Encoder(nn.Module):
         self.batch_norm3 = nn.BatchNorm2d(out_channels[2])
         self.activ = nn.ReLU()
         self.spatial_soft_argmax = SpatialSoftArgmax(temperature=temperature, normalise=normalise)
+        self.visual_features = None
 
     def forward(self, x):
         out_conv1 = self.activ(self.batch_norm1(self.conv1(x)))
         out_conv2 = self.activ(self.batch_norm2(self.conv2(out_conv1)))
         out_conv3 = self.activ(self.batch_norm3(self.conv3(out_conv2)))
+        self.visual_features = out_conv3
         out = self.spatial_soft_argmax(out_conv3)
         return out
 

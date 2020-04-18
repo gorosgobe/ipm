@@ -8,7 +8,7 @@ from lib.dsae.dsae_manager import DSAEManager
 from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
 from lib.dsae.dsae import DSAE_Loss, CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae import DeepSpatialAutoencoder
-from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder, TargetVectorLoss
+from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder, TargetVectorLoss, SoftTargetVectorDSAE_Decoder
 from dsae.dsae_dataset import DSAE_Dataset
 
 if __name__ == '__main__':
@@ -85,12 +85,14 @@ if __name__ == '__main__':
         )
     else:
         # TODO: choose type of decoder here
+        encoder = DSAE_Encoder(in_channels=3, out_channels=(64, 32, 16), normalise=True)
         model = CustomDeepSpatialAutoencoder(
-            encoder=DSAE_Encoder(in_channels=3, out_channels=(64, 32, 16), normalise=True),
-            decoder=TargetVectorDSAE_Decoder(
+            encoder=encoder,
+            decoder=SoftTargetVectorDSAE_Decoder(
                 image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
                 latent_dimension=config["latent_dimension"],
-                normalise=True
+                normalise=True,
+                encoder=encoder
             )
         )
 
