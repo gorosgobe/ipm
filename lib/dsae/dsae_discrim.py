@@ -144,7 +144,7 @@ class DiscriminatorManager(BestSaveable):
                 self.early_stopper.register_loss(complete_val_loss)
 
                 if self.plot:
-                    if epoch % 1 == 0:
+                    if epoch % 20 == 0:
                         plot_reconstruction_images(
                             epoch=epoch, name=self.name, dataset=self.plot_params["dataset"], model=self.plot_params["feature_model"],
                             attender=self.model,  # attender is discriminator
@@ -155,3 +155,13 @@ class DiscriminatorManager(BestSaveable):
             if self.early_stopper.should_stop():
                 print(f"Stopping, patience {self.patience} reached.")
                 break
+
+        if self.plot:
+            # load best weights
+            self.model.load_state_dict(self.get_best_info()["state_dict"])
+            plot_reconstruction_images(
+                epoch="final", name=self.name, dataset=self.plot_params["dataset"], model=self.plot_params["feature_model"],
+                attender=self.model,  # attender is discriminator
+                upsample_transform=self.plot_params["upsample_transform"],
+                grayscale=self.plot_params["grayscale"], device=self.device, attender_discriminator=True
+            )

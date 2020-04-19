@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
+from lib.dsae.dsae_test import DSAE_FeatureTest
 from lib.dsae.dsae_discrim import SoftSpatialDiscriminator, DiscriminatorManager, DiscriminatorFeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
@@ -20,9 +21,11 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--g_slow", required=True)
-    parser.add_argument("--loss_params", nargs=3, type=float, required=True)
+    parser.add_argument("--ae_loss_params", nargs=3, type=float, required=True)
+    parser.add_argument("--disc_loss_params", nargs=2, type=float, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--training", type=float, required=True)
+    parser.add_argument("--only_ae", required=True)
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, required=True)
     parse_result = parser.parse_args()
@@ -46,7 +49,9 @@ if __name__ == '__main__':
         output_divisor=parse_result.output_divisor,
         split=[0.8, 0.1, 0.1],
         training=parse_result.training,
-        criterion_params=parse_result.loss_params
+        criterion_params=parse_result.ae_loss_params,
+        disc_loss_params=parse_result.disc_loss_params,
+        only_ae=parse_result.only_ae == "yes"
     )
 
     height, width = config["size"]
@@ -74,6 +79,7 @@ if __name__ == '__main__':
 
     dataloader = DataLoader(dataset=training_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=8)
     validation_dataloader = DataLoader(dataset=validation_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=8)
+    test_dataloader = DataLoader(dataset=test_demonstrations, batch_size=config["batch_size"], shuffle=False, num_workers=8)
 
     if config["version"] == "mse":
         model = DeepSpatialAutoencoder(
@@ -95,6 +101,7 @@ if __name__ == '__main__':
         )
     else:
         # TODO: choose type of decoder here
+        # TODO: still needs more work, not sure this is a good option, "target" works very well atm
         encoder = DSAE_Encoder(in_channels=3, out_channels=(64, 32, 16), strides=(2, 2, 1), normalise=True)
         model = CustomDeepSpatialAutoencoder(
             encoder=encoder,
@@ -147,6 +154,23 @@ if __name__ == '__main__':
 
     trainer.train(dataloader, validation_dataloader)
     trainer.save_best_model("models/dsae/")
+    print("Testing features...")
+    feature_tester = DSAE_FeatureTest(
+        model=model,
+        size=config["size"],
+        device=config["device"]
+    )
+    l2_errors, l1_errors = feature_tester.test(test_dataloader=test_dataloader)
+    print("Test results:")
+    min_l2_error, min_l2_index = torch.min(l2_errors, 0)
+    print(f"L2 {l2_errors}, min error {min_l2_error.item()} at feature {min_l2_index.item()}")
+    min_l1_error, min_l1_index = torch.min(l1_errors, 0)
+    print(f"L1 {l1_errors}, min error {min_l1_error.item()} at feature {min_l1_index.item()}")
+
+    if config["only_ae"]:
+        print("Only autoencoder training selected, stopping...")
+        exit(0)
+
     print("-" * 10)
     print("Autoencoder done, training discriminator...")
     print("-" * 10)
@@ -158,7 +182,7 @@ if __name__ == '__main__':
         model=discriminator,
         num_epochs=config["num_epochs"],
         optimiser=torch.optim.Adam(discriminator.parameters(), lr=config["lr"]),
-        loss_params=(0.5, 1.0),
+        loss_params=config["disc_loss_params"],  # (0.5, 1.0)
         device=config["device"],
         patience=10,
         plot_params=dict(

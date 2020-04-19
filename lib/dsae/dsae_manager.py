@@ -43,6 +43,13 @@ class DSAEManager(BestSaveable):
             validation_losses=self.validation_losses
         )
 
+    @staticmethod
+    def load_state_dict(path):
+        # only parameters of model, for the time being
+        info = torch.load(path, map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+        state_dict = info["state_dict"]
+        return state_dict
+
     def get_best_info(self):
         return self.best_info
 
@@ -131,7 +138,7 @@ class DSAEManager(BestSaveable):
                 self.validation_losses.append(complete_val_loss)
 
                 if self.plot:
-                    if epoch % 5 == 0:
+                    if epoch % 10 == 0:
                         plot_reconstruction_images(
                             epoch=epoch, name=self.name, dataset=self.plot_params["dataset"], model=self.model,
                             attender=self.model.decoder, upsample_transform=self.plot_params["upsample_transform"],
@@ -146,19 +153,21 @@ class DSAEManager(BestSaveable):
 
             if self.early_stopper.should_stop():
                 print(f"Stopping, patience {self.patience} reached...")
-                if self.plot:
-                    # we want to plot what our best model would have outputted
-                    # load best weights
-                    self.model.load_state_dict(self.get_best_info()["state_dict"])
-                    # and now plot
-                    plot_reconstruction_images(
-                        epoch=epoch, name=self.name, dataset=self.plot_params["dataset"], model=self.model,
-                        attender=self.model.decoder, upsample_transform=self.plot_params["upsample_transform"],
-                        grayscale=self.plot_params["grayscale"]
-                    )
-                    plot_full_demonstration(
-                        epoch=epoch, name=self.name, dataset=self.plot_params["dataset"], model=self.model,
-                        grayscale=self.plot_params["grayscale"], latent_dim=self.plot_params["latent_dimension"],
-                        device=self.device
-                    )
                 break
+
+        # plot at the end
+        if self.plot:
+            # we want to plot what our best model would have outputted
+            # load best weights
+            self.model.load_state_dict(self.get_best_info()["state_dict"])
+            # and now plot
+            plot_reconstruction_images(
+                epoch="final", name=self.name, dataset=self.plot_params["dataset"], model=self.model,
+                attender=self.model.decoder, upsample_transform=self.plot_params["upsample_transform"],
+                grayscale=self.plot_params["grayscale"]
+            )
+            plot_full_demonstration(
+                epoch="final", name=self.name, dataset=self.plot_params["dataset"], model=self.model,
+                grayscale=self.plot_params["grayscale"], latent_dim=self.plot_params["latent_dimension"],
+                device=self.device
+            )

@@ -2,6 +2,7 @@ import torch
 from torchvision import transforms
 
 from lib.cv.dataset import ImageTipVelocitiesDataset
+from lib.common.test_utils import downsample_coordinates
 
 
 class DSAE_Dataset(ImageTipVelocitiesDataset):
@@ -55,6 +56,13 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ])
 
+        # also add our expected crop pixel, for use when testing
+        instance_demonstration_idx = idx - d_data["start"]
+        pixels = d_data["crop_pixels"]
+        pixel = pixels[instance_demonstration_idx]
+        # pixel is in original 640x480 resolution, need to downsample
+        pixel = downsample_coordinates(*pixel, og_height=480, og_width=640, to_height=self.h, to_width=self.w)
+
         # get grayscaled output target image
         grayscaled = self.reduced_transform(imgs[1])  # resize to reduced size and grayscale
         sample = dict(
@@ -63,6 +71,7 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5])
             ])(grayscaled),
-            target_vel_rot=center_target_vel_rot
+            target_vel_rot=center_target_vel_rot,
+            pixel=torch.tensor(pixel)
         )
         return sample
