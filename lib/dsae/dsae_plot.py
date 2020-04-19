@@ -101,8 +101,8 @@ def plot_full_demonstration(epoch, name, dataset, model, grayscale, latent_dim, 
             for idx, feature in enumerate(feature_positions[i]):
                 x_pix, y_pix = feature
                 rr, cc = draw.circle(y_pix, x_pix, radius=2, shape=image_to_draw_on.shape)
-                image_to_draw_on[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / len(feature_positions[i])) + \
-                                           np.array([0.0, 1.0, 0.0]) * idx / len(feature_positions[i])
+                image_to_draw_on[rr, cc] = np.array([0.0, 1.0, 0.0]) * (1 - idx / len(feature_positions[i])) + \
+                                           np.array([1.0, 0.0, 0.0]) * idx / len(feature_positions[i])
             axarr[i // 4, i % 4].imshow(image_to_draw_on)
 
     plt.savefig(f"demon_{name}_{epoch}.png")
