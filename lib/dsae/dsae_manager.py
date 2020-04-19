@@ -151,7 +151,7 @@ class DSAEManager(BestSaveable):
                     self.model.load_state_dict(self.get_best_info()["state_dict"])
                     # and now plot
                     plot_reconstruction_images(
-                        epoch, self.name, self.plot_params["dataset"], self.model,
+                        epoch, self.name, self.plot_params["dataset"], self.model, self.model.decoder,
                         self.plot_params["upsample_transform"],
                         self.plot_params["grayscale"], self.device
                     )
