@@ -164,7 +164,7 @@ class DSAEManager(BestSaveable):
             plot_reconstruction_images(
                 epoch="final", name=self.name, dataset=self.plot_params["dataset"], model=self.model,
                 attender=self.model.decoder, upsample_transform=self.plot_params["upsample_transform"],
-                grayscale=self.plot_params["grayscale"]
+                grayscale=self.plot_params["grayscale"], device=self.device
             )
             plot_full_demonstration(
                 epoch="final", name=self.name, dataset=self.plot_params["dataset"], model=self.model,
