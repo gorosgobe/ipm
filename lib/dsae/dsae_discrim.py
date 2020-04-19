@@ -149,7 +149,7 @@ class DiscriminatorManager(BestSaveable):
                             epoch, self.name, self.plot_params["dataset"], self.plot_params["feature_model"],
                             self.model,  # attender is discriminator
                             self.plot_params["upsample_transform"],
-                            self.plot_params["grayscale"], self.device, attender_discriminator=True
+                            self.plot_params["grayscale"], attender_discriminator=True
                         )
 
             if self.early_stopper.should_stop():

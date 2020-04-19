@@ -6,20 +6,22 @@ from skimage import draw
 from lib.dsae.dsae_networks import TargetDecoder, SoftTarget
 
 
-def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_transform, grayscale, device, attender_discriminator=False):
+def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_transform, grayscale, attender_discriminator=False):
     f, axarr = plt.subplots(5, 2, figsize=(10, 15), dpi=100)
     plt.tight_layout()
     model.eval()
     attender.eval()
+    plot_model = model.cpu()
+    plot_attender = attender.cpu()
     with torch.no_grad():
         for i in range(5):
             sample = dataset[34 + i * 4]
             # get image and reconstruction in [0, 1] range
             image = sample["images"][1]
-            if isinstance(model.decoder, TargetDecoder):
-                out_image, _ = model(image.to(device).unsqueeze(0))
+            if isinstance(plot_model.decoder, TargetDecoder):
+                out_image, _ = plot_model(image.unsqueeze(0))
             else:
-                out_image = model(image.to(device).unsqueeze(0))
+                out_image = plot_model(image.unsqueeze(0))
 
             reconstruction = (
                     (out_image + 1) * 255 / 2
@@ -27,7 +29,7 @@ def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_t
             u_r_image = upsample_transform(reconstruction.squeeze(0)).numpy().transpose(1, 2, 0)
 
             # get spatial features (C, 2)
-            features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
+            features = plot_model.encoder(image.unsqueeze(0)).squeeze(0).cpu()
 
             # normalise to 0, 255 (for PIL, ToTensor then turns it into 0, 1)
             image = (image[:3, :, :] + 1) * 255 / 2
@@ -43,10 +45,10 @@ def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_t
                 numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / idx_features) + np.array(
                     [0.0, 1.0, 0.0]) * idx / idx_features
 
-            if isinstance(attender, SoftTarget):
+            if isinstance(plot_attender, SoftTarget):
                 if attender_discriminator:
-                    _ = attender(features.unsqueeze(0))
-                x, y = attender.attended_location.squeeze(0)
+                    _ = plot_attender(features.unsqueeze(0))
+                x, y = plot_attender.attended_location.squeeze(0)
                 attend_x_pix = int((x + 1) * (128 - 1) / 2)
                 attend_y_pix = int((y + 1) * (96 - 1) / 2)
                 rr_nofill, cc_nofill = draw.circle_perimeter(
@@ -62,11 +64,12 @@ def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_t
     model.train()
 
 
-def plot_full_demonstration(epoch, name, dataset, model, grayscale, device, latent_dim, rows=4):
+def plot_full_demonstration(epoch, name, dataset, model, grayscale, latent_dim, rows=4):
     # track all features across demonstration, showing the first image only
     f, axarr = plt.subplots(nrows=rows, ncols=(latent_dim // (2 * rows)), figsize=(10, 10), dpi=200)
     plt.tight_layout()
     model.eval()
+    plot_model = model.cpu()
     feature_positions = {i: [] for i in range(latent_dim // 2)}
 
     with torch.no_grad():
@@ -80,7 +83,7 @@ def plot_full_demonstration(epoch, name, dataset, model, grayscale, device, late
             sample = dataset[34 + i]
             image = sample["images"][1]
             # get spatial features (C, 2)
-            features = model.encoder(image.to(device).unsqueeze(0)).squeeze(0).cpu()
+            features = plot_model.encoder(image.unsqueeze(0)).squeeze(0).cpu()
 
             for idx, pos in enumerate(features):
                 x, y = pos
