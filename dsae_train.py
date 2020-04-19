@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from dsae.dsae_discrim import SoftSpatialDiscriminator, DiscriminatorManager, DiscriminatorFeatureProvider
+from lib.dsae.dsae_discrim import SoftSpatialDiscriminator, DiscriminatorManager, DiscriminatorFeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
 from lib.dsae.dsae import DSAE_Loss, CustomDeepSpatialAutoencoder, DSAE_Encoder
