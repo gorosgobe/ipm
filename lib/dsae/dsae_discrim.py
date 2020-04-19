@@ -146,10 +146,10 @@ class DiscriminatorManager(BestSaveable):
                 if self.plot:
                     if epoch % 1 == 0:
                         plot_reconstruction_images(
-                            epoch, self.name, self.plot_params["dataset"], self.plot_params["feature_model"],
-                            self.model,  # attender is discriminator
-                            self.plot_params["upsample_transform"],
-                            self.plot_params["grayscale"], attender_discriminator=True
+                            epoch=epoch, name=self.name, dataset=self.plot_params["dataset"], model=self.plot_params["feature_model"],
+                            attender=self.model,  # attender is discriminator
+                            upsample_transform=self.plot_params["upsample_transform"],
+                            grayscale=self.plot_params["grayscale"], device=self.device, attender_discriminator=True
                         )
 
             if self.early_stopper.should_stop():
