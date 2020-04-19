@@ -1,17 +1,16 @@
-import pprint
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from skimage import draw
 
-from lib.dsae.dsae_networks import TargetDecoder, SoftTargetVectorDSAE_Decoder
+from lib.dsae.dsae_networks import TargetDecoder, SoftTarget
 
 
-def plot_reconstruction_images(epoch, name, dataset, model, upsample_transform, grayscale, device):
+def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_transform, grayscale, device, attender_discriminator=False):
     f, axarr = plt.subplots(5, 2, figsize=(10, 15), dpi=100)
     plt.tight_layout()
     model.eval()
+    attender.eval()
     with torch.no_grad():
         for i in range(5):
             sample = dataset[34 + i * 4]
@@ -44,8 +43,10 @@ def plot_reconstruction_images(epoch, name, dataset, model, upsample_transform, 
                 numpy_g_image[rr, cc] = np.array([1.0, 0.0, 0.0]) * (1 - idx / idx_features) + np.array(
                     [0.0, 1.0, 0.0]) * idx / idx_features
 
-            if isinstance(model.decoder, SoftTargetVectorDSAE_Decoder):
-                x, y = model.decoder.attended_location.squeeze(0)
+            if isinstance(attender, SoftTarget):
+                if attender_discriminator:
+                    _ = attender(features.unsqueeze(0))
+                x, y = attender.attended_location.squeeze(0)
                 attend_x_pix = int((x + 1) * (128 - 1) / 2)
                 attend_y_pix = int((y + 1) * (96 - 1) / 2)
                 rr_nofill, cc_nofill = draw.circle_perimeter(

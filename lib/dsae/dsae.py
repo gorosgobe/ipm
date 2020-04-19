@@ -63,7 +63,7 @@ class SpatialSoftArgmax(nn.Module):
 
 
 class DSAE_Encoder(nn.Module):
-    def __init__(self, in_channels, out_channels, temperature=None, normalise=False):
+    def __init__(self, in_channels, out_channels, strides, temperature=None, normalise=False):
         """
         Creates a Deep Spatial Autoencoder encoder
         :param in_channels: Input channels in the input image
@@ -73,11 +73,13 @@ class DSAE_Encoder(nn.Module):
         :param normalise: Normalisation of spatial features. See SpatialSoftArgmax.
         """
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels[0], kernel_size=7, stride=2)
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels[0], kernel_size=7, stride=strides[0])
         self.batch_norm1 = nn.BatchNorm2d(out_channels[0])
-        self.conv2 = nn.Conv2d(in_channels=out_channels[0], out_channels=out_channels[1], kernel_size=5)
+        self.conv2 = nn.Conv2d(in_channels=out_channels[0], out_channels=out_channels[1], kernel_size=5,
+                               stride=strides[1])
         self.batch_norm2 = nn.BatchNorm2d(out_channels[1])
-        self.conv3 = nn.Conv2d(in_channels=out_channels[1], out_channels=out_channels[2], kernel_size=5)
+        self.conv3 = nn.Conv2d(in_channels=out_channels[1], out_channels=out_channels[2], kernel_size=5,
+                               stride=strides[2])
         self.batch_norm3 = nn.BatchNorm2d(out_channels[2])
         self.activ = nn.ReLU()
         self.spatial_soft_argmax = SpatialSoftArgmax(temperature=temperature, normalise=normalise)
@@ -114,7 +116,7 @@ class DSAE_Decoder(nn.Module):
 
 class DeepSpatialAutoencoder(nn.Module):
     def __init__(self, image_output_size=(60, 60), in_channels=3, out_channels=(64, 32, 16), latent_dimension=32,
-                 temperature=None, normalise=False):
+                 strides=(2, 1, 1), temperature=None, normalise=False):
         """
         Creates a deep spatial autoencoder. Default parameters are the ones used in [1], with the original input image
         being 3x240x240. See docs for encoder and decoder.
@@ -122,14 +124,15 @@ class DeepSpatialAutoencoder(nn.Module):
         :param in_channels: Number of channels of input image
         :param out_channels: Output channels of each conv layer in the encoder.
         :param latent_dimension: Input dimension for decoder
+        :param strides: Strides of each conv layer for the encoder
         :param temperature: Temperature parameter, None if it is to be learnt
         :param normalise: Should spatial features be normalised to [-1, 1]?
         """
         super().__init__()
         if out_channels[-1] * 2 != latent_dimension:
             raise ValueError("Spatial SoftArgmax produces a location (x,y) per feature map!")
-        self.encoder = DSAE_Encoder(in_channels=in_channels, out_channels=out_channels, temperature=temperature,
-                                    normalise=normalise)
+        self.encoder = DSAE_Encoder(in_channels=in_channels, out_channels=out_channels, strides=strides,
+                                    temperature=temperature, normalise=normalise)
         self.decoder = DSAE_Decoder(image_output_size=image_output_size, latent_dimension=latent_dimension)
 
     def forward(self, x):

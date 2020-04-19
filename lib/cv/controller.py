@@ -56,9 +56,9 @@ class SpatialDimensionAdder(object):
 
     @staticmethod
     def get_spatial_dimensions(height, width):
-        i = np.tile(np.array(range(width), dtype=np.float32), (height, 1))
+        i = np.tile(np.arange(width, dtype=np.float32), (height, 1))
         i = np.expand_dims(i, axis=2) / (width - 1)
-        j = np.tile(np.array(range(height), dtype=np.float32), (width, 1)).T
+        j = np.tile(np.arange(height, dtype=np.float32), (width, 1)).T
         j = np.expand_dims(j, axis=2) / (height - 1)
         return i, j
 

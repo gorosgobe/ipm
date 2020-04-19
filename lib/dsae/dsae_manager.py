@@ -1,8 +1,9 @@
 import torch
 
+from lib.common.early_stopper import EarlyStopper
+from lib.common.saveable import BestSaveable
 from lib.dsae.dsae_networks import TargetVectorLoss, TargetDecoder
 from lib.dsae.dsae_plot import plot_reconstruction_images, plot_full_demonstration
-from lib.common.saveable import BestSaveable
 
 
 class DSAEManager(BestSaveable):
@@ -23,12 +24,11 @@ class DSAEManager(BestSaveable):
             raise ValueError("Need parameters and transforms for the plotting!")
         self.plot_params = plot_params
 
-        self.best_info = None
-        self.best_val_loss = None
-        self.early_stopping_count = 0
+        self.early_stopper = EarlyStopper(patience=patience, saveable=self)
         self.patience = patience
         self.training_losses = []
         self.validation_losses = []
+        self.best_info = self.get_info()
 
     def get_info(self):
         return dict(
@@ -127,32 +127,36 @@ class DSAEManager(BestSaveable):
 
                 complete_val_loss = val_loss_epoch / len(validation_dataloader)
                 print("Validation loss:", complete_val_loss)
-                if self.best_val_loss is None:
-                    self.best_val_loss = complete_val_loss
-                    self.best_info = self.get_info()
-                    self.early_stopping_count = 0
-                elif self.best_val_loss > complete_val_loss:
-                    self.best_val_loss = complete_val_loss
-                    self.best_info = self.get_info()
-                    self.early_stopping_count = 0
-                else:
-                    self.early_stopping_count += 1
-
+                self.early_stopper.register_loss(complete_val_loss)
                 self.validation_losses.append(complete_val_loss)
 
                 if self.plot:
                     if epoch % 5 == 0:
                         plot_reconstruction_images(
-                            epoch, self.name, self.plot_params["dataset"], self.model,
+                            epoch, self.name, self.plot_params["dataset"], self.model, self.model.decoder,
                             self.plot_params["upsample_transform"],
                             self.plot_params["grayscale"], self.device
                         )
-                    if epoch % 5 == 0:
+                    if epoch % 20 == 0:
                         plot_full_demonstration(
                             epoch, self.name, self.plot_params["dataset"], self.model,
                             self.plot_params["grayscale"], self.device, self.plot_params["latent_dimension"]
                         )
 
-            if self.early_stopping_count == self.patience:
-                print(f"Stopping, patience {self.patience} reached.")
+            if self.early_stopper.should_stop():
+                print(f"Stopping, patience {self.patience} reached...")
+                if self.plot:
+                    # we want to plot what our best model would have outputted
+                    # load best weights
+                    self.model.load_state_dict(self.get_best_info()["state_dict"])
+                    # and now plot
+                    plot_reconstruction_images(
+                        epoch, self.name, self.plot_params["dataset"], self.model,
+                        self.plot_params["upsample_transform"],
+                        self.plot_params["grayscale"], self.device
+                    )
+                    plot_full_demonstration(
+                        epoch, self.name, self.plot_params["dataset"], self.model,
+                        self.plot_params["grayscale"], self.device, self.plot_params["latent_dimension"]
+                    )
                 break

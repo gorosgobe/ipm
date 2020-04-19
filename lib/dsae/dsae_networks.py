@@ -14,7 +14,65 @@ class TargetDecoder(nn.Module):
     pass
 
 
-class SoftTargetVectorDSAE_Decoder(TargetDecoder):
+class SoftTarget(object):
+    """
+    Target is predicted via a soft attention spatial location
+    Attribute "attended_location" is available.
+    """
+    pass
+
+
+class SoftVisualTargetVectorDSAE_Decoder(TargetDecoder, SoftTarget):
+    def __init__(self, image_output_size, latent_dimension, normalise, encoder):
+        # TODO: for the time being, assume only one attended feature -> there might be more
+        super().__init__()
+        self.default_decoder = DSAE_Decoder(
+            image_output_size=image_output_size,
+            latent_dimension=latent_dimension,
+            normalise=normalise
+        )
+        # from a single point, predict the target
+        # TODO: for multi attention to K points, in_features should be 2 * K
+        self.fc1 = nn.Linear(in_features=2, out_features=64)
+        self.fc2 = nn.Linear(in_features=64, out_features=6)
+        self.activ = nn.ReLU()
+
+        # Attention part
+        self.encoder_ref = encoder
+        # TODO: do not assume only one object attended to
+        self.target_spatial = SpatialSoftArgmax(normalise=True)
+        # one alpha per feature map
+        # TODO: fix hardcoding here
+        self.att_param = nn.Parameter(torch.randn(425), requires_grad=True)
+        # self.temperature = nn.Parameter(torch.ones(1))
+        self.attended_location = None
+
+    def forward(self, x):
+        # TODO: minimise entropy too?
+        b, _ = x.size()
+        recon = self.default_decoder(x)
+        visual_features = self.encoder_ref.visual_features
+        b, c, h, w = visual_features.size()
+        # visual features (B, C, H, W) -> (B, C, H * W)
+        assert h * w == 425
+        # dot product (B, C, H * W) * (H * W) gives (B, C)
+        visual_feature_vectors = visual_features.view(b, c, h * w)
+        # normalise visual feature, multiply by weight matrix, compute attention
+        weighted_visual_features = torch.sum(nn.functional.normalize(visual_feature_vectors, dim=-1) * self.att_param,
+                                             dim=-1)
+        attention_weights = nn.functional.softmax(weighted_visual_features, dim=1)  # still (B, C)
+        # spatial features (B, C*2) -> (B, C, 2)
+        spatial_features = x.view(b, c, 2)
+        # (B, 2)
+        self.attended_location = torch.sum(spatial_features * attention_weights.unsqueeze(-1).repeat(1, 1, 2), dim=1)
+        # print("Attended location", (self.attended_location + 1) * torch.tensor([128 - 1, 96 - 1]) / 2)
+        # use spatial point to predict target
+        out_fc1 = self.activ(self.fc1(self.attended_location))
+        target_vel_rot = self.fc2(out_fc1)
+        return recon, target_vel_rot
+
+
+class SoftSpatialTargetVectorDSAE_Decoder(TargetDecoder, SoftTarget):
     def __init__(self, image_output_size, latent_dimension, normalise, encoder):
         # TODO: for the time being, assume only one attended feature -> there might be more
         super().__init__()
@@ -71,7 +129,7 @@ class TargetVectorDSAE_Decoder(TargetDecoder):
             latent_dimension=latent_dimension,
             normalise=normalise
         )
-        self.fc1 = nn.Linear(in_features=32, out_features=64)
+        self.fc1 = nn.Linear(in_features=latent_dimension, out_features=64)
         self.fc2 = nn.Linear(in_features=64, out_features=6)
         self.activ = nn.ReLU()
 
