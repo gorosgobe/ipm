@@ -30,11 +30,16 @@ def set_up_cuda(seed, set_up_seed=True):
     return device
 
 
-def get_preprocessing_transforms(size, is_coord=False):
+def get_preprocessing_transforms(size, is_coord=False, add_r_map=False):
     normalisation = torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     if is_coord:
         # to account for spatial maps
-        normalisation = torchvision.transforms.Normalize([0.5, 0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5, 0.5])
+        means_stds = [0.5, 0.5, 0.5, 0.5, 0.5]
+        if add_r_map:
+            means_stds = means_stds + [0.5]
+        normalisation = torchvision.transforms.Normalize(
+            means_stds, means_stds
+        )
 
     transforms_without_resize = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
