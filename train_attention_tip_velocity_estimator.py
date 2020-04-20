@@ -45,6 +45,7 @@ if __name__ == "__main__":
     print("Attention network version:", version)
 
     add_spatial_maps = False
+    add_r_map = False
     if version == "V1":
         version = AttentionNetwork_32 if parse_result.size == 32 else AttentionNetwork
     elif version == "V2":
@@ -61,6 +62,10 @@ if __name__ == "__main__":
             parse_result.pos_dim
         ) if parse_result.size == 32 else AttentionNetworkPos.create(parse_result.pos_dim)
         add_spatial_maps = True
+    elif version.lower() == "coord_rot":
+        version = AttentionNetworkCoordRot_32 if parse_result.size == 32 else AttentionNetworkCoordRot
+        add_spatial_maps = True
+        add_r_map = True
     else:
         raise ValueError(f"Attention network version {version} is not available")
 
@@ -86,7 +91,7 @@ if __name__ == "__main__":
         root_dir=dataset,
         initial_pixel_cropper=TrainingPixelROI(
             480 // divisor, 640 // divisor, add_spatial_maps=add_spatial_maps,
-            crop_deviation_sampler=crop_deviation_sampler
+            crop_deviation_sampler=crop_deviation_sampler, add_r_map=add_r_map
         ),
         cache_images=False,
         batch_size=32,
