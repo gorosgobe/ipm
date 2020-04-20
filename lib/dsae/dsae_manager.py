@@ -72,7 +72,7 @@ class DSAEManager(BestSaveable):
             ft = self.model.encoder(images[:, 1])
             ft_plus1 = self.model.encoder(images[:, 2])
 
-        target_contrib = 0
+        target_contrib = torch.tensor([0])
         if isinstance(self.criterion, TargetVectorLoss):
             raw_recon_loss, raw_g_slow_contrib, raw_target_contrib = self.criterion(
                 reconstructed=reconstructed,
