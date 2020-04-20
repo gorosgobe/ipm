@@ -120,8 +120,7 @@ if __name__ == '__main__':
             grayscale=grayscale,
             latent_dimension=config["latent_dimension"],
             feature_model=model
-        ),
-        plot=False
+        )
     )
     # same data as autoencoder
     discriminator_manager.train(dataloader, validation_dataloader)

@@ -63,11 +63,19 @@ class SpatialDimensionAdder(object):
         return i, j
 
     @staticmethod
-    def add_spatial_dimensions(image):
+    def get_r_map(i, j):
+        return np.sqrt(np.square(i) + np.square(j))
+
+    @staticmethod
+    def add_spatial_dimensions(image, add_r_map=False):
         # Add spatial map and normalise
         height, width, _channels = image.shape
         i, j = SpatialDimensionAdder.get_spatial_dimensions(height, width)
-        return np.concatenate((image, i, j), axis=2)
+        result = np.concatenate((image, i, j), axis=2)
+        if add_r_map:
+            r_map = SpatialDimensionAdder.get_r_map(i, j)
+            result = np.concatenate((result, r_map), axis=2)
+        return result
 
 
 class ROI(abc.ABC):
@@ -82,7 +90,7 @@ class TrainingROI(ROI, ABC):
 
 class TruePixelROI(ROI):
     def __init__(self, cropped_height, cropped_width, pixel_position_estimator, target_object, add_spatial_maps=False,
-                 crop_deviation_sampler=None):
+                 crop_deviation_sampler=None, add_r_map=False):
         """
         :param cropped_height: Height of region to crop
         :param cropped_width: Width of region to crop
@@ -101,6 +109,9 @@ class TruePixelROI(ROI):
         self.target_object = target_object
         self.pixel_position_estimator = pixel_position_estimator
         self.add_spatial_maps = add_spatial_maps
+        self.add_r_map = add_r_map
+        if not self.add_spatial_maps and self.add_r_map:
+            raise ValueError("Cannot add R map if not adding spatial maps!")
         self.crop_deviation_sampler = crop_deviation_sampler
 
     def is_random_crop(self):
@@ -108,7 +119,7 @@ class TruePixelROI(ROI):
 
     def crop(self, image):
         if self.add_spatial_maps:
-            image = SpatialDimensionAdder.add_spatial_dimensions(image)
+            image = SpatialDimensionAdder.add_spatial_dimensions(image, add_r_map=self.add_r_map)
 
         height, width, _ = image.shape
         pixel, _ = self.pixel_position_estimator.compute_pixel_position(self.target_object.get_handle())
@@ -157,10 +168,11 @@ class TrainingPixelROI(TrainingROI):
     Region of interest for training, where estimated pixel is just the pixel stored for the image.
     """
 
-    def __init__(self, cropped_height, cropped_width, add_spatial_maps=False, crop_deviation_sampler=None):
+    def __init__(self, cropped_height, cropped_width, add_spatial_maps=False, add_r_map=False, crop_deviation_sampler=None):
         self.cropped_height = cropped_height
         self.cropped_width = cropped_width
         self.add_spatial_maps = add_spatial_maps
+        self.add_r_map = add_r_map
         self.crop_deviation_sampler = crop_deviation_sampler
 
     def is_random_crop(self):
@@ -175,6 +187,7 @@ class TrainingPixelROI(TrainingROI):
             FakeHandle(),
             self.add_spatial_maps,
             self.crop_deviation_sampler,
+            add_r_map=self.add_r_map
         )
         return true_pixel_roi.crop(image)
 

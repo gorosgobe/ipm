@@ -141,6 +141,7 @@ class DiscriminatorManager(BestSaveable):
                     val_loss_epoch += val_loss.item()
 
                 complete_val_loss = val_loss_epoch / len(validation_dataloader)
+                print("Validation loss", complete_val_loss)
                 self.early_stopper.register_loss(complete_val_loss)
 
                 if self.plot:
