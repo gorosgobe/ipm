@@ -99,6 +99,7 @@ if __name__ == '__main__':
         )
     )
     model.load_state_dict(state_dict)
+    model.to(config["device"])
     print("Loading done.")
 
     # once we have spatial features, train discriminator
