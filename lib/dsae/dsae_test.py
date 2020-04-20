@@ -11,11 +11,15 @@ import torch
 
 
 class DSAE_FeatureTest(object):
-    def __init__(self, model, size, device):
+    def __init__(self, model, size, device, feature_provider=None, discriminator_mode=False):
         self.model = model
         self.h, self.w = size
         # original device model was on, to restore after test
         self.device = device
+        self.feature_provider = feature_provider
+        self.discriminator_mode = discriminator_mode
+        if self.discriminator_mode and self.feature_provider is None:
+            raise ValueError("In discriminator mode, we need a feature provider to extract spatial features from the images")
 
     def test(self, test_dataloader):
         self.model.eval()
@@ -25,11 +29,16 @@ class DSAE_FeatureTest(object):
             l1_distances = []
             for batch_idx, batch in enumerate(test_dataloader):
                 # (B, 2) in [0-127, 0-96]
-                # TODO: batch pixel is a list of a single tensor, this might be due to dataset returning tuple rather than array, check and fix
                 pixels = batch["pixel"]
                 image_centers = batch["images"][:, 1]
                 # (B, C, 2) in [-1, 1] range
-                unnormalised_features = self.model.encoder(image_centers)
+                if self.discriminator_mode:
+                    features = self.feature_provider(image_centers)
+                    _predicted_action = self.model(features)
+                    # this gives (B, 2) -> need (B, 1, 2)
+                    unnormalised_features = self.model.attended_location.unsqueeze(1)
+                else:
+                    unnormalised_features = self.model(image_centers)
                 normalised = (unnormalised_features + 1) / 2
                 features = normalised * torch.tensor([self.w - 1, self.h - 1], dtype=torch.float32).unsqueeze(0).unsqueeze(0)
                 # (B, C, 2) - (B, 1, 2) -> (B, C, 2)
