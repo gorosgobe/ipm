@@ -100,6 +100,19 @@ class AttentionNetworkCoord_32(AttentionNetworkCoord):
         self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
 
 
+class AttentionNetworkCoordRot(AttentionNetworkCoord):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        # coord 64, but with one more input feature map
+        self.conv1 = torch.nn.Conv2d(in_channels=6, out_channels=64, kernel_size=5, stride=2, padding=1)
+
+
+class AttentionNetworkCoordRot_32(AttentionNetworkCoord_32):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height)
+        self.conv1 = torch.nn.Conv2d(in_channels=6, out_channels=64, kernel_size=5, stride=2, padding=1)
+
+
 # Crop is encoded via positional encodings
 class AttentionNetworkPos(torch.nn.Module):
     def __init__(self, _image_width, _image_height, pos_dimension):
@@ -107,7 +120,8 @@ class AttentionNetworkPos(torch.nn.Module):
         super().__init__()
         self.pos_dimension = pos_dimension
         # spatial information as positional encodings
-        self.conv1 = torch.nn.Conv2d(in_channels=3 + 2 * 2 * pos_dimension, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.conv1 = torch.nn.Conv2d(in_channels=3 + 2 * 2 * pos_dimension, out_channels=64, kernel_size=5, stride=2,
+                                     padding=1)
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
         self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
         self.batch_norm2 = torch.nn.BatchNorm2d(32)
@@ -130,7 +144,8 @@ class AttentionNetworkPos(torch.nn.Module):
         # image has coordconv channels, need to transform the position in -1, 1 to the positional encoding
         assert c == 5
         image_rgb_batch, image_coord_batch = torch.split(image_batch, (3, 2), dim=1)
-        pos_maps = PositionalEncodings.get_positional_encodings(L=self.pos_dimension, batched_coord_maps=image_coord_batch)
+        pos_maps = PositionalEncodings.get_positional_encodings(L=self.pos_dimension,
+                                                                batched_coord_maps=image_coord_batch)
         image_batch_with_pos = torch.cat((image_rgb_batch, pos_maps), dim=1)
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(image_batch_with_pos)))
         out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
