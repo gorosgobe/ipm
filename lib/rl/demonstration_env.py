@@ -480,7 +480,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         if not self.demonstration_indexer.done():
             data = self.demonstration_indexer.get_curr_demonstration_data()
             self.target_predictions.append(data["target_vel_rot"])
-            spatial_features = self.feature_provider(data["images"][1]).view(self.latent_dimension).numpy()
+            spatial_features = self.feature_provider(data["images"][1]).view(self.latent_dimension).cpu().numpy()
             self.state = FilterSpatialFeatureState(self.k, spatial_features=spatial_features)
             self.pixels.append(data["pixel"])
             return spatial_features, 0, False, {}
@@ -516,7 +516,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
             demonstration_dataset=self.demonstration_dataset, demonstrations=1
         )
         data = self.demonstration_indexer.get_curr_demonstration_data()
-        spatial_features = self.feature_provider(data["images"][1]).view(self.latent_dimension).numpy()
+        spatial_features = self.feature_provider(data["images"][1]).view(self.latent_dimension).cpu().numpy()
         self.features = []
         self.target_predictions = [data["target_vel_rot"]]
         self.state = FilterSpatialFeatureState(k=self.k, spatial_features=spatial_features)
