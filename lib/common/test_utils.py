@@ -193,3 +193,19 @@ def get_distance_between_boxes(tl_gt, predicted_tl, *_args):
 def calculate_IoU(tl_gt, br_gt, predicted_tl, predicted_gt):
     # TODO: ?
     pass
+
+
+def get_mean_distance_between_chosen_features_and_pixels(features, pixels, width=128, height=96):
+    assert pixels.shape == (len(features), 2)
+    # features (length episode, k * 2)
+    # pixels (length episode, 2)
+    normalised_features = (features + 1) / 2
+    bounds = np.array([width - 1, height - 1], dtype=np.float32).reshape((1, 1, 2))
+    normalised_features = normalised_features.reshape((features.shape[0], -1, 2)) * bounds
+    difference = normalised_features - pixels.reshape((pixels.shape[0], 1, 2))
+    # norm is of size (length episode, k)
+    norm = np.linalg.norm(difference, axis=-1)
+    res = np.mean(norm)
+    return res
+
+

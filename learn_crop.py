@@ -12,7 +12,7 @@ from lib.common.test_utils import get_distance_between_boxes
 from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
 from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.networks import AttentionNetworkCoord_32
-from lib.rl.callbacks import ScoreCallback
+from lib.rl.callbacks import CropScoreCallback
 from lib.rl.demonstration_env import CropDemonstrationEnv, TestRewardSingleDemonstrationEnv
 from lib.rl.policies import PPOPolicy, SACCustomPolicy
 from lib.rl.utils import DatasetModality
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     else:
         raise ValueError("Invalid algorithm, please choose ppo or sac")
 
-    score_callback_train = ScoreCallback(
+    score_callback_train = CropScoreCallback(
         score_name="tl_distance_train",
         score_function=get_distance_between_boxes,
         prefix=f"{config['name']}_train",

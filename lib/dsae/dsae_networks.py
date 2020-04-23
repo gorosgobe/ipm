@@ -27,7 +27,7 @@ class DSAE_TargetActionPredictor(nn.Module):
         super().__init__()
         # takes in k features
         self.k = k
-        self.fc1 = nn.Linear(in_features=k, out_features=64)
+        self.fc1 = nn.Linear(in_features=k * 2, out_features=64)
         self.fc2 = nn.Linear(in_features=64, out_features=64)
         self.fc3 = nn.Linear(in_features=64, out_features=6)
         self.activ = nn.ReLU()

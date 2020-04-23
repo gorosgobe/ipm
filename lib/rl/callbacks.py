@@ -1,23 +1,58 @@
-import tensorflow as tf
 import numpy as np
-
+import tensorflow as tf
 from stable_baselines.common.callbacks import BaseCallback
 
+from lib.common.test_utils import get_mean_distance_between_chosen_features_and_pixels
 from lib.rl.demonstration_env import CropDemonstrationEnv
 from lib.rl.utils import CropTester
 
 
-class ScoreCallback(BaseCallback):
+class FeatureDistanceScoreCallback(BaseCallback):
+    def __init__(self, test_env, n_episodes=5, every=10000, verbose=0):
+        super().__init__(verbose)
+        self.test_env = test_env
+        self.n_episodes = n_episodes
+        self.every = every
+
+    def _on_step(self):
+        if self.num_timesteps > 0 and self.num_timesteps % self.every == 0:
+            distances = []
+            for ep in range(self.n_episodes):
+                obs = self.test_env.reset()
+                done = False
+                while not done:
+                    action, _states = self.model.predict(obs, deterministic=True)
+                    obs, _, done, info = self.test_env.step(action)
+
+                # (length episode, k * 2)
+                features = np.array(self.test_env.get_selected_features())
+                # (length episode, 2)
+                pixels = self.test_env.get_np_pixels()
+                distances.append(get_mean_distance_between_chosen_features_and_pixels(
+                    features=features, pixels=pixels
+                ))
+
+            mean = np.mean(distances)
+            summary_mean = tf.Summary(
+                value=[tf.Summary.Value(tag=f"feature_distance_mean", simple_value=mean)])
+            self.locals['writer'].add_summary(summary_mean, self.num_timesteps)
+
+        return True
+
+
+class CropScoreCallback(BaseCallback):
     """
     Logs a produced score to Tensorboard.
     """
 
     def __init__(self, score_name, score_function, prefix, config, demonstration_dataset, crop_test_modality,
-                 compute_score_every, log_dir, number_rollouts, save_images_every=-1, verbose=0, environment_klass=CropDemonstrationEnv):
+                 compute_score_every, log_dir, number_rollouts, save_images_every=-1, verbose=0,
+                 environment_klass=CropDemonstrationEnv):
         super().__init__(verbose)
         self.score_name = score_name
         self.score_function = score_function
-        self.crop_tester = CropTester(config, demonstration_dataset, crop_test_modality, environment_klass=environment_klass)
+        self.crop_tester = CropTester(config, demonstration_dataset, crop_test_modality,
+                                      environment_klass=environment_klass)
         self.log_dir = log_dir
         self.prefix = prefix  # when saving images
         self.compute_score_every = compute_score_every
@@ -52,30 +87,14 @@ class ScoreCallback(BaseCallback):
         value_mean_std_overall = np.std(value_means)
 
         # mean +- std
-        summary_mean = tf.Summary(value=[tf.Summary.Value(tag=f"{self.score_name}_mean", simple_value=value_mean_overall)])
+        summary_mean = tf.Summary(
+            value=[tf.Summary.Value(tag=f"{self.score_name}_mean", simple_value=value_mean_overall)])
         self.locals['writer'].add_summary(summary_mean, self.num_timesteps)
-        summary_mean_std = tf.Summary(value=[tf.Summary.Value(tag=f"{self.score_name}_mean_std", simple_value=value_mean_std_overall)])
+        summary_mean_std = tf.Summary(
+            value=[tf.Summary.Value(tag=f"{self.score_name}_mean_std", simple_value=value_mean_std_overall)])
         self.locals['writer'].add_summary(summary_mean_std, self.num_timesteps)
 
         # average std
         value_std_overall = np.mean(np.array(value_stds))
         summary_std = tf.Summary(value=[tf.Summary.Value(tag=f"{self.score_name}_std", simple_value=value_std_overall)])
         self.locals['writer'].add_summary(summary_std, self.num_timesteps)
-
-
-class SaveCropCallback(BaseCallback):
-    """
-    Samples an environment episode and saves the images, drawing the ground truth, expected crop in green and
-    the predicted crop by the RL agent in red.
-    """
-
-    def __init(self, save_every, log_dir, verbose=0):
-        super().__init__(verbose)
-        self.save_every = save_every
-        self.log_dir = log_dir
-        self.count = 0
-
-    def _on_rollout_start(self):
-        if self.count % self.save_every:
-            pass
-        self.count += 1

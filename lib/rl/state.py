@@ -101,9 +101,9 @@ class FilterSpatialFeatureState(object):
     def __init__(self, k, spatial_features):
         # pick top k features
         self.k = k
-        self.spatial_features = spatial_features
+        self.spatial_features = spatial_features.reshape(-1, 2)
 
     def get_top_k_features(self, action):
         # action is [-1.0, 1.0] ^ latent_dimension // 2
         feature_indices = np.argsort(action)[::-1][:self.k]
-        return self.spatial_features[feature_indices]
+        return self.spatial_features[feature_indices].reshape(self.k * 2)

@@ -1,3 +1,4 @@
+import pprint
 from abc import ABC
 
 import gym
@@ -446,16 +447,24 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         self.state = None
         self.device = device
 
+        self.pixels = None
+
         self.evaluator = evaluator  # evaluator may be None for test environments
         self.skip_reward = skip_reward
         if self.evaluator is not None and self.skip_reward:
             raise ValueError("We need an evaluator to compute the reward on a validation set!")
 
     def get_selected_features(self):
+        # (episode length, k * 2)
         return self.features
 
     def get_target_predictions(self):
         return self.target_predictions
+
+    def get_np_pixels(self):
+        # (episode length, 2)
+        res = np.array(list(map(lambda p_trch: p_trch.numpy(), self.pixels)))
+        return res
 
     def set_rl_model(self, rl_model):
         if self.evaluator is not None:
@@ -465,6 +474,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         self.demonstration_indexer.advance()
         # get scores from action
         top_k_features = self.state.get_top_k_features(action)
+        assert top_k_features.shape == (self.k * 2,)
         self.features.append(top_k_features)
 
         if not self.demonstration_indexer.done():
@@ -472,6 +482,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
             self.target_predictions.append(data["target_vel_rot"])
             spatial_features = self.feature_provider(data["images"][1]).view(self.latent_dimension).numpy()
             self.state = FilterSpatialFeatureState(self.k, spatial_features=spatial_features)
+            self.pixels.append(data["pixel"])
             return spatial_features, 0, False, {}
 
         if self.skip_reward:
@@ -509,4 +520,5 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         self.features = []
         self.target_predictions = [data["target_vel_rot"]]
         self.state = FilterSpatialFeatureState(k=self.k, spatial_features=spatial_features)
+        self.pixels = [data["pixel"]]
         return spatial_features
