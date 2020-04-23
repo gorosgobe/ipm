@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import torch
 
-from lib.rl.demonstration_env import SingleDemonstrationEnv
+from lib.rl.demonstration_env import CropDemonstrationEnv
 
 
 def get_mock_torch_image(idx):
@@ -130,7 +130,7 @@ class DemonstrationEnvTest(unittest.TestCase):
         demonstrations = [(0, 9), (10, 16)]
         self.dataset = MockDataset([get_mock_torch_image(i) for i in range(17)], demonstrations)
 
-        self.env = SingleDemonstrationEnv(
+        self.env = CropDemonstrationEnv(
             demonstration_dataset=self.dataset,
             config=self.config,
             random_provider=self.mock_random_choice,
@@ -207,7 +207,7 @@ class DemonstrationEnvTest(unittest.TestCase):
         self.check_info(info, 1, 0)
 
     def test_estimator_receives_correct_training_and_validation(self):
-        self.env = SingleDemonstrationEnv(
+        self.env = CropDemonstrationEnv(
             demonstration_dataset=self.dataset,
             config=self.config,
             random_provider=self.mock_random_choice,

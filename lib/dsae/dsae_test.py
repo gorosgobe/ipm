@@ -59,6 +59,6 @@ class DSAE_FeatureTest(object):
             average_l1 = torch.mean(torch.cat(l1_distances), dim=0)
         self.model.to(self.device)
         if self.discriminator_mode:
-            self.feature_provider.model.cpu()
+            self.feature_provider.model.to(self.device)
 
         return average_l2, average_l1

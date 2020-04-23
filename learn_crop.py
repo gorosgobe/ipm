@@ -13,9 +13,9 @@ from lib.common.utils import set_up_cuda, get_preprocessing_transforms, get_seed
 from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.networks import AttentionNetworkCoord_32
 from lib.rl.callbacks import ScoreCallback
-from lib.rl.demonstration_env import SingleDemonstrationEnv, TestRewardSingleDemonstrationEnv
+from lib.rl.demonstration_env import CropDemonstrationEnv, TestRewardSingleDemonstrationEnv
 from lib.rl.policies import PPOPolicy, SACCustomPolicy
-from lib.rl.utils import CropTestModality
+from lib.rl.utils import DatasetModality
 
 if __name__ == '__main__':
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         )
     else:
         print("Estimator training environment selected")
-        env = SingleDemonstrationEnv(
+        env = CropDemonstrationEnv(
             demonstration_dataset=dataset,
             config=config,
             init_from=parse_result.init_from
@@ -125,7 +125,7 @@ if __name__ == '__main__':
         log_dir=f"{config['log_dir']}/train_{parse_result.algo}",
         config=config,
         demonstration_dataset=dataset,
-        crop_test_modality=CropTestModality.TRAINING,
+        crop_test_modality=DatasetModality.TRAINING,
         compute_score_every=parse_result.score_every,  # every rollout, for the time being
         number_rollouts=1,
         save_images_every=parse_result.images_every

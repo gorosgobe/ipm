@@ -3,7 +3,7 @@ import numpy as np
 
 from stable_baselines.common.callbacks import BaseCallback
 
-from lib.rl.demonstration_env import SingleDemonstrationEnv
+from lib.rl.demonstration_env import CropDemonstrationEnv
 from lib.rl.utils import CropTester
 
 
@@ -13,7 +13,7 @@ class ScoreCallback(BaseCallback):
     """
 
     def __init__(self, score_name, score_function, prefix, config, demonstration_dataset, crop_test_modality,
-                 compute_score_every, log_dir, number_rollouts, save_images_every=-1, verbose=0, environment_klass=SingleDemonstrationEnv):
+                 compute_score_every, log_dir, number_rollouts, save_images_every=-1, verbose=0, environment_klass=CropDemonstrationEnv):
         super().__init__(verbose)
         self.score_name = score_name
         self.score_function = score_function

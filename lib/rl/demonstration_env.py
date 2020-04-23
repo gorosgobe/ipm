@@ -127,6 +127,17 @@ class DemonstrationSampler(object):
         demonstration_idx = self.get_global_demonstration_index(demonstration_idx)
         return demonstration_idx
 
+    def get_demonstration_indexer(self, demonstration_dataset, demonstrations):
+        # TODO: support multiple demonstrations
+        # sample demonstrations
+        demonstration_idx = self.sample_demonstration()
+        # training demonstration
+        start, end = demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
+        return DemonstrationIndexer(
+            demonstration_dataset=demonstration_dataset,
+            start=start, end=end
+        )
+
     def sample_train_val_demonstrations(self):
         demonstration_idx, val_demonstration_idx = self.random_provider(
             int(self.split[self.dataset_type_idx] * self.num_demonstrations), size=2,
@@ -206,7 +217,7 @@ class DemonstrationIndexer(object):
         return self.end - self.start + 1
 
 
-class SingleDemonstrationEnv(ImageSpaceProviderEnv):
+class CropDemonstrationEnv(ImageSpaceProviderEnv):
     def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
                  dataset_type_idx=DatasetModality.TRAINING, skip_reward=False, init_from=None):
         super().__init__(config["size"])
@@ -490,13 +501,8 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         return None, reward, True, {}
 
     def reset(self):
-        # sample demonstrations
-        demonstration_idx = self.demonstration_sampler.sample_demonstration()
-        # training demonstration
-        start, end = self.demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
-        self.demonstration_indexer = DemonstrationIndexer(
-            demonstration_dataset=self.demonstration_dataset,
-            start=start, end=end
+        self.demonstration_indexer = self.demonstration_sampler.get_demonstration_indexer(
+            demonstration_dataset=self.demonstration_dataset, demonstrations=1
         )
         data = self.demonstration_indexer.get_curr_demonstration_data()
         spatial_features = self.feature_provider(data["images"][1]).view(self.latent_dimension).numpy()
