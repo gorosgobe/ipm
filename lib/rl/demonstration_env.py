@@ -1,5 +1,6 @@
 import pprint
 from abc import ABC
+from functools import reduce
 
 import gym
 import numpy as np
@@ -129,14 +130,16 @@ class DemonstrationSampler(object):
         return demonstration_idx
 
     def get_demonstration_indexer(self, demonstration_dataset, demonstrations):
-        # TODO: support multiple demonstrations
         # sample demonstrations
-        demonstration_idx = self.sample_demonstration()
-        # training demonstration
-        start, end = demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
+        start_end_pairs = []
+        for i in range(demonstrations):
+            demonstration_idx = self.sample_demonstration()
+            # training demonstration
+            start, end = demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
+            start_end_pairs.append((start, end))
         return DemonstrationIndexer(
-            demonstration_dataset=demonstration_dataset,
-            start=start, end=end
+            *start_end_pairs,
+            demonstration_dataset=demonstration_dataset
         )
 
     def sample_train_val_demonstrations(self):
@@ -191,11 +194,10 @@ class DoubleDemonstrationIndexer(object):
 
 # TODO: adapt code of CropDemonstration RL environments to use evaluator
 class DemonstrationIndexer(object):
-    def __init__(self, demonstration_dataset, start, end):
+    def __init__(self, *start_end_pairs, demonstration_dataset):
         self.demonstration_dataset = demonstration_dataset
-        self.start = start
-        self.end = end
-        self.indices = list(range(self.start, self.end + 1))
+        self.start_end_pairs = start_end_pairs
+        self.indices = reduce(lambda x, y: x + y, list(map(lambda pair: list(range(pair[0], pair[1] + 1)), start_end_pairs)))
         self.curr_idx = 0
 
     def advance(self):
@@ -213,9 +215,6 @@ class DemonstrationIndexer(object):
 
     def get_length(self):
         return len(self.indices)
-
-    def get_training_length(self):
-        return self.end - self.start + 1
 
 
 class CropDemonstrationEnv(ImageSpaceProviderEnv):
@@ -428,11 +427,12 @@ class FilterSpatialFeatureSpaceProvider(gym.Env, ABC):
 class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
 
     def __init__(self, latent_dimension, feature_provider, demonstration_dataset, split, dataset_type_idx, device,
-                 evaluator=None, k=10, random_provider=np.random.choice, skip_reward=False):
+                 evaluator=None, num_average_training=3, k=10, random_provider=np.random.choice, skip_reward=False):
         super().__init__(latent_dimension)
         self.feature_provider = feature_provider
         self.latent_dimension = latent_dimension
         self.k = k
+        self.num_average_training = num_average_training
         self.features = None
         self.target_predictions = None
         self.demonstration_dataset = demonstration_dataset
@@ -495,20 +495,26 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         training_dataset, validation_dataset = FromListsDataset(
             self.features + val_features, self.target_predictions + val_target_predictions,
             keys=["features", "target_vel_rot"]
-        ).split(self.demonstration_indexer.get_training_length())
+        ).split(self.demonstration_indexer.get_length())
         train_dataloader = DataLoader(training_dataset, batch_size=len(training_dataset), shuffle=True)
         validation_dataloader = DataLoader(validation_dataset, batch_size=len(validation_dataset), shuffle=True)
-        action_predictor = DSAE_TargetActionPredictor(k=self.k)
-        optimiser = torch.optim.Adam(action_predictor.parameters(), lr=0.001)
-        action_predictor_manager = ActionPredictorManager(
-            action_predictor=action_predictor,
-            num_epochs=100,
-            optimiser=optimiser,
-            device=self.device
-        )
 
-        action_predictor_manager.train(train_dataloader, validation_dataloader)
-        reward = - action_predictor_manager.get_validation_loss()
+        losses = []
+        # average loss
+        for _ in range(self.num_average_training):
+            action_predictor = DSAE_TargetActionPredictor(k=self.k)
+            optimiser = torch.optim.Adam(action_predictor.parameters(), lr=0.001)
+            action_predictor_manager = ActionPredictorManager(
+                action_predictor=action_predictor,
+                num_epochs=100,
+                optimiser=optimiser,
+                device=self.device
+            )
+
+            action_predictor_manager.train(train_dataloader, validation_dataloader)
+            losses.append(action_predictor_manager.get_validation_loss())
+
+        reward = - np.mean(losses)
         return None, reward, True, {}
 
     def reset(self):

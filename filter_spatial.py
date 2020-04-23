@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--dsae_path", required=True)
     parser.add_argument("--latent", type=int, required=True)
     parser.add_argument("--score_every", type=int, required=True)
+    parser.add_argument("--k", type=int, required=True)
     parser.add_argument("--n_steps", type=int, required=True)
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, required=True)
@@ -43,7 +44,7 @@ if __name__ == '__main__':
         latent_dimension=parse_result.latent,  # 64 features
         output_divisor=parse_result.output_divisor,
         timesteps=parse_result.timesteps,
-        k=10,
+        k=parse_result.k,
         split=[0.8, 0.2, 0.0],
         n_steps=parse_result.n_steps,
         score_every=parse_result.score_every,
