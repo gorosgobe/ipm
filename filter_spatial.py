@@ -9,7 +9,7 @@ from torchvision import transforms
 
 from lib.rl.callbacks import FeatureDistanceScoreCallback
 from lib.common.utils import get_seed, set_up_cuda
-from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
+from lib.dsae. dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae_dataset import DSAE_Dataset
 from lib.dsae.dsae_feature_provider import FeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     )
     model.state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae/", config["dsae_path"])))
     model.to(config["device"])
-    feature_provider = FeatureProvider(model=model)
+    feature_provider = FeatureProvider(model=model, device=config["device"])
 
     validation_env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],

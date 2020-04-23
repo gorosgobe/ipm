@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     # once we have spatial features, train discriminator
     discriminator = SoftSpatialDiscriminator(latent_dimension=config["latent_dimension"]).to(config["device"])
-    feature_provider = FeatureProvider(model=model)
+    feature_provider = FeatureProvider(model=model, device=config["device"])
     discriminator_manager = DiscriminatorManager(
         name=f"disc_{config['name']}",
         feature_provider=feature_provider,
