@@ -50,18 +50,6 @@ class SoftDiscriminatorLoss(object):
         return target_loss, entropies
 
 
-class DiscriminatorFeatureProvider(object):
-    def __init__(self, model):
-        self.model = model
-
-    def __call__(self, x):
-        # make sure weights are frozen
-        self.model.eval()
-        with torch.no_grad():
-            # returns (B, C*2 = latent dimension)
-            return self.model.encoder(x)
-
-
 class DiscriminatorManager(BestSaveable):
     def __init__(self, name, feature_provider, model, num_epochs, optimiser, loss_params, device, patience,
                  plot_params=None, plot=True):

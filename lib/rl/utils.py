@@ -9,9 +9,9 @@ from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.cv.utils import CvUtils
 
 
-class CropTestModality(enum.Enum):
+class DatasetModality(enum.Enum):
     TRAINING = 0
-    VALIDATION = 1,
+    VALIDATION = 1
     TEST = 2
 
 

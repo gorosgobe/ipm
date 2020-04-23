@@ -41,6 +41,7 @@ class TestConfig(enum.Enum):
     ATTENTION_COORD_64 = 4
     ATTENTION_COORD_32 = 5
     COORD_32_ST_100 = 6
+    ATTENTION_COORD_ROT_32 = 7
 
 
 def get_testing_configs(camera_robot, target_cube):
@@ -75,6 +76,12 @@ def get_testing_configs(camera_robot, target_cube):
             {
                 "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
                                         add_spatial_maps=True),
+                "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+            },
+        TestConfig.ATTENTION_COORD_ROT_32:
+            {
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                                        add_spatial_maps=True, add_r_map=True),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
         TestConfig.COORD_32_ST_100:

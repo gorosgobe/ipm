@@ -11,34 +11,32 @@ from torch.utils.data import Subset
 
 
 class FromListsDataset(torch.utils.data.Dataset):
-    def __init__(self, image_list, velocities_list, rotations_list, training_split=0.8):
-        self.image_list = image_list
-        self.velocities_list = velocities_list
-        self.rotations_list = rotations_list
+    def __init__(self, *lists, keys, training_split=0.8):
+        self.lists = lists
+        self.keys = keys
         self.training_split = training_split  # training data, rest will be used for validation
         self.shuffle_map = None
-        if not (len(self.image_list) == len(self.velocities_list) == len(self.rotations_list)):
-            raise ValueError("The number of image, velocities and rotations must be the same")
+        if not all(x == len(lists[0]) for x in map(len, lists)):
+            raise ValueError("The number of elements in each dataset must be the same")
 
     def __len__(self):
-        return len(self.image_list)
+        return len(self.lists[0])
 
     def split(self, boundary=None):
         if boundary is None:
-            boundary = int(self.training_split * len(self.image_list))
+            boundary = int(self.training_split * self.__len__())
 
-        return Subset(self, np.arange(0, boundary)), Subset(self, np.arange(boundary, len(self.image_list)))
+        return Subset(self, np.arange(0, boundary)), Subset(self, np.arange(boundary, self.__len__()))
 
     def shuffle(self):
-        indices = np.random.permutation(len(self.image_list))
+        indices = np.random.permutation(self.__len__())
         self.shuffle_map = {i: indices[i] for i in range(len(indices))}
         return self
 
     def __getitem__(self, idx):
         if self.shuffle_map is not None:
             idx = self.shuffle_map[idx]
-        return {"image": self.image_list[idx], "tip_velocities": self.velocities_list[idx],
-                "rotations": self.rotations_list[idx]}
+        return {k: self.lists[key_idx][idx] for key_idx, k in enumerate(self.keys)}
 
 
 class TipVelocitiesDataset(torch.utils.data.Dataset):

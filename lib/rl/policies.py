@@ -68,6 +68,7 @@ def get_tile_map(corner, h, w):
 def add_coord_channels(image_batch, image_size):
     # Adapted from code provided in https://arxiv.org/pdf/1807.03247.pdf
     # An Intriguing Failing of convolutional neural networks and the CoordConv solution, Liu et al., 2018
+    # TODO: this might be wrong
     width, height = image_size
     batch_size_tensor = tf.shape(image_batch)[0]
     x_dim = height

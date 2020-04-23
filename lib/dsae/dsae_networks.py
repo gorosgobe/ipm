@@ -22,6 +22,23 @@ class SoftTarget(object):
     pass
 
 
+class DSAE_TargetActionPredictor(nn.Module):
+    def __init__(self, k):
+        super().__init__()
+        # takes in k features
+        self.k = k
+        self.fc1 = nn.Linear(in_features=k, out_features=64)
+        self.fc2 = nn.Linear(in_features=64, out_features=64)
+        self.fc3 = nn.Linear(in_features=64, out_features=6)
+        self.activ = nn.ReLU()
+
+    def forward(self, x):
+        out_fc1 = self.activ(self.fc1(x))
+        out_fc2 = self.activ(self.fc2(out_fc1))
+        out_fc3 = self.fc3(out_fc2)
+        return out_fc3
+
+
 class SoftVisualTargetVectorDSAE_Decoder(TargetDecoder, SoftTarget):
     def __init__(self, image_output_size, latent_dimension, normalise, encoder):
         # TODO: for the time being, assume only one attended feature -> there might be more

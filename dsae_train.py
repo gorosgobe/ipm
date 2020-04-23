@@ -20,10 +20,8 @@ if __name__ == '__main__':
     parser.add_argument("--seed", default="random")
     parser.add_argument("--g_slow", required=True)
     parser.add_argument("--ae_loss_params", nargs=3, type=float, required=True)
-    parser.add_argument("--disc_loss_params", nargs=2, type=float, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--training", type=float, required=True)
-    parser.add_argument("--only_ae", required=True)
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, required=True)
     parse_result = parser.parse_args()

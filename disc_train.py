@@ -11,7 +11,8 @@ from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.dsae.dsae_test import DSAE_FeatureTest
 from lib.common.utils import get_demonstrations, get_seed, set_up_cuda
 from lib.dsae.dsae_dataset import DSAE_Dataset
-from lib.dsae.dsae_discrim import SoftSpatialDiscriminator, DiscriminatorManager, DiscriminatorFeatureProvider
+from lib.dsae.dsae_discrim import SoftSpatialDiscriminator, DiscriminatorManager
+from dsae.dsae_feature_provider import FeatureProvider
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -104,7 +105,7 @@ if __name__ == '__main__':
 
     # once we have spatial features, train discriminator
     discriminator = SoftSpatialDiscriminator(latent_dimension=config["latent_dimension"]).to(config["device"])
-    feature_provider = DiscriminatorFeatureProvider(model=model)
+    feature_provider = FeatureProvider(model=model)
     discriminator_manager = DiscriminatorManager(
         name=f"disc_{config['name']}",
         feature_provider=feature_provider,

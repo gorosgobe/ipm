@@ -4,7 +4,7 @@ import torch
 from lib.cv.utils import CvUtils
 
 
-class State(object):
+class ImageOffsetState(object):
     def __init__(self, data, x_center_previous=None, y_center_previous=None):
         """
         :param data: Dictionary with "image" with values in [-1.0, 1.0], stored in a PyTorch tensor,
@@ -71,7 +71,7 @@ class State(object):
             cropped_width=cropped_width
         )
         assert 0 <= x_center_previous < width and 0 <= y_center_previous < height
-        return State(
+        return ImageOffsetState(
             data=data,
             x_center_previous=x_center_previous,
             y_center_previous=y_center_previous,
@@ -95,3 +95,15 @@ class State(object):
 
     def __repr__(self):
         return self.__str__()
+
+
+class FilterSpatialFeatureState(object):
+    def __init__(self, k, spatial_features):
+        # pick top k features
+        self.k = k
+        self.spatial_features = spatial_features
+
+    def get_top_k_features(self, action):
+        # action is [-1.0, 1.0] ^ latent_dimension // 2
+        feature_indices = np.argsort(action)[::-1][:self.k]
+        return self.spatial_features[feature_indices]
