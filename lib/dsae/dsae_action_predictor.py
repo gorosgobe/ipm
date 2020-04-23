@@ -24,6 +24,7 @@ class ActionPredictorManager(object):
         return self.loss(input=predictions, target=targets)
 
     def train(self, train_dataloader, validation_dataloader):
+        self.action_predictor.to(self.device)
         for epoch in range(self.num_epochs):
             train_loss_epoch = 0
             self.action_predictor.train()
