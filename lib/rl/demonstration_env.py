@@ -1,4 +1,3 @@
-import pprint
 from abc import ABC
 from functools import reduce
 
@@ -125,7 +124,8 @@ class DemonstrationSampler(object):
         self.random_provider = random_provider
 
     def sample_demonstration(self, size):
-        demonstration_idxs = self.random_provider(int(self.split[self.dataset_type_idx] * self.num_demonstrations), size=size, replace=False)
+        demonstration_idxs = self.random_provider(int(self.split[self.dataset_type_idx] * self.num_demonstrations),
+                                                  size=size, replace=False)
         demonstration_idxs = list(map(self.get_global_demonstration_index, demonstration_idxs))
         return demonstration_idxs
 
@@ -427,12 +427,14 @@ class FilterSpatialFeatureSpaceProvider(gym.Env, ABC):
 class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
 
     def __init__(self, latent_dimension, feature_provider, demonstration_dataset, split, dataset_type_idx, device,
-                 evaluator=None, num_average_training=3, k=10, random_provider=np.random.choice, skip_reward=False):
+                 evaluator=None, num_training_demonstrations=None, num_average_training=3, k=10,
+                 random_provider=np.random.choice, skip_reward=False):
         super().__init__(latent_dimension)
         self.feature_provider = feature_provider
         self.latent_dimension = latent_dimension
         self.k = k
         self.num_average_training = num_average_training
+        self.num_training_demonstrations = num_training_demonstrations
         self.features = None
         self.target_predictions = None
         self.demonstration_dataset = demonstration_dataset
@@ -522,6 +524,10 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         # when we have a test environment that draws demonstrations from the validation set, this is useful to we
         # sample without replacement a number of demonstrations for validation, rather than just one
         # this is used by the evaluator
+        if self.num_training_demonstrations is not None:
+            # training data has num_training_demonstrations true episodes
+            num_demonstrations = self.num_training_demonstrations
+
         self.demonstration_indexer = self.demonstration_sampler.get_demonstration_indexer(
             demonstration_dataset=self.demonstration_dataset, demonstrations=num_demonstrations
         )

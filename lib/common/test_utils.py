@@ -42,6 +42,7 @@ class TestConfig(enum.Enum):
     ATTENTION_COORD_32 = 5
     COORD_32_ST_100 = 6
     ATTENTION_COORD_ROT_32 = 7
+    DSAE = 8
 
 
 def get_testing_configs(camera_robot, target_cube):
@@ -90,6 +91,11 @@ def get_testing_configs(camera_robot, target_cube):
                                         add_spatial_maps=True, crop_deviation_sampler=CropDeviationSampler(100)),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
+        TestConfig.DSAE:
+            {
+                "cropper": IdentityCropper(),
+                "c_type": ControllerType.DEFAULT
+            }
     }
 
 

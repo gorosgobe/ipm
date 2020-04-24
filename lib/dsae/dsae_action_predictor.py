@@ -1,19 +1,21 @@
 import torch
 from torch import nn
 
+from lib.dsae.dsae_networks import DSAE_TargetActionPredictor
 from lib.common.early_stopper import EarlyStopper
+from lib.common.saveable import BestSaveable
 
 
-class ActionPredictorManager(object):
-    def __init__(self, action_predictor, num_epochs, optimiser, device, do_not_early_stop=False):
+class ActionPredictorManager(BestSaveable):
+    def __init__(self, action_predictor, num_epochs, optimiser, device):
+        super().__init__()
         self.action_predictor = action_predictor
         self.num_epochs = num_epochs
-        self.do_not_early_stop = do_not_early_stop
         self.device = device
         self.optimiser = optimiser
         self.loss = nn.MSELoss()
-        # we dont want to save the action predictor, as its used as part of RL
-        self.early_stopper = EarlyStopper(patience=10)
+        self.best_info = None
+        self.early_stopper = EarlyStopper(patience=10, saveable=self)
 
     def get_loss(self, batch):
         # we do not have images here, as features are provided directly from the RL agent
@@ -50,3 +52,18 @@ class ActionPredictorManager(object):
 
     def get_validation_loss(self):
         return self.early_stopper.get_best_val_loss()
+
+    @staticmethod
+    def load(path, k):
+        info = torch.load(path)
+        model = DSAE_TargetActionPredictor(k=k)
+        model.load_state_dict(info["state_dict"])
+        return model
+
+    def get_info(self):
+        return dict(
+            state_dict=self.action_predictor.state_dict()
+        )
+
+    def get_best_info(self):
+        return self.best_info

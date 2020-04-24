@@ -1,11 +1,18 @@
 import json
 
 import numpy as np
+import torch
 
-from simulation.camera_robot import CameraRobot
-from cv.controller import TipVelocityController
-from cv.tip_velocity_estimator import TipVelocityEstimator
-from common.test_utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
+from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
+from lib.dsae.dsae_action_tvec_adapter import DSAETipVelocityEstimatorAdapter
+from lib.dsae.dsae_feature_provider import FeatureProvider
+from lib.dsae.dsae_manager import DSAEManager
+from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
+from lib.dsae.dsae_action_predictor import ActionPredictorManager
+from lib.simulation.camera_robot import CameraRobot
+from lib.cv.controller import TipVelocityController
+from lib.cv.tip_velocity_estimator import TipVelocityEstimator
+from lib.common.test_utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
 
 
 def get_full_image_networks(scene_trained, training_list, prefix=""):
@@ -68,6 +75,33 @@ def get_coord_attention_networks(size, scene_trained, training_list, prefix=""):
     return models_res, config
 
 
+def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, image_output_size=(24, 32)):
+    state_dict = DSAEManager.load_state_dict(dsae_path)
+    model = CustomDeepSpatialAutoencoder(
+        encoder=DSAE_Encoder(
+            in_channels=3,
+            out_channels=(latent_dimension * 2, latent_dimension, latent_dimension // 2),
+            strides=(2, 1, 1),
+            normalise=True
+        ),
+        decoder=TargetVectorDSAE_Decoder(
+            image_output_size=image_output_size,
+            latent_dimension=latent_dimension,
+            normalise=True
+        )
+    )
+    model.load_state_dict(state_dict)
+    feature_provider = FeatureProvider(model=model, device=torch.device("cpu"))
+    action_predictor = ActionPredictorManager.load(path=action_predictor_path, k=k)
+
+    dsae_tve_model = DSAETipVelocityEstimatorAdapter(feature_provider=feature_provider, action_predictor=action_predictor)
+    return dsae_tve_model
+
+
+def get_default_tve_model(tve_prefix, tve_model_name):
+    return TipVelocityEstimator.load("models/{}{}.pt".format(tve_prefix, tve_model_name))
+
+
 if __name__ == "__main__":
 
     trainings = [
@@ -81,29 +115,47 @@ if __name__ == "__main__":
 
     scenes = ["scene1scene1"]
 
-    vs = ["V1", "V2"]
+    vs = ["V4"]
 
     sizes = ["64", "32"]
 
     # models, testing_config_name = get_full_image_networks(scenes[0], trainings)
     # models, testing_config_name = get_baseline_networks(scenes[0], trainings)
     # models, testing_config_name = get_attention_networks(32, scenes[0], trainings)
-    models, testing_config_name = get_coord_attention_networks(32, scenes[0], trainings)
+    # models, testing_config_name = get_coord_attention_networks(32, scenes[0], trainings)
     # for scene in scenes:
     #     for t in trainings:
     #         # for ty in types:
     #         #     for size in sizes:
     #         models.append(f"FullImageNetwork_{scene}_{t}")
-    # models = [
-    #     "AttentionNetworkcoord_scene1scene1_compV1_32_04",
-    #     "AttentionNetworkcoord_scene1scene1_compV1_32_02",
-    #     "AttentionNetworkcoord_scene1scene1_compV1_32_015",
-    #     "AttentionNetworkcoord_scene1scene1_compV1_32_010",
-    #     "AttentionNetworkcoord_scene1scene1_compV1_32_005"
-    # ]
-    # testing_config_name = TestConfig.ATTENTION_COORD_32
+    # models = []
+    # for v in vs:
+    #     models.extend([
+    #         f"FullImageNetworkWD{v}_scene1scene1_08",
+    #         f"FullImageNetworkWD{v}_scene1scene1_04",
+    #         f"FullImageNetworkWD{v}_scene1scene1_02",
+    #         f"FullImageNetworkWD{v}_scene1scene1_015",
+    #         f"FullImageNetworkWD{v}_scene1scene1_010",
+    #         f"FullImageNetworkWD{v}_scene1scene1_005",
+    #     ])
+    #
+    testing_config_name = TestConfig.ATTENTION_COORD_ROT_32
+    models = [
+        "AttentionNetworkcoordRot_scene1scene1_32_08",
+        "AttentionNetworkcoordRot_scene1scene1_32_04",
+        "AttentionNetworkcoordRot_scene1scene1_32_02",
+        "AttentionNetworkcoordRot_scene1scene1_32_015",
+        "AttentionNetworkcoordRot_scene1scene1_32_010",
+        "AttentionNetworkcoordRot_scene1scene1_32_005",
 
+    ]
     prefix = "fixed_steps_datasets/v3/"
+
+    # define if network is dsae type
+    dsae_path = "somepath"
+    action_predictor_path = "somepath"
+    latent_dimension = -1
+    k = -1
 
     for model_name in models:
         s, test = get_scene_and_test_scene_configuration(model_name=model_name)
@@ -113,23 +165,36 @@ if __name__ == "__main__":
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
             testing_configs = get_testing_configs(camera_robot=camera_robot, target_cube=target_cube)
+            print(testing_configs)
             testing_config = testing_configs[testing_config_name]
 
             cropper = testing_config["cropper"]
             c_type = testing_config["c_type"]
+            if testing_config_name == TestConfig.DSAE:
+                tve_model = get_dsae_tve_model(
+                    dsae_path=dsae_path,
+                    action_predictor_path=action_predictor_path,
+                    latent_dimension=latent_dimension,
+                    k=k
+                )
+            else:
+                tve_model = get_default_tve_model(prefix, model_name)
             controller = TipVelocityController(
-                tve_model=TipVelocityEstimator.load("models/{}{}.pt".format(prefix, model_name)),
+                tve_model=tve_model,
                 target_object=target_cube,
                 camera=camera_robot.get_movable_camera(),
                 roi_estimator=cropper,
                 controller_type=c_type
             )
-            m = controller.get_model().network
+            try:
+                m = controller.get_model().network
 
-            print("Parameters:", sum([p.numel() for p in m.parameters()]))
-            print("Model name:", model_name)
-            print("Network: ", m)
-            print(controller.get_model().test_loss)
+                print("Parameters:", sum([p.numel() for p in m.parameters()]))
+                print("Model name:", model_name)
+                print("Network: ", m)
+                print(controller.get_model().test_loss)
+            except Exception:
+                print("Parameters not directly available for this network...")
 
             test_name = "{}.test".format(model_name)
             result_json = {"min_distances": {}, "errors": {}, "fixed_steps_distances": {}}
