@@ -4,7 +4,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
-
+from torch.multiprocessing import set_start_method
 from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
 from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae_action_predictor import ActionPredictorManager
@@ -25,6 +25,8 @@ if __name__ == '__main__':
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, default=4)
     parse_result = parser.parse_args()
+
+    set_start_method("spawn")
 
     seed = get_seed(parse_result.seed)
     device = set_up_cuda(seed)
@@ -65,8 +67,8 @@ if __name__ == '__main__':
         )
     )
     model.load_state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae", config["dsae_path"])))
-    # run feature provider in CPU, as CUDA doesnt work with multiprocessing
-    feature_provider = FeatureProvider(model=model, device=None)
+    model.to(config["device"])
+    feature_provider = FeatureProvider(model=model, device=config["device"])
     dataset = DSAE_FeatureProviderDataset(
         feature_provider=feature_provider,
         root_dir=dataset_name,
@@ -96,9 +98,8 @@ if __name__ == '__main__':
         num_epochs=200,
         optimiser=optimiser,
         device=config["device"],
-        verbose=True
+        verbose=True,
+        name=config["name"]
     )
     manager.train(train_dataloader=dataloader, validation_dataloader=validation_dataloader)
-    manager.save_best_model(
-        path=os.path.join("models/dsae/action_predictor/", config["name"])
-    )
+    manager.save_best_model("models/dsae/action_predictor/")

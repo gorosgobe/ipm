@@ -7,10 +7,11 @@ from lib.common.saveable import BestSaveable
 
 
 class ActionPredictorManager(BestSaveable):
-    def __init__(self, action_predictor, num_epochs, optimiser, device, verbose=False):
+    def __init__(self, action_predictor, num_epochs, optimiser, device, name="model", verbose=False):
         super().__init__()
         self.action_predictor = action_predictor
         self.num_epochs = num_epochs
+        self.name = name
         self.device = device
         self.optimiser = optimiser
         self.loss = nn.MSELoss()
@@ -64,14 +65,15 @@ class ActionPredictorManager(BestSaveable):
 
     @staticmethod
     def load(path, k):
-        info = torch.load(path)
+        info = torch.load(path, map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         model = DSAE_TargetActionPredictor(k=k)
         model.load_state_dict(info["state_dict"])
         return model
 
     def get_info(self):
         return dict(
-            state_dict=self.action_predictor.state_dict()
+            state_dict=self.action_predictor.state_dict(),
+            name=self.name
         )
 
     def get_best_info(self):
