@@ -8,8 +8,7 @@ from lib.dsae.dsae_plot import plot_reconstruction_images, plot_full_demonstrati
 
 class DSAEManager(BestSaveable):
     def __init__(self, name, model, num_epochs, optimiser, device, criterion, criterion_params, add_g_slow, patience,
-                 plot,
-                 plot_params):
+                 plot, plot_params, disable_plot_demonstration=False):
         super().__init__()
         self.name = name
         self.model = model
@@ -20,6 +19,7 @@ class DSAEManager(BestSaveable):
         self.criterion_params = criterion_params
         self.add_g_slow = add_g_slow
         self.plot = plot
+        self.disable_plot_demonstration = disable_plot_demonstration
         if self.plot and plot_params is None:
             raise ValueError("Need parameters and transforms for the plotting!")
         self.plot_params = plot_params
@@ -144,7 +144,7 @@ class DSAEManager(BestSaveable):
                             attender=self.model.decoder, upsample_transform=self.plot_params["upsample_transform"],
                             grayscale=self.plot_params["grayscale"], device=self.device
                         )
-                    if epoch % 20 == 0:
+                    if epoch % 20 == 0 and not self.disable_plot_demonstration:
                         plot_full_demonstration(
                             epoch=epoch, name=self.name, dataset=self.plot_params["dataset"], model=self.model,
                             grayscale=self.plot_params["grayscale"], latent_dim=self.plot_params["latent_dimension"],
@@ -166,8 +166,9 @@ class DSAEManager(BestSaveable):
                 attender=self.model.decoder, upsample_transform=self.plot_params["upsample_transform"],
                 grayscale=self.plot_params["grayscale"], device=self.device
             )
-            plot_full_demonstration(
-                epoch="final", name=self.name, dataset=self.plot_params["dataset"], model=self.model,
-                grayscale=self.plot_params["grayscale"], latent_dim=self.plot_params["latent_dimension"],
-                device=self.device
-            )
+            if not self.disable_plot_demonstration:
+                plot_full_demonstration(
+                    epoch="final", name=self.name, dataset=self.plot_params["dataset"], model=self.model,
+                    grayscale=self.plot_params["grayscale"], latent_dim=self.plot_params["latent_dimension"],
+                    device=self.device
+                )
