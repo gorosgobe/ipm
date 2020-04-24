@@ -4,6 +4,7 @@ import torch
 class FeatureProvider(object):
     def __init__(self, model, device):
         self.model = model
+        # if device is None, input tensor is not moved
         self.device = device
 
     def __call__(self, x):
@@ -12,6 +13,8 @@ class FeatureProvider(object):
         with torch.no_grad():
             if len(x.size()) == 3:
                 x = x.unsqueeze(0)
-            x = x.to(self.device)
+
+            if self.device is not None:
+                x = x.to(self.device)
             # returns (B, C*2 = latent dimension)
             return self.model.encoder(x)

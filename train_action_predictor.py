@@ -65,7 +65,8 @@ if __name__ == '__main__':
         )
     )
     model.load_state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae", config["dsae_path"])))
-    feature_provider = FeatureProvider(model=model, device=config["device"])
+    # run feature provider in CPU, as CUDA doesnt work with multiprocessing
+    feature_provider = FeatureProvider(model=model, device=None)
     dataset = DSAE_FeatureProviderDataset(
         feature_provider=feature_provider,
         root_dir=dataset_name,
