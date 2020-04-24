@@ -21,3 +21,7 @@ class DSAETipVelocityEstimatorAdapter(object):
     def resize_image(self, image):
         # resize to input image, (96, 128)
         return self.resize_transform(image)
+
+    def transforms(self, image):
+        # TODO: complete this based on DSAE_Dataset
+        return image

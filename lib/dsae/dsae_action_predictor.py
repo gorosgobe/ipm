@@ -7,7 +7,7 @@ from lib.common.saveable import BestSaveable
 
 
 class ActionPredictorManager(BestSaveable):
-    def __init__(self, action_predictor, num_epochs, optimiser, device):
+    def __init__(self, action_predictor, num_epochs, optimiser, device, verbose=False):
         super().__init__()
         self.action_predictor = action_predictor
         self.num_epochs = num_epochs
@@ -15,6 +15,7 @@ class ActionPredictorManager(BestSaveable):
         self.optimiser = optimiser
         self.loss = nn.MSELoss()
         self.best_info = None
+        self.verbose = verbose
         self.early_stopper = EarlyStopper(patience=10, saveable=self)
 
     def get_loss(self, batch):
@@ -37,6 +38,10 @@ class ActionPredictorManager(BestSaveable):
                 loss.backward()
                 self.optimiser.step()
 
+            train_loss_epoch = train_loss_epoch / len(train_dataloader.dataset)
+            if self.verbose:
+                print(f"Epoch {epoch + 1}: {train_loss_epoch}")
+
             self.action_predictor.eval()
             with torch.no_grad():
                 val_loss_epoch = 0
@@ -45,9 +50,13 @@ class ActionPredictorManager(BestSaveable):
                     val_loss_epoch += val_loss.item()
 
                 val_loss_epoch = val_loss_epoch / len(validation_dataloader.dataset)
+                if self.verbose:
+                    print("Validation loss", val_loss_epoch)
                 self.early_stopper.register_loss(val_loss_epoch)
 
             if self.early_stopper.should_stop():
+                if self.verbose:
+                    print("Patience reached, stopping...")
                 break
 
     def get_validation_loss(self):

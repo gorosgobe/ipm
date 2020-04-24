@@ -7,9 +7,10 @@ from lib.common.test_utils import downsample_coordinates
 
 class DSAE_Dataset(ImageTipVelocitiesDataset):
     def __init__(self, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
-                 size):
+                 size, single_image=False):
         # dataset that loads three successor images
         # if at boundary, load the boundary image twice
+        # set single_image to true to only load the center image
         super().__init__(
             velocities_csv=velocities_csv,
             rotations_csv=rotations_csv,
@@ -19,6 +20,7 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
         )
         self.input_resize_transform = input_resize_transform
         self.reduced_transform = reduced_transform
+        self.single_image = single_image
         self.h, self.w = size
 
     def __len__(self):
@@ -39,17 +41,19 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
             # idx - 1, idx, idx
             idx_next = idx
 
-        # resize to input size
-        prev_img = self.input_resize_transform(super().__getitem__(idx_prev)["image"])
-
         curr_sample = super().__getitem__(idx)
         center_img = self.input_resize_transform(curr_sample["image"])
         center_target_vel_rot = torch.cat((
             torch.tensor(curr_sample["tip_velocities"]), torch.tensor(curr_sample["rotations"])
         ))
-        next_img = self.input_resize_transform(super().__getitem__(idx_next)["image"])
 
-        imgs = (prev_img, center_img, next_img)
+        if self.single_image:
+            # resize to input size
+            prev_img = self.input_resize_transform(super().__getitem__(idx_prev)["image"])
+            next_img = self.input_resize_transform(super().__getitem__(idx_next)["image"])
+            imgs = (prev_img, center_img, next_img)
+        else:
+            imgs = [center_img]
 
         normalising_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -75,3 +79,24 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
             pixel=torch.tensor(pixel)
         )
         return sample
+
+
+class DSAE_FeatureProviderDataset(DSAE_Dataset):
+    def __init__(self, feature_provider, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
+                 size):
+        super().__init__(velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
+                         size, single_image=True)
+        self.feature_provider = feature_provider
+
+    def __len__(self):
+        return super().__len__()
+
+    def __getitem__(self, idx):
+        sample = super().__getitem__(idx)
+        # features of size (latent // 2, 2), convert to (latent,)
+        features = self.feature_provider(sample["images"][0]).squeeze(0).view(-1)
+        feature_sample = dict(
+            features=features,
+            target_vel_rot=sample["target_vel_rot"]
+        )
+        return feature_sample
