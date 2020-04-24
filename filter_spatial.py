@@ -100,7 +100,8 @@ if __name__ == '__main__':
         skip_reward=True
     )
 
-    evaluator = FilterSpatialEvaluator(test_env=validation_env)
+    # 5 validation demonstrations for validation loss estimation
+    evaluator = FilterSpatialEvaluator(test_env=validation_env, num_iter=5)
     env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],
         feature_provider=feature_provider,
@@ -129,6 +130,8 @@ if __name__ == '__main__':
     rl_model.learn(config["timesteps"], callback=CallbackList([
         FeatureDistanceScoreCallback(
             test_env=validation_env,
+            # to estimate on entire validation set
+            n_episodes=int(config["split"][1] * dataset.get_num_demonstrations()),
             every=config["score_every"]
         )
     ]))

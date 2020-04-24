@@ -16,23 +16,20 @@ class FeatureDistanceScoreCallback(BaseCallback):
 
     def _on_step(self):
         if self.num_timesteps > 0 and self.num_timesteps % self.every == 0:
-            distances = []
-            for ep in range(self.n_episodes):
-                obs = self.test_env.reset()
-                done = False
-                while not done:
-                    action, _states = self.model.predict(obs, deterministic=True)
-                    obs, _, done, info = self.test_env.step(action)
+            obs = self.test_env.reset(num_demonstrations=self.n_episodes)
+            done = False
+            while not done:
+                action, _states = self.model.predict(obs, deterministic=True)
+                obs, _, done, info = self.test_env.step(action)
 
-                # (length episode, k * 2)
-                features = np.array(self.test_env.get_selected_features())
-                # (length episode, 2)
-                pixels = self.test_env.get_np_pixels()
-                distances.append(get_mean_distance_between_chosen_features_and_pixels(
-                    features=features, pixels=pixels
-                ))
+            # (length episode, k * 2)
+            features = np.array(self.test_env.get_selected_features())
+            # (length episode, 2)
+            pixels = self.test_env.get_np_pixels()
+            mean = get_mean_distance_between_chosen_features_and_pixels(
+                features=features, pixels=pixels
+            )
 
-            mean = np.mean(distances)
             summary_mean = tf.Summary(
                 value=[tf.Summary.Value(tag=f"feature_distance_mean", simple_value=mean)])
             self.locals['writer'].add_summary(summary_mean, self.num_timesteps)

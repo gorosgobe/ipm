@@ -124,21 +124,18 @@ class DemonstrationSampler(object):
         self.num_demonstrations = num_demonstrations
         self.random_provider = random_provider
 
-    def sample_demonstration(self):
-        demonstration_idx = self.random_provider(int(self.split[self.dataset_type_idx] * self.num_demonstrations))
-        demonstration_idx = self.get_global_demonstration_index(demonstration_idx)
-        return demonstration_idx
+    def sample_demonstration(self, size):
+        demonstration_idxs = self.random_provider(int(self.split[self.dataset_type_idx] * self.num_demonstrations), size=size, replace=False)
+        demonstration_idxs = list(map(self.get_global_demonstration_index, demonstration_idxs))
+        return demonstration_idxs
 
     def get_demonstration_indexer(self, demonstration_dataset, demonstrations):
         # sample demonstrations
-        start_end_pairs = []
-        for i in range(demonstrations):
-            demonstration_idx = self.sample_demonstration()
-            # training demonstration
-            start, end = demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
-            start_end_pairs.append((start, end))
+        demonstration_idxs = self.sample_demonstration(size=demonstrations)
+        # training demonstration
+        pair_list = list(map(demonstration_dataset.get_indices_for_demonstration, demonstration_idxs))
         return DemonstrationIndexer(
-            *start_end_pairs,
+            *pair_list,
             demonstration_dataset=demonstration_dataset
         )
 
@@ -197,7 +194,8 @@ class DemonstrationIndexer(object):
     def __init__(self, *start_end_pairs, demonstration_dataset):
         self.demonstration_dataset = demonstration_dataset
         self.start_end_pairs = start_end_pairs
-        self.indices = reduce(lambda x, y: x + y, list(map(lambda pair: list(range(pair[0], pair[1] + 1)), start_end_pairs)))
+        self.indices = reduce(lambda x, y: x + y,
+                              list(map(lambda pair: list(range(pair[0], pair[1] + 1)), start_end_pairs)))
         self.curr_idx = 0
 
     def advance(self):
@@ -388,8 +386,9 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
 
 
 class FilterSpatialEvaluator(object):
-    def __init__(self, test_env):
+    def __init__(self, test_env, num_iter=1):
         self.test_env = test_env
+        self.num_iter = num_iter
         self.rl_model = None
 
     def set_rl_model(self, rl_model):
@@ -400,7 +399,8 @@ class FilterSpatialEvaluator(object):
         if self.rl_model is None:
             raise ValueError("You forgot to set the RL model!")
 
-        obs = self.test_env.reset()
+        # episode is of length "num_iter" true episodes
+        obs = self.test_env.reset(num_demonstrations=self.num_iter)
         done = False
         while not done:
             action, _states = self.rl_model.predict(obs, deterministic=True)
@@ -517,9 +517,13 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         reward = - np.mean(losses)
         return None, reward, True, {}
 
-    def reset(self):
+    def reset(self, num_demonstrations=1):
+        # num_demonstrations: number of training demonstrations to sample
+        # when we have a test environment that draws demonstrations from the validation set, this is useful to we
+        # sample without replacement a number of demonstrations for validation, rather than just one
+        # this is used by the evaluator
         self.demonstration_indexer = self.demonstration_sampler.get_demonstration_indexer(
-            demonstration_dataset=self.demonstration_dataset, demonstrations=1
+            demonstration_dataset=self.demonstration_dataset, demonstrations=num_demonstrations
         )
         data = self.demonstration_indexer.get_curr_demonstration_data()
         spatial_features = self.feature_provider(data["images"][1]).view(self.latent_dimension).cpu().numpy()
