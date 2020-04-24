@@ -515,7 +515,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
             losses.append(action_predictor_manager.get_validation_loss())
 
         reward = - np.mean(losses)
-        return None, reward, True, {}
+        return np.ones(self.latent_dimension), reward, True, {}
 
     def reset(self, num_demonstrations=1):
         # num_demonstrations: number of training demonstrations to sample
