@@ -133,6 +133,7 @@ if __name__ == '__main__':
         add_g_slow=config["add_g_slow"],
         patience=10,
         plot=True,
+        disable_plot_demonstration=config["latent_dimension"] != 32,
         plot_params=dict(
             dataset=training_demonstrations,
             upsample_transform=upsample_transform,
