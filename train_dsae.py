@@ -20,6 +20,7 @@ if __name__ == '__main__':
     parser.add_argument("--seed", default="random")
     parser.add_argument("--g_slow", required=True)
     parser.add_argument("--ae_loss_params", nargs=3, type=float, required=True)
+    parser.add_argument("--latent", type=int, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--training", type=float, required=True)
     # set to 2 or 4
@@ -36,7 +37,7 @@ if __name__ == '__main__':
         dataset_name=dataset_name,
         device=device,
         size=(96, 128),
-        latent_dimension=32,
+        latent_dimension=parse_result.latent,
         lr=0.001,
         num_epochs=parse_result.epochs,
         batch_size=128,
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     if config["version"] == "mse":
         model = DeepSpatialAutoencoder(
             in_channels=3,
-            out_channels=(64, 32, 16),
+            out_channels=(config["latent_dimension"] * 2, config["latent_dimension"], config["latent_dimension"] // 2),
             latent_dimension=config["latent_dimension"],
             # in the paper they output a reconstructed image 4 times smaller
             image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
@@ -86,7 +87,12 @@ if __name__ == '__main__':
         )
     elif config["version"] == "target":
         model = CustomDeepSpatialAutoencoder(
-            encoder=DSAE_Encoder(in_channels=3, out_channels=(64, 32, 16), strides=(2, 1, 1), normalise=True),
+            encoder=DSAE_Encoder(
+                in_channels=3,
+                out_channels=(config["latent_dimension"] * 2, config["latent_dimension"], config["latent_dimension"] // 2),
+                strides=(2, 1, 1),
+                normalise=True
+            ),
             decoder=TargetVectorDSAE_Decoder(
                 image_output_size=(height // config["output_divisor"], width // config["output_divisor"]),
                 latent_dimension=config["latent_dimension"],
