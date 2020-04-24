@@ -40,7 +40,7 @@ if __name__ == '__main__':
         latent_dimension=parse_result.latent,
         lr=0.001,
         num_epochs=parse_result.epochs,
-        batch_size=128,
+        batch_size=64,
         add_g_slow=parse_result.g_slow == "yes",
         version=parse_result.version,
         output_divisor=parse_result.output_divisor,
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         criterion_params=config["criterion_params"],
         add_g_slow=config["add_g_slow"],
         patience=10,
-        plot=True,
+        plot=False,
         plot_params=dict(
             dataset=training_demonstrations,
             upsample_transform=upsample_transform,
