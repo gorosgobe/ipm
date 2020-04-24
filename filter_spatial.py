@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from stable_baselines import PPO2
+from stable_baselines import PPO2, SAC
 from stable_baselines.bench import Monitor
 from stable_baselines.common.callbacks import CallbackList
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -22,11 +22,13 @@ if __name__ == '__main__':
     parser.add_argument("--name", required=True)
     parser.add_argument("--timesteps", type=int, required=True)
     parser.add_argument("--dataset", required=True)
+    parser.add_argument("--algo", required=True)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--dsae_path", required=True)
     parser.add_argument("--latent", type=int, required=True)
     parser.add_argument("--score_every", type=int, required=True)
     parser.add_argument("--k", type=int, required=True)
+    parser.add_argument("--val_dem", type=int, default=1)
     parser.add_argument("--n_steps", type=int, required=True)
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, required=True)
@@ -45,10 +47,12 @@ if __name__ == '__main__':
         output_divisor=parse_result.output_divisor,
         timesteps=parse_result.timesteps,
         k=parse_result.k,
+        algo=parse_result.algo,
         split=[0.8, 0.2, 0.0],
         n_steps=parse_result.n_steps,
         score_every=parse_result.score_every,
         dsae_path=parse_result.dsae_path,
+        val_dem=parse_result.val_dem,  # number of demonstrations used as validation dataset during reward comp.
         log_dir="filter_spatial_output_log/"
     )
 
@@ -101,7 +105,7 @@ if __name__ == '__main__':
     )
 
     # 5 validation demonstrations for validation loss estimation
-    evaluator = FilterSpatialEvaluator(test_env=validation_env, num_iter=5)
+    evaluator = FilterSpatialEvaluator(test_env=validation_env, num_iter=config["val_dem"])
     env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],
         feature_provider=feature_provider,
@@ -113,17 +117,28 @@ if __name__ == '__main__':
         evaluator=evaluator
     )
     monitor = Monitor(env=env, filename=config["log_dir"])
-    dummy = DummyVecEnv([lambda: monitor])
-    rl_model = PPO2(
-        "MlpPolicy",
-        dummy,
-        verbose=True,
-        gamma=1.0,
-        n_steps=config["n_steps"],
-        nminibatches=4,
-        noptepochs=4,
-        tensorboard_log=config["log_dir"]
-    )
+    if config["algo"] == "ppo":
+        dummy = DummyVecEnv([lambda: monitor])
+        rl_model = PPO2(
+            "MlpPolicy",
+            dummy,
+            verbose=True,
+            gamma=1.0,
+            n_steps=config["n_steps"],
+            nminibatches=4,
+            noptepochs=4,
+            tensorboard_log=config["log_dir"]
+        )
+    elif config["algo"] == "sac":
+        rl_model = SAC(
+            "MlpPolicy",
+            monitor,
+            verbose=True,
+            gamma=1.0,
+            tensorboard_log=config["log_dir"]
+        )
+    else:
+        raise ValueError("Unknown RL algorithm, only PPO and SAC are supported.")
 
     evaluator.set_rl_model(rl_model)
 
