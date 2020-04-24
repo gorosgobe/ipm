@@ -72,9 +72,9 @@ if __name__ == '__main__':
     training_demonstrations, validation_demonstrations, test_demonstrations \
         = get_demonstrations(dataset, config["split"], limit_train_coeff=config["training"])
 
-    dataloader = DataLoader(dataset=training_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=8)
-    validation_dataloader = DataLoader(dataset=validation_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=8)
-    test_dataloader = DataLoader(dataset=test_demonstrations, batch_size=config["batch_size"], shuffle=False, num_workers=8)
+    dataloader = DataLoader(dataset=training_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=6)
+    validation_dataloader = DataLoader(dataset=validation_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=6)
+    test_dataloader = DataLoader(dataset=test_demonstrations, batch_size=config["batch_size"], shuffle=False, num_workers=4)
 
     if config["version"] == "mse":
         model = DeepSpatialAutoencoder(
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         criterion_params=config["criterion_params"],
         add_g_slow=config["add_g_slow"],
         patience=10,
-        plot=False,
+        plot=True,
         plot_params=dict(
             dataset=training_demonstrations,
             upsample_transform=upsample_transform,
