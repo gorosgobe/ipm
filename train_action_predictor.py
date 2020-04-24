@@ -95,7 +95,8 @@ if __name__ == '__main__':
         action_predictor=action_predictor,
         num_epochs=200,
         optimiser=optimiser,
-        device=config["device"]
+        device=config["device"],
+        verbose=True
     )
     manager.train(train_dataloader=dataloader, validation_dataloader=validation_dataloader)
     manager.save_best_model(
