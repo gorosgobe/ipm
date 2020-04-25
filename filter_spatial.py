@@ -12,7 +12,7 @@ from torchvision import transforms
 from lib.rl.callbacks import FeatureDistanceScoreCallback
 from lib.common.utils import get_seed, set_up_cuda
 from lib.dsae. dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
-from lib.dsae.dsae_dataset import DSAE_Dataset
+from lib.dsae.dsae_dataset import DSAE_Dataset, DSAE_FeatureProviderDataset
 from lib.dsae.dsae_feature_provider import FeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
@@ -64,30 +64,9 @@ if __name__ == '__main__':
     )
 
     pprint.pprint(config)
-
     height, width = config["size"]
-    # transform for comparison between real and outputted image
-    reduce_grayscale = transforms.Compose([
-        transforms.Resize(size=(height // config["output_divisor"], width // config["output_divisor"])),
-        transforms.Grayscale()
-    ])
 
-    dataset = DSAE_Dataset(
-        root_dir=dataset_name,
-        velocities_csv=f"{dataset_name}/velocities.csv",
-        metadata=f"{dataset_name}/metadata.json",
-        rotations_csv=f"{dataset_name}/rotations.csv",
-        input_resize_transform=transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize(size=(height, width))
-        ]),
-        reduced_transform=reduce_grayscale,
-        size=config["size"]
-    )
-
-    num_val_demonstrations = int(config["split"][1] * dataset.get_num_demonstrations())
-    config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
-
+    # feature provider
     model = CustomDeepSpatialAutoencoder(
         encoder=DSAE_Encoder(
             in_channels=3,
@@ -104,6 +83,31 @@ if __name__ == '__main__':
     model.state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae/", config["dsae_path"])))
     model.to(config["device"])
     feature_provider = FeatureProvider(model=model, device=config["device"])
+
+    # transform for comparison between real and outputted image
+    reduce_grayscale = transforms.Compose([
+        transforms.Resize(size=(height // config["output_divisor"], width // config["output_divisor"])),
+        transforms.Grayscale()
+    ])
+
+    dataset = DSAE_FeatureProviderDataset(
+        root_dir=dataset_name,
+        velocities_csv=f"{dataset_name}/velocities.csv",
+        metadata=f"{dataset_name}/metadata.json",
+        rotations_csv=f"{dataset_name}/rotations.csv",
+        input_resize_transform=transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize(size=(height, width))
+        ]),
+        reduced_transform=reduce_grayscale,
+        size=config["size"],
+        cache=True,
+        feature_provider=feature_provider,
+        add_pixel=True
+    )
+
+    num_val_demonstrations = int(config["split"][1] * dataset.get_num_demonstrations())
+    config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
 
     validation_env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],

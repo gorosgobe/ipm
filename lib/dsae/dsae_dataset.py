@@ -87,11 +87,11 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
 
 class DSAE_FeatureProviderDataset(DSAE_Dataset):
     def __init__(self, feature_provider, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform,
-                 input_resize_transform,
-                 size, cache):
+                 input_resize_transform, size, cache, add_pixel=False):
         super().__init__(velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
                          size, single_image=True)
         self.feature_provider = feature_provider
+        self.add_pixel = add_pixel
         self.cache = cache
         self.cache_content = {}
         self.initialising = False
@@ -116,6 +116,7 @@ class DSAE_FeatureProviderDataset(DSAE_Dataset):
         features = self.feature_provider(sample["images"][0]).squeeze(0).view(-1)
         feature_sample = dict(
             features=features,
-            target_vel_rot=sample["target_vel_rot"]
+            target_vel_rot=sample["target_vel_rot"],
+            **(dict(pixel=sample["pixel"]) if self.add_pixel else {})
         )
         return feature_sample
