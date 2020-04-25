@@ -53,9 +53,13 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
             # resize to input size
             prev_img = self.input_resize_transform(super().__getitem__(idx_prev)["image"])
             next_img = self.input_resize_transform(super().__getitem__(idx_next)["image"])
+            # get grayscaled output target image
             imgs = (prev_img, center_img, next_img)
+            grayscaled = self.reduced_transform(imgs[1])  # resize to reduced size and grayscale
         else:
             imgs = [center_img]
+            # get grayscaled output target image
+            grayscaled = self.reduced_transform(imgs[0])  # resize to reduced size and grayscale
 
         normalising_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -69,8 +73,6 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
         # pixel is in original 640x480 resolution, need to downsample
         pixel = downsample_coordinates(*pixel, og_height=480, og_width=640, to_height=self.h, to_width=self.w)
 
-        # get grayscaled output target image
-        grayscaled = self.reduced_transform(imgs[1])  # resize to reduced size and grayscale
         sample = dict(
             images=torch.stack(list(map(lambda i: normalising_transform(i), imgs)), dim=0),
             target_image=transforms.Compose([
