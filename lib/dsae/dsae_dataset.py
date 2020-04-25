@@ -1,3 +1,5 @@
+import time
+
 import torch
 from torchvision import transforms
 
@@ -82,16 +84,31 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
 
 
 class DSAE_FeatureProviderDataset(DSAE_Dataset):
-    def __init__(self, feature_provider, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
-                 size):
+    def __init__(self, feature_provider, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform,
+                 input_resize_transform,
+                 size, cache):
         super().__init__(velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
                          size, single_image=True)
         self.feature_provider = feature_provider
+        self.cache = cache
+        self.cache_content = {}
+        self.initialising = False
+        if self.cache:
+            print("Loading feature cache...")
+            before = time.time()
+            self.initialising = True
+            for i in range(len(self)):
+                self.cache_content[i] = self.__getitem__(i)
+            self.initialising = False
+            print(f"Loading finished, {time.time() - before} seconds elapsed")
 
     def __len__(self):
         return super().__len__()
 
     def __getitem__(self, idx):
+        if not self.initialising and self.cache:
+            return self.cache_content[idx]
+
         sample = super().__getitem__(idx)
         # features of size (latent // 2, 2), convert to (latent,)
         features = self.feature_provider(sample["images"][0]).squeeze(0).view(-1)

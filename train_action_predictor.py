@@ -4,7 +4,6 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torch.multiprocessing import set_start_method
 from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
 from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae_action_predictor import ActionPredictorManager
@@ -25,8 +24,6 @@ if __name__ == '__main__':
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, default=4)
     parse_result = parser.parse_args()
-
-    set_start_method("spawn")
 
     seed = get_seed(parse_result.seed)
     device = set_up_cuda(seed)
@@ -67,8 +64,8 @@ if __name__ == '__main__':
         )
     )
     model.load_state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae", config["dsae_path"])))
-    model.to(config["device"])
-    feature_provider = FeatureProvider(model=model, device=config["device"])
+    # CUDA gives errors if using GPU with Dataloaders -> for faster training, we cache the data
+    feature_provider = FeatureProvider(model=model, device=None)
     dataset = DSAE_FeatureProviderDataset(
         feature_provider=feature_provider,
         root_dir=dataset_name,
@@ -80,7 +77,8 @@ if __name__ == '__main__':
             transforms.Resize(size=(height, width))
         ]),
         reduced_transform=reduce_grayscale,
-        size=config["size"]
+        size=config["size"],
+        cache=True
     )
 
     training_demonstrations, validation_demonstrations, _test_demonstrations \
