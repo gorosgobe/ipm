@@ -9,13 +9,13 @@ from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.sac import MlpPolicy
 from torchvision import transforms
 
-from lib.rl.callbacks import FeatureDistanceScoreCallback
 from lib.common.utils import get_seed, set_up_cuda
-from lib.dsae. dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
-from lib.dsae.dsae_dataset import DSAE_Dataset, DSAE_FeatureProviderDataset
+from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
+from lib.dsae.dsae_dataset import DSAE_FeatureProviderDataset
 from lib.dsae.dsae_feature_provider import FeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
+from lib.rl.callbacks import FeatureDistanceScoreCallback
 from lib.rl.demonstration_env import FilterSpatialFeatureEnv, FilterSpatialEvaluator
 from lib.rl.utils import DatasetModality
 
@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("--score_every", type=int, required=True)
     parser.add_argument("--k", type=int, required=True)
     parser.add_argument("--val_dem", required=True)
+    parser.add_argument("--train_dem", required=True)
 
     parser.add_argument("--seed", default="random")
     parser.add_argument("--n_steps", type=int, default=128)
@@ -60,6 +61,7 @@ if __name__ == '__main__':
         num_avg_training=parse_result.num_avg_training,
         # number of demonstrations used as validation dataset during reward comp.
         val_dem=parse_result.val_dem,
+        train_dem=parse_result.train_dem,
         log_dir="filter_spatial_output_log/"
     )
 
@@ -108,6 +110,8 @@ if __name__ == '__main__':
 
     num_val_demonstrations = int(config["split"][1] * dataset.get_num_demonstrations())
     config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
+    num_train_demonstrations = int(config["split"][0] * dataset.get_num_demonstrations())
+    config["train_dem"] = num_train_demonstrations if config["train_dem"] == "all" else int(config["train_dem"])
 
     validation_env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],
@@ -131,7 +135,8 @@ if __name__ == '__main__':
         device=config["device"],
         k=config["k"],
         num_average_training=config["num_avg_training"],
-        evaluator=evaluator
+        evaluator=evaluator,
+        num_training_demonstrations=config["train_dem"]
     )
     monitor = Monitor(env=env, filename=config["log_dir"])
     if config["algo"] == "ppo":
