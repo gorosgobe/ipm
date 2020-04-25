@@ -157,6 +157,7 @@ if __name__ == '__main__':
             monitor,
             verbose=True,
             gamma=1.0,
+            buffer_size=1000000,
             tensorboard_log=config["log_dir"]
         )
     else:
