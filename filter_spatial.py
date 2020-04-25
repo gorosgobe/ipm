@@ -53,7 +53,7 @@ if __name__ == '__main__':
         timesteps=parse_result.timesteps,
         k=parse_result.k,
         algo=parse_result.algo,
-        split=[parse_result.training, 0.2, 0.0],
+        split=[parse_result.training, 0.1, 0.1],
         n_steps=parse_result.n_steps,
         score_every=parse_result.score_every,
         dsae_path=parse_result.dsae_path,
