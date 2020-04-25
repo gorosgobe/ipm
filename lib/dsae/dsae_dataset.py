@@ -49,7 +49,7 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
             torch.tensor(curr_sample["tip_velocities"]), torch.tensor(curr_sample["rotations"])
         ))
 
-        if self.single_image:
+        if not self.single_image:
             # resize to input size
             prev_img = self.input_resize_transform(super().__getitem__(idx_prev)["image"])
             next_img = self.input_resize_transform(super().__getitem__(idx_next)["image"])

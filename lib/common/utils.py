@@ -36,6 +36,7 @@ def get_preprocessing_transforms(size, is_coord=False, add_r_map=False):
         # to account for spatial maps
         means_stds = [0.5, 0.5, 0.5, 0.5, 0.5]
         if add_r_map:
+            # TODO: fix this
             means_stds = means_stds + [0.5]
         normalisation = torchvision.transforms.Normalize(
             means_stds, means_stds

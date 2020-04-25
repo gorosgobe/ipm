@@ -26,7 +26,7 @@ class DSAE_FeatureTest(object):
         self.model.cpu()
         if self.discriminator_mode:
             # TODO: make feature provider instance of nn.Module? to simplify all of this?
-            self.feature_provider.model.cpu()
+            self.feature_provider.cpu()
 
         with torch.no_grad():
             l2_distances = []
@@ -59,6 +59,6 @@ class DSAE_FeatureTest(object):
             average_l1 = torch.mean(torch.cat(l1_distances), dim=0)
         self.model.to(self.device)
         if self.discriminator_mode:
-            self.feature_provider.model.to(self.device)
+            self.feature_provider.to(self.device)
 
         return average_l2, average_l1

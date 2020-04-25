@@ -1,4 +1,5 @@
 import json
+import os
 
 import numpy as np
 import torch
@@ -76,7 +77,7 @@ def get_coord_attention_networks(size, scene_trained, training_list, prefix=""):
 
 
 def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, image_output_size=(24, 32)):
-    state_dict = DSAEManager.load_state_dict(dsae_path)
+    state_dict = DSAEManager.load_state_dict(os.path.join("models/dsae", dsae_path))
     model = CustomDeepSpatialAutoencoder(
         encoder=DSAE_Encoder(
             in_channels=3,
@@ -92,7 +93,10 @@ def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, im
     )
     model.load_state_dict(state_dict)
     feature_provider = FeatureProvider(model=model, device=torch.device("cpu"))
-    action_predictor = ActionPredictorManager.load(path=action_predictor_path, k=k)
+    action_predictor = ActionPredictorManager.load(
+        path=os.path.join("models/dsae/action_predictor", action_predictor_path),
+        k=k
+    )
 
     dsae_tve_model = DSAETipVelocityEstimatorAdapter(feature_provider=feature_provider, action_predictor=action_predictor)
     return dsae_tve_model
@@ -139,23 +143,24 @@ if __name__ == "__main__":
     #         f"FullImageNetworkWD{v}_scene1scene1_005",
     #     ])
     #
-    testing_config_name = TestConfig.ATTENTION_COORD_ROT_32
-    models = [
-        "AttentionNetworkcoordRot_scene1scene1_32_08",
-        "AttentionNetworkcoordRot_scene1scene1_32_04",
-        "AttentionNetworkcoordRot_scene1scene1_32_02",
-        "AttentionNetworkcoordRot_scene1scene1_32_015",
-        "AttentionNetworkcoordRot_scene1scene1_32_010",
-        "AttentionNetworkcoordRot_scene1scene1_32_005",
-
-    ]
+    # testing_config_name = TestConfig.ATTENTION_COORD_ROT_32
+    # models = [
+    #     "AttentionNetworkcoordRot_scene1scene1_32_08",
+    #     "AttentionNetworkcoordRot_scene1scene1_32_04",
+    #     "AttentionNetworkcoordRot_scene1scene1_32_02",
+    #     "AttentionNetworkcoordRot_scene1scene1_32_015",
+    #     "AttentionNetworkcoordRot_scene1scene1_32_010",
+    #     "AttentionNetworkcoordRot_scene1scene1_32_005",
+    #
+    # ]
     prefix = "fixed_steps_datasets/v3/"
 
+    testing_config_name = TestConfig.DSAE
     # define if network is dsae type
-    dsae_path = "somepath"
-    action_predictor_path = "somepath"
-    latent_dimension = -1
-    k = -1
+    dsae_path = "target_64_0001_1_1_08_scene1scene1_v1.pt"
+    models = ["act_64_08_scene1scene1_v2.pt", "act_64_08_scene1scene1_v3.pt"]
+    latent_dimension = 128
+    k = 64
 
     for model_name in models:
         s, test = get_scene_and_test_scene_configuration(model_name=model_name)
@@ -165,7 +170,6 @@ if __name__ == "__main__":
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
 
             testing_configs = get_testing_configs(camera_robot=camera_robot, target_cube=target_cube)
-            print(testing_configs)
             testing_config = testing_configs[testing_config_name]
 
             cropper = testing_config["cropper"]
@@ -173,7 +177,7 @@ if __name__ == "__main__":
             if testing_config_name == TestConfig.DSAE:
                 tve_model = get_dsae_tve_model(
                     dsae_path=dsae_path,
-                    action_predictor_path=action_predictor_path,
+                    action_predictor_path=model_name,
                     latent_dimension=latent_dimension,
                     k=k
                 )
