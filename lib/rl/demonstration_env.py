@@ -124,7 +124,8 @@ class DemonstrationSampler(object):
         self.random_provider = random_provider
 
     def sample_demonstration(self, size):
-        demonstration_idxs = self.random_provider(int(self.split[self.dataset_type_idx] * self.num_demonstrations),
+        num_dems = int(self.split[self.dataset_type_idx] * self.num_demonstrations)
+        demonstration_idxs = self.random_provider(num_dems,
                                                   size=size, replace=False)
         demonstration_idxs = list(map(self.get_global_demonstration_index, demonstration_idxs))
         return demonstration_idxs

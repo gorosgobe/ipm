@@ -86,7 +86,7 @@ if __name__ == '__main__':
     )
 
     num_val_demonstrations = int(config["split"][1] * dataset.get_num_demonstrations())
-    config["val_dem"] == num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
+    config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
 
     model = CustomDeepSpatialAutoencoder(
         encoder=DSAE_Encoder(
