@@ -39,6 +39,21 @@ class FeatureDistanceScoreCallback(BaseCallback):
                 value=[tf.Summary.Value(tag=f"feature_distance_minimum", simple_value=minimum)])
             self.locals['writer'].add_summary(summary_minimum, self.num_timesteps)
 
+            #TODO: extend for when training with more than one demonstration (?, this means more sparsity, so maybe not?)
+
+            # mean at the beginning of the demonstration - intuitively (?) this should be close to target, especially for
+            # np.min case as opposed to np.mean
+            # norms is (episode length, k)
+            initial_mean = np.mean(np.min(norms[:3, :], axis=-1))
+            summary_initial_mean = tf.Summary(
+                value=[tf.Summary.Value(tag=f"feature_distance_initial_mean", simple_value=initial_mean)])
+            self.locals['writer'].add_summary(summary_initial_mean, self.num_timesteps)
+
+            initial_minimum = np.mean(norms[:3, :])
+            summary_initial_minimum = tf.Summary(
+                value=[tf.Summary.Value(tag=f"feature_distance_initial_mean", simple_value=initial_minimum)])
+            self.locals['writer'].add_summary(summary_initial_minimum, self.num_timesteps)
+
         return True
 
 
@@ -59,7 +74,7 @@ class CropScoreCallback(BaseCallback):
         self.prefix = prefix  # when saving images
         self.compute_score_every = compute_score_every
         self.number_rollouts = number_rollouts  # number of times to sample environment
-        # TODO: implement
+        # TODO: change to use indexer, and reset with num_demonstrations, that should do it
         self.random = True  # Sample randomly from the environment?
         self.save_images_every = save_images_every  # if -1, dont save images
         self.count_rollouts = 0

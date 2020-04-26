@@ -201,7 +201,7 @@ def calculate_IoU(tl_gt, br_gt, predicted_tl, predicted_gt):
     pass
 
 
-def get_distances_between_chosen_features_and_pixels(features, pixels, width=128, height=96, min=True):
+def get_distances_between_chosen_features_and_pixels(features, pixels, width=128, height=96):
     assert pixels.shape == (len(features), 2)
     # features (length episode, k * 2)
     # pixels (length episode, 2)

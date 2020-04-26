@@ -195,8 +195,8 @@ class DemonstrationIndexer(object):
     def __init__(self, *start_end_pairs, demonstration_dataset):
         self.demonstration_dataset = demonstration_dataset
         self.start_end_pairs = start_end_pairs
-        self.indices = reduce(lambda x, y: x + y,
-                              list(map(lambda pair: list(range(pair[0], pair[1] + 1)), start_end_pairs)))
+        self.lengths = list(map(lambda pair: pair[1] - pair[0] + 1, start_end_pairs))
+        self.indices = reduce(lambda x, y: x + y, map(lambda pair: list(range(pair[0], pair[1] + 1)), start_end_pairs))
         self.curr_idx = 0
 
     def advance(self):
@@ -214,6 +214,9 @@ class DemonstrationIndexer(object):
 
     def get_length(self):
         return len(self.indices)
+
+    def get_lengths(self):
+        return self.lengths
 
 
 class CropDemonstrationEnv(ImageSpaceProviderEnv):
@@ -463,6 +466,12 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
 
     def get_target_predictions(self):
         return self.target_predictions
+
+    def get_episode_demonstration_lengths(self):
+        # an episode may be composed of multiple demonstrations, so return the length of each training demonstration
+        # involved in the episode
+        assert self.demonstration_indexer is not None
+        return self.demonstration_indexer.get_lengths()
 
     def get_np_pixels(self):
         # (episode length, 2)
