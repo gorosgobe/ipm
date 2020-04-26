@@ -51,7 +51,7 @@ class FeatureDistanceScoreCallback(BaseCallback):
 
             initial_minimum = np.mean(norms[:3, :])
             summary_initial_minimum = tf.Summary(
-                value=[tf.Summary.Value(tag=f"feature_distance_initial_mean", simple_value=initial_minimum)])
+                value=[tf.Summary.Value(tag=f"feature_distance_initial_minimum", simple_value=initial_minimum)])
             self.locals['writer'].add_summary(summary_initial_minimum, self.num_timesteps)
 
         return True
