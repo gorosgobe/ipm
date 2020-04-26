@@ -1,9 +1,9 @@
 import torch
 from torch import nn
 
-from lib.dsae.dsae_networks import DSAE_TargetActionPredictor
 from lib.common.early_stopper import EarlyStopper
 from lib.common.saveable import BestSaveable
+from lib.dsae.dsae_networks import DSAE_TargetActionPredictor
 
 
 class ActionPredictorManager(BestSaveable):
@@ -53,6 +53,7 @@ class ActionPredictorManager(BestSaveable):
                 val_loss_epoch = val_loss_epoch / len(validation_dataloader.dataset)
                 if self.verbose:
                     print("Validation loss", val_loss_epoch)
+
                 self.early_stopper.register_loss(val_loss_epoch)
 
             if self.early_stopper.should_stop():

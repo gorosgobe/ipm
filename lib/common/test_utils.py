@@ -201,7 +201,7 @@ def calculate_IoU(tl_gt, br_gt, predicted_tl, predicted_gt):
     pass
 
 
-def get_mean_distance_between_chosen_features_and_pixels(features, pixels, width=128, height=96):
+def get_distances_between_chosen_features_and_pixels(features, pixels, width=128, height=96, min=True):
     assert pixels.shape == (len(features), 2)
     # features (length episode, k * 2)
     # pixels (length episode, 2)
@@ -209,9 +209,8 @@ def get_mean_distance_between_chosen_features_and_pixels(features, pixels, width
     bounds = np.array([width - 1, height - 1], dtype=np.float32).reshape((1, 1, 2))
     normalised_features = normalised_features.reshape((features.shape[0], -1, 2)) * bounds
     difference = normalised_features - pixels.reshape((pixels.shape[0], 1, 2))
-    # norm is of size (length episode, k)
-    norm = np.linalg.norm(difference, axis=-1)
-    res = np.mean(norm)
-    return res
+    # norms is of size (length episode, k)
+    norms = np.linalg.norm(difference, axis=-1)
+    return norms
 
 

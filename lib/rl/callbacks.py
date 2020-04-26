@@ -2,9 +2,9 @@ import numpy as np
 import tensorflow as tf
 from stable_baselines.common.callbacks import BaseCallback
 
-from lib.common.test_utils import get_mean_distance_between_chosen_features_and_pixels
 from lib.rl.demonstration_env import CropDemonstrationEnv
 from lib.rl.utils import CropTester
+from lib.common.test_utils import get_distances_between_chosen_features_and_pixels
 
 
 class FeatureDistanceScoreCallback(BaseCallback):
@@ -26,13 +26,18 @@ class FeatureDistanceScoreCallback(BaseCallback):
             features = np.array(self.test_env.get_selected_features())
             # (length episode, 2)
             pixels = self.test_env.get_np_pixels()
-            mean = get_mean_distance_between_chosen_features_and_pixels(
+            norms = get_distances_between_chosen_features_and_pixels(
                 features=features, pixels=pixels
             )
-
+            mean = np.mean(norms)
             summary_mean = tf.Summary(
                 value=[tf.Summary.Value(tag=f"feature_distance_mean", simple_value=mean)])
             self.locals['writer'].add_summary(summary_mean, self.num_timesteps)
+
+            minimum = np.mean(np.min(norms, axis=-1))
+            summary_minimum = tf.Summary(
+                value=[tf.Summary.Value(tag=f"feature_distance_minimum", simple_value=minimum)])
+            self.locals['writer'].add_summary(summary_minimum, self.num_timesteps)
 
         return True
 

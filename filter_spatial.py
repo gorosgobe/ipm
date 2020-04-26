@@ -38,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument("--training", type=float, default=0.8)
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, default=4)
+    parser.add_argument("--full_tb_log", default="no")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -62,7 +63,8 @@ if __name__ == '__main__':
         # number of demonstrations used as validation dataset during reward comp.
         val_dem=parse_result.val_dem,
         train_dem=parse_result.train_dem,
-        log_dir="filter_spatial_output_log/"
+        log_dir="filter_spatial_output_log/",
+        full_tb_log=parse_result.full_tb_log == "yes",
     )
 
     pprint.pprint(config)
@@ -82,7 +84,7 @@ if __name__ == '__main__':
             normalise=True
         )
     )
-    model.state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae/", config["dsae_path"])))
+    model.load_state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae/", config["dsae_path"])))
     model.to(config["device"])
     feature_provider = FeatureProvider(model=model, device=config["device"])
 
@@ -149,7 +151,8 @@ if __name__ == '__main__':
             n_steps=config["n_steps"],
             nminibatches=4,
             noptepochs=4,
-            tensorboard_log=config["log_dir"]
+            tensorboard_log=config["log_dir"],
+            full_tensorboard_log=config["full_tb_log"]
         )
     elif config["algo"] == "sac":
         rl_model = SAC(
@@ -157,6 +160,7 @@ if __name__ == '__main__':
             monitor,
             verbose=True,
             gamma=1.0,
+            learning_starts=1000,
             buffer_size=1000000,
             tensorboard_log=config["log_dir"]
         )
