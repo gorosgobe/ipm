@@ -30,3 +30,15 @@ class FeatureProvider(object):
                 x = x.to(self.device)
             # returns (B, C*2 = latent dimension)
             return self.model.encoder(x)
+
+
+class RLFeatureProvider(FeatureProvider):
+    def __init__(self, feature_provider_model, device, rl_model):
+        super().__init__(feature_provider_model, device)
+        self.rl_model = rl_model
+
+    def __call__(self, x):
+        features = super().__call__(x)
+        # TODO: use features and rl model to return filtered features
+        return None
+

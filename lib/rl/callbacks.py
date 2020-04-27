@@ -44,12 +44,12 @@ class FeatureDistanceScoreCallback(BaseCallback):
             # mean at the beginning of the demonstration - intuitively (?) this should be close to target, especially for
             # np.min case as opposed to np.mean
             # norms is (episode length, k)
-            initial_mean = np.mean(np.min(norms[:3, :], axis=-1))
+            initial_mean = np.mean(norms[:3, :])
             summary_initial_mean = tf.Summary(
                 value=[tf.Summary.Value(tag=f"feature_distance_initial_mean", simple_value=initial_mean)])
             self.locals['writer'].add_summary(summary_initial_mean, self.num_timesteps)
 
-            initial_minimum = np.mean(norms[:3, :])
+            initial_minimum = np.mean(np.min(norms[:3, :], axis=-1))
             summary_initial_minimum = tf.Summary(
                 value=[tf.Summary.Value(tag=f"feature_distance_initial_minimum", simple_value=initial_minimum)])
             self.locals['writer'].add_summary(summary_initial_minimum, self.num_timesteps)
