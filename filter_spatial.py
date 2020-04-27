@@ -176,4 +176,4 @@ if __name__ == '__main__':
             every=config["score_every"]
         )
     ]))
-    rl_model.save(config["name"])
+    rl_model.save(os.path.join("models/rl", config["name"]))

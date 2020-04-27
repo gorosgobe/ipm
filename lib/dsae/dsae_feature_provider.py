@@ -1,5 +1,7 @@
 import torch
 
+from state import FilterSpatialFeatureState
+
 
 class FeatureProvider(object):
     def __init__(self, model, device):
@@ -15,9 +17,11 @@ class FeatureProvider(object):
 
     def cpu(self):
         self.model.cpu()
+        return self
 
     def to(self, device):
         self.model.to(device)
+        return self
 
     def __call__(self, x):
         # make sure weights are frozen
@@ -32,13 +36,20 @@ class FeatureProvider(object):
             return self.model.encoder(x)
 
 
-class RLFeatureProvider(FeatureProvider):
-    def __init__(self, feature_provider_model, device, rl_model):
+class FilterSpatialRLFeatureProvider(FeatureProvider):
+    def __init__(self, feature_provider_model, device, rl_model, k):
         super().__init__(feature_provider_model, device)
         self.rl_model = rl_model
+        self.k = k
 
     def __call__(self, x):
-        features = super().__call__(x)
-        # TODO: use features and rl model to return filtered features
-        return None
+        # features are (1, C, 2), torch tensor, need as numpy vector
+        features = super().__call__(x).squeeze(0).view(-1)
+        # (C*2,)
+        np_features = features.cpu().numpy()
+        action, _states = self.rl_model.predict(np_features, deterministic=True)
+        output_features = FilterSpatialFeatureState(
+            k=self.k, spatial_features=np_features
+        ).get_top_k_features(action)
+        return torch.tensor(output_features).view(-1, 2)
 
