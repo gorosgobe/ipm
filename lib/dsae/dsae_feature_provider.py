@@ -1,6 +1,6 @@
 import torch
 
-from state import FilterSpatialFeatureState
+from lib.rl.state import FilterSpatialFeatureState
 
 
 class FeatureProvider(object):
