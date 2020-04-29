@@ -116,9 +116,6 @@ class TestRewardSingleDemonstrationEnv(ImageSpaceProviderEnv):
         raise NotImplementedError("No estimators are trained")
 
 
-# TODO: adapt code of CropDemonstration RL environments to use evaluator
-
-
 class CropDemonstrationEnv(ImageSpaceProviderEnv):
     def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
                  dataset_type_idx=DatasetModality.TRAINING, skip_reward=False, init_from=None, evaluator=None):
@@ -300,10 +297,9 @@ class FilterSpatialFeatureSpaceProvider(gym.Env, ABC):
 
 
 class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
-
     def __init__(self, latent_dimension, feature_provider, demonstration_dataset, split, dataset_type_idx, device,
                  evaluator=None, num_training_demonstrations=None, num_average_training=3, k=10,
-                 random_provider=np.random.choice, skip_reward=False):
+                 random_provider=np.random.choice, skip_reward=False, sparse=True):
         super().__init__(latent_dimension)
         self.feature_provider = feature_provider
         self.latent_dimension = latent_dimension
@@ -311,6 +307,8 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         self.num_average_training = num_average_training
         self.num_training_demonstrations = num_training_demonstrations
         self.features = None
+        # do we want a sparse or dense reward signal? If dense, we train an NN at every env step
+        self.sparse = sparse
         self.target_predictions = None
         self.demonstration_dataset = demonstration_dataset
         self.demonstration_sampler = DemonstrationSampler(
@@ -360,25 +358,30 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         assert top_k_features.shape == (self.k * 2,)
         self.features.append(top_k_features)
 
-        if not self.demonstration_indexer.done():
-            data = self.demonstration_indexer.get_curr_demonstration_data()
-            self.target_predictions.append(data["target_vel_rot"])
-            spatial_features = data["features"].cpu().numpy()
-            self.state = FilterSpatialFeatureState(self.k, spatial_features=spatial_features)
-            self.pixels.append(data["pixel"])
-            return spatial_features, 0, False, {}
+        if self.sparse:
+            if not self.demonstration_indexer.done():
+                data = self.demonstration_indexer.get_curr_demonstration_data()
+                self.target_predictions.append(data["target_vel_rot"])
+                spatial_features = data["features"].cpu().numpy()
+                self.state = FilterSpatialFeatureState(self.k, spatial_features=spatial_features)
+                self.pixels.append(data["pixel"])
+                return spatial_features, 0, False, {}
 
         if self.skip_reward:
             # for test environments
             return None, -1, True, {}
 
+        # whether sparse or dense reward, we still train the network in the same way
+
+        assert len(self.features) == len(self.target_predictions)
+        num_training = len(self.features)
         # if last demonstration,instead, train, return neg val loss, set done to true
         # get validation dataset features and target predictions
         val_features, val_target_predictions = self.evaluator.evaluate_and_get()
         training_dataset, validation_dataset = FromListsDataset(
             self.features + val_features, self.target_predictions + val_target_predictions,
             keys=["features", "target_vel_rot"]
-        ).split(self.demonstration_indexer.get_length())
+        ).split(num_training)
         train_dataloader = DataLoader(training_dataset, batch_size=len(training_dataset), shuffle=True)
         validation_dataloader = DataLoader(validation_dataset, batch_size=len(validation_dataset), shuffle=True)
 
@@ -398,7 +401,8 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
             losses.append(action_predictor_manager.get_validation_loss())
 
         reward = - np.mean(losses)
-        return np.ones(self.latent_dimension), reward, True, {}
+        # for dense, episode is done only if indexer says so
+        return np.ones(self.latent_dimension), reward, True if self.sparse else self.demonstration_indexer.done(), {}
 
     def reset(self, num_demonstrations=1):
         # num_demonstrations: number of training demonstrations to sample

@@ -5,11 +5,10 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from lib.common.utils import get_seed, set_up_cuda, get_demonstrations
-from lib.dsae.dsae import DSAE_Loss, CustomDeepSpatialAutoencoder, DSAE_Encoder
-from lib.dsae.dsae import DeepSpatialAutoencoder
+from lib.dsae.dsae import DSAE_Loss, CustomDeepSpatialAutoencoder, DSAE_Encoder, DeepSpatialAutoencoder
 from lib.dsae.dsae_dataset import DSAE_Dataset
 from lib.dsae.dsae_manager import DSAEManager
-from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder, TargetVectorLoss, SoftVisualTargetVectorDSAE_Decoder
+from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder, TargetVectorLoss
 from lib.dsae.dsae_test import DSAE_FeatureTest
 
 if __name__ == '__main__':
@@ -72,9 +71,12 @@ if __name__ == '__main__':
     training_demonstrations, validation_demonstrations, test_demonstrations \
         = get_demonstrations(dataset, config["split"], limit_train_coeff=config["training"])
 
-    dataloader = DataLoader(dataset=training_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=6)
-    validation_dataloader = DataLoader(dataset=validation_demonstrations, batch_size=config["batch_size"], shuffle=True, num_workers=6)
-    test_dataloader = DataLoader(dataset=test_demonstrations, batch_size=config["batch_size"], shuffle=False, num_workers=4)
+    dataloader = DataLoader(dataset=training_demonstrations, batch_size=config["batch_size"], shuffle=True,
+                            num_workers=6)
+    validation_dataloader = DataLoader(dataset=validation_demonstrations, batch_size=config["batch_size"], shuffle=True,
+                                       num_workers=6)
+    test_dataloader = DataLoader(dataset=test_demonstrations, batch_size=config["batch_size"], shuffle=False,
+                                 num_workers=4)
 
     if config["version"] == "mse":
         model = DeepSpatialAutoencoder(
@@ -89,7 +91,8 @@ if __name__ == '__main__':
         model = CustomDeepSpatialAutoencoder(
             encoder=DSAE_Encoder(
                 in_channels=3,
-                out_channels=(config["latent_dimension"] * 2, config["latent_dimension"], config["latent_dimension"] // 2),
+                out_channels=(
+                config["latent_dimension"] * 2, config["latent_dimension"], config["latent_dimension"] // 2),
                 strides=(2, 1, 1),
                 normalise=True
             ),
