@@ -29,7 +29,7 @@ class CropScorer(object):
             metadata=config["metadata"],
             root_dir=config["root_dir"],
             transform=self.resize,
-            force_not_cache=True,
+            ignore_cache_if_cropper=True,
             initial_pixel_cropper=TrainingPixelROI(
                 480 // divisor_height, 640 // divisor_width
             )
@@ -76,7 +76,7 @@ class CropTester(object):
             metadata=config["metadata"],
             root_dir=config["root_dir"],
             transform=self.resize,
-            force_not_cache=True,
+            ignore_cache_if_cropper=True,
             initial_pixel_cropper=TrainingPixelROI(
                 480 // divisor_height, 640 // divisor_width
             )

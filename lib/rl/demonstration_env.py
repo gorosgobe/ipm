@@ -1,5 +1,4 @@
 from abc import ABC
-from functools import reduce
 
 import gym
 import numpy as np
@@ -7,6 +6,7 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader
 
+from lib.rl.demonstration_ctrl import DemonstrationSampler
 from lib.common.test_utils import get_distance_between_boxes
 from lib.common.utils import get_network_param_if_init_from
 from lib.cv.controller import TrainingPixelROI
@@ -116,112 +116,12 @@ class TestRewardSingleDemonstrationEnv(ImageSpaceProviderEnv):
         raise NotImplementedError("No estimators are trained")
 
 
-class DemonstrationSampler(object):
-    def __init__(self, split, num_demonstrations, dataset_type_idx, random_provider=np.random.choice):
-        self.split = split
-        self.dataset_type_idx = dataset_type_idx
-        self.num_demonstrations = num_demonstrations
-        self.random_provider = random_provider
-
-    def sample_demonstration(self, size):
-        num_dems = int(self.split[self.dataset_type_idx] * self.num_demonstrations)
-        demonstration_idxs = self.random_provider(num_dems,
-                                                  size=size, replace=False)
-        demonstration_idxs = list(map(self.get_global_demonstration_index, demonstration_idxs))
-        return demonstration_idxs
-
-    def get_demonstration_indexer(self, demonstration_dataset, demonstrations):
-        # sample demonstrations
-        demonstration_idxs = self.sample_demonstration(size=demonstrations)
-        # training demonstration
-        pair_list = list(map(demonstration_dataset.get_indices_for_demonstration, demonstration_idxs))
-        return DemonstrationIndexer(
-            *pair_list,
-            demonstration_dataset=demonstration_dataset
-        )
-
-    def sample_train_val_demonstrations(self):
-        demonstration_idx, val_demonstration_idx = self.random_provider(
-            int(self.split[self.dataset_type_idx] * self.num_demonstrations), size=2,
-            replace=False)
-        demonstration_idx = self.get_global_demonstration_index(demonstration_idx)
-        val_demonstration_idx = self.get_global_demonstration_index(val_demonstration_idx)
-        return demonstration_idx, val_demonstration_idx
-
-    def get_global_demonstration_index(self, index):
-        return int(
-            sum(self.split[:self.dataset_type_idx]) * self.num_demonstrations
-        ) + index
-
-
-# TODO: validation data should be obtained from validation set, and actions applied as part of an inner evaluation loop
-# TODO: within "step"
-class DoubleDemonstrationIndexer(object):
-    def __init__(self, demonstration_dataset, start, end, val_start, val_end):
-        self.demonstration_dataset = demonstration_dataset
-        self.start = start
-        self.end = end
-        self.val_start = val_start
-        self.val_end = val_end
-
-        self.indices = list(range(self.start, self.end + 1)) + list(range(self.val_start, self.val_end + 1))
-        self.curr_idx = 0
-
-    def advance(self):
-        self.curr_idx += 1
-
-    def get_curr_demonstration_data(self):
-        return self.demonstration_dataset[self.get_curr_demonstration_idx()]
-
-    def get_curr_demonstration_idx(self):
-        assert self.curr_idx in range(len(self.indices))
-        return self.indices[self.curr_idx]
-
-    def training_demonstration_done(self):
-        return self.curr_idx < len(self.indices) and self.get_curr_demonstration_idx() == self.val_start
-
-    def validation_demonstration_done(self):
-        return self.curr_idx == len(self.indices)
-
-    def get_length(self):
-        return len(self.indices)
-
-    def get_training_length(self):
-        return self.end - self.start + 1
-
-
 # TODO: adapt code of CropDemonstration RL environments to use evaluator
-class DemonstrationIndexer(object):
-    def __init__(self, *start_end_pairs, demonstration_dataset):
-        self.demonstration_dataset = demonstration_dataset
-        self.start_end_pairs = start_end_pairs
-        self.lengths = list(map(lambda pair: pair[1] - pair[0] + 1, start_end_pairs))
-        self.indices = reduce(lambda x, y: x + y, map(lambda pair: list(range(pair[0], pair[1] + 1)), start_end_pairs))
-        self.curr_idx = 0
-
-    def advance(self):
-        self.curr_idx += 1
-
-    def get_curr_demonstration_data(self):
-        return self.demonstration_dataset[self.get_curr_demonstration_idx()]
-
-    def get_curr_demonstration_idx(self):
-        assert self.curr_idx in range(len(self.indices))
-        return self.indices[self.curr_idx]
-
-    def done(self):
-        return self.curr_idx == len(self.indices)
-
-    def get_length(self):
-        return len(self.indices)
-
-    def get_lengths(self):
-        return self.lengths
 
 
 class CropDemonstrationEnv(ImageSpaceProviderEnv):
     def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
-                 dataset_type_idx=DatasetModality.TRAINING, skip_reward=False, init_from=None):
+                 dataset_type_idx=DatasetModality.TRAINING, skip_reward=False, init_from=None, evaluator=None):
         super().__init__(config["size"])
         self.demonstration_dataset = demonstration_dataset
         self.config = config
@@ -254,19 +154,18 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
 
         self.epoch_list = []
         self.validation_list = []
+
+        self.evaluator = evaluator  # evaluator may be None for test environments
         self.skip_reward = skip_reward  # skip reward computation when testing
 
-    def reset(self):
+        if self.evaluator is None and not self.skip_reward:
+            raise ValueError("We need an evaluator to compute the reward on a validation set!")
+
+    def reset(self, num_demonstrations=1):
         self.final_training_crop = None
-        # sample new demonstration, one for training and one for validation, both DIFFERENT (replace = False)
-        # but within correct split
-        demonstration_idx, val_demonstration_idx = self.demonstration_sampler.sample_train_val_demonstrations()
-        # training demonstration
-        start, end = self.demonstration_dataset.get_indices_for_demonstration(demonstration_idx)
-        # validation demonstration
-        val_start, val_end = self.demonstration_dataset.get_indices_for_demonstration(val_demonstration_idx)
-        self.demonstration_indexer = DoubleDemonstrationIndexer(
-            self.demonstration_dataset, start, end, val_start, val_end
+
+        self.demonstration_indexer = self.demonstration_sampler.get_demonstration_indexer(
+            demonstration_dataset=self.demonstration_dataset, demonstrations=num_demonstrations
         )
         # state
         self.state = ImageOffsetState(self.demonstration_indexer.get_curr_demonstration_data())
@@ -276,36 +175,22 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
     def step(self, action):
         next_state, done = self.apply_action(action)
         center_crop_pixel = next_state.get_center_crop()
-        if self.demonstration_indexer.training_demonstration_done():
-            # we want to return to the agent the first validation state, with center crop, but want the reward function
-            # to see the previous crop (reward func only uses list of demonstration_states)
-            # next state has validation image and center crop
-            self.demonstration_states.append(ImageOffsetState(next_state.get_data(), *self.final_training_crop))
-            center_crop_pixel = self.final_training_crop
-        else:
-            # if done is True, still add to record last crop (dummy state with image = None)
-            self.demonstration_states.append(next_state)
-
+        self.demonstration_states.append(next_state)
         reward = self.get_reward(done)
         self.state = next_state
         return self.state.get() if not done else self.dummy_observation, reward, done, dict(
-            center_crop_pixel=center_crop_pixel)
+            center_crop_pixel=center_crop_pixel
+        )
 
     def apply_action(self, action):
         self.demonstration_indexer.advance()
 
-        if self.demonstration_indexer.training_demonstration_done():
-            # return starting state for validation demonstration
-            # store final crop to apply to last training demonstration image
+        if self.demonstration_indexer.done():
             self.final_training_crop = self.state.apply_action(
                 None, action[0], action[1], self.cropped_width, self.cropped_height,
                 restrict_crop_move=self.config["restrict_crop_move"]
-            ).get_center_crop()
-            return ImageOffsetState(self.demonstration_indexer.get_curr_demonstration_data()), False
-
-        if self.demonstration_indexer.validation_demonstration_done():
-            return self.state.apply_action(None, action[0], action[1], self.cropped_width, self.cropped_height,
-                                           restrict_crop_move=self.config["restrict_crop_move"]), True
+            )
+            return self.final_training_crop, True
 
         new_state = self.state.apply_action(self.demonstration_indexer.get_curr_demonstration_data(), action[0],
                                             action[1],
@@ -324,32 +209,28 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
         # last demonstration state is dummy state to hold last crop
         assert len(self.demonstration_states) == self.demonstration_indexer.get_length() + 1
 
-        cropped_images_and_bounding_boxes = (
-            self.pixel_cropper.crop(
-                self.demonstration_states[i].get_np_image(),
-                self.demonstration_states[i + 1].get_center_crop()
-            ) for i in range(len(self.demonstration_states) - 1)
-        )
+        cropped_training_images, training_tip_velocities, training_rotations = self.get_processed_data_from_states()
+        cropped_validation_images, validation_tip_velocities, validation_rotations = self.evaluator.evaluate_and_get()
 
-        cropped_images = map(lambda img_n_box: img_n_box[0], cropped_images_and_bounding_boxes)
-        cropped_images = list(map(lambda img: self.to_tensor(img), cropped_images))
-        tip_velocities = [state.get_tip_velocity() for state in self.demonstration_states[:-1]]
-        rotations = [state.get_rotations() for state in self.demonstration_states[:-1]]
         # Use first demonstration for training, second for validation (correlations within demonstrations)
         training_dataset, validation_dataset = FromListsDataset(
-            cropped_images, tip_velocities, rotations, keys=["image", "tip_velocities", "rotations"]
-        ).split(self.demonstration_indexer.get_training_length())
+            cropped_training_images + cropped_validation_images,
+            training_tip_velocities + validation_tip_velocities,
+            training_rotations + validation_rotations,
+            keys=["image", "tip_velocities", "rotations"]
+        ).split(self.demonstration_indexer.get_length())
+
         # train with everything as the batch, its small anyways
         train_data_loader = DataLoader(
             training_dataset,
             batch_size=len(training_dataset),
-            num_workers=self.config["num_workers"],
+            num_workers=0,  # in memory, so none needed
             shuffle=self.config["shuffle"]
         )
         validation_data_loader = DataLoader(
             validation_dataset,
             batch_size=len(validation_dataset),
-            num_workers=self.config["num_workers"],
+            num_workers=0,
             shuffle=self.config["shuffle"]
         )
 
@@ -378,6 +259,20 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
         self.validation_list.append(estimator.get_val_losses())
         return reward
 
+    def get_processed_data_from_states(self):
+        cropped_images_and_bounding_boxes = (
+            self.pixel_cropper.crop(
+                self.demonstration_states[i].get_np_image(),
+                self.demonstration_states[i + 1].get_center_crop()
+            ) for i in range(len(self.demonstration_states) - 1)
+        )
+
+        cropped_images = map(lambda img_n_box: img_n_box[0], cropped_images_and_bounding_boxes)
+        cropped_images = list(map(lambda img: self.to_tensor(img), cropped_images))
+        tip_velocities = [state.get_tip_velocity() for state in self.demonstration_states[:-1]]
+        rotations = [state.get_rotations() for state in self.demonstration_states[:-1]]
+        return cropped_images, tip_velocities, rotations
+
     def get_epoch_list_stats(self):
         if len(self.epoch_list) == 0:
             raise ValueError("No estimators were trained")
@@ -387,30 +282,6 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
     def save_validation_losses_list(self, path):
         import torch
         torch.save(dict(validation_list=self.validation_list), path)
-
-
-class FilterSpatialEvaluator(object):
-    def __init__(self, test_env, num_iter=1):
-        self.test_env = test_env
-        self.num_iter = num_iter
-        self.rl_model = None
-
-    def set_rl_model(self, rl_model):
-        self.rl_model = rl_model
-
-    # returns top k selected features for every timestep
-    def evaluate_and_get(self):
-        if self.rl_model is None:
-            raise ValueError("You forgot to set the RL model!")
-
-        # episode is of length "num_iter" true episodes
-        obs = self.test_env.reset(num_demonstrations=self.num_iter)
-        done = False
-        while not done:
-            action, _states = self.rl_model.predict(obs, deterministic=True)
-            obs, _, done, info = self.test_env.step(action)
-
-        return self.test_env.get_selected_features(), self.test_env.get_target_predictions()
 
 
 class FilterSpatialFeatureSpaceProvider(gym.Env, ABC):
@@ -457,7 +328,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
 
         self.evaluator = evaluator  # evaluator may be None for test environments
         self.skip_reward = skip_reward
-        if self.evaluator is not None and self.skip_reward:
+        if self.evaluator is None and not self.skip_reward:
             raise ValueError("We need an evaluator to compute the reward on a validation set!")
 
     def get_selected_features(self):
@@ -531,7 +402,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
 
     def reset(self, num_demonstrations=1):
         # num_demonstrations: number of training demonstrations to sample
-        # when we have a test environment that draws demonstrations from the validation set, this is useful to we
+        # when we have a test environment that draws demonstrations from the validation set, this is useful so we
         # sample without replacement a number of demonstrations for validation, rather than just one
         # this is used by the evaluator
         if self.num_training_demonstrations is not None:

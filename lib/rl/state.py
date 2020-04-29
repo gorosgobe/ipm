@@ -106,6 +106,6 @@ class FilterSpatialFeatureState(object):
     def get_top_k_features(self, action):
         # action is [-1.0, 1.0] ^ latent_dimension // 2
         feature_indices = np.argsort(action)[::-1][:self.k]
-        # indices should be in the same original order
+        # TODO: check if indices should be in the same original order?
         feature_indices.sort()
         return self.spatial_features[feature_indices].reshape(self.k * 2)

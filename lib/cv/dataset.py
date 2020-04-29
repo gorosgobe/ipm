@@ -120,7 +120,7 @@ class BaselineTipVelocitiesDataset(TipVelocitiesDataset):
 
 class ImageTipVelocitiesDataset(TipVelocitiesDataset):
     def __init__(self, velocities_csv, metadata, root_dir, rotations_csv=None, transform=None,
-                 initial_pixel_cropper=None, debug=False, force_not_cache=False, as_uint=False):
+                 initial_pixel_cropper=None, debug=False, ignore_cache_if_cropper=False, as_uint=False, force_cache=False):
         super().__init__(velocities_csv=velocities_csv, metadata=metadata, root_dir=root_dir,
                          rotations_csv=rotations_csv)
         self.transform = transform
@@ -128,11 +128,14 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
         self.debug = debug
         self.as_uint = as_uint
         self.cache = None
-        self.force_not_cache = force_not_cache
+        self.ignore_cache_if_cropper = ignore_cache_if_cropper
         self.initialising = True
+        self.force_cache = force_cache
         # Random crops around center pixel involves sampling, and we cannot save time by pre-computing it
-        if not self.force_not_cache and self.initial_pixel_cropper is not None and \
-                not self.initial_pixel_cropper.is_random_crop():
+        if (
+                not self.ignore_cache_if_cropper and self.initial_pixel_cropper is not None and
+                not self.initial_pixel_cropper.is_random_crop()
+        ) or self.force_cache:
             self.cache = {}
             print("Start cache loading...")
             start_time = time.time()
@@ -145,8 +148,11 @@ class ImageTipVelocitiesDataset(TipVelocitiesDataset):
 
     def __getitem__(self, idx):
         # to avoid continuously cropping, for simple, static simulation-based attention
-        if not self.force_not_cache and self.initial_pixel_cropper is not None and \
+        if not self.ignore_cache_if_cropper and self.initial_pixel_cropper is not None and \
                 not self.initialising and not self.initial_pixel_cropper.is_random_crop():
+            return self.cache[idx]
+
+        if not self.initialising and self.force_cache:
             return self.cache[idx]
 
         img_name = os.path.join(self.root_dir, self.tip_velocities_frame.iloc[idx, 0])

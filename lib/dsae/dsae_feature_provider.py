@@ -51,5 +51,5 @@ class FilterSpatialRLFeatureProvider(FeatureProvider):
         output_features = FilterSpatialFeatureState(
             k=self.k, spatial_features=np_features
         ).get_top_k_features(action)
-        return torch.tensor(output_features).view(-1, 2)
+        return torch.tensor(output_features).view(1, -1, 2)
 

@@ -1,8 +1,6 @@
 import argparse
 import pprint
 
-import numpy as np
-import torch
 from stable_baselines import PPO2, SAC
 from stable_baselines.bench import Monitor
 from stable_baselines.common.callbacks import CallbackList
@@ -14,6 +12,7 @@ from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.networks import AttentionNetworkCoord_32
 from lib.rl.callbacks import CropScoreCallback
 from lib.rl.demonstration_env import CropDemonstrationEnv, TestRewardSingleDemonstrationEnv
+from lib.rl.demonstration_eval import CropEvaluator
 from lib.rl.policies import PPOPolicy, SACCustomPolicy
 from lib.rl.utils import DatasetModality
 
@@ -25,15 +24,13 @@ if __name__ == '__main__':
     parser.add_argument("--name", required=True)
     parser.add_argument("--score_every", type=int, required=True)
     parser.add_argument("--images_every", type=int, required=True)
-    parser.add_argument("--epochs_reward", type=int, required=True)
-    parser.add_argument("--epochs_validate", type=int, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--tile", required=True)
     parser.add_argument("--env_type", required=True)
-    parser.add_argument("--patience", type=int, required=True)
-    parser.add_argument("--buffer_size", type=int, required=True)
-    parser.add_argument("--target_updates", type=int, required=True)
-    parser.add_argument("--training", type=float)
+    parser.add_argument("--val_dem", required=True)
+    parser.add_argument("--buffer_size", type=int, default=50000)
+    parser.add_argument("--target_updates", type=int, default=128)
+    parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--restrict_crop_move", type=int)
     parser.add_argument("--init_from", )
     parse_result = parser.parse_args()
@@ -52,24 +49,25 @@ if __name__ == '__main__':
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        num_workers=0,  # number of workers to compute RL reward
-        split=[(parse_result.training or 0.8), 0.1, 0.1],
-        patience=parse_result.patience,
-        max_epochs=parse_result.epochs_reward,
-        validate_epochs=parse_result.epochs_validate,
+        split=[parse_result.training, 0.1, 0.1],
+        patience=10,
+        max_epochs=100,
+        validate_epochs=1,
         name=parse_result.name,
         log_dir="learn_crop_output_log",
         add_coord=parse_result.version == "coord",
         tile=parse_result.tile == "yes",
         shuffle=True,
+        val_dem=parse_result.val_dem,
         restrict_crop_move=parse_result.restrict_crop_move
     )
-    print("Config:")
-    pprint.pprint(config)
 
     device = set_up_cuda(config["seed"])
     config["device"] = device
     preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"])
+
+    print("Config:")
+    pprint.pprint(config)
 
     dataset = ImageTipVelocitiesDataset(
         velocities_csv=config["velocities_csv"],
@@ -77,8 +75,10 @@ if __name__ == '__main__':
         metadata=config["metadata"],
         root_dir=config["root_dir"],
         transform=preprocessing_transforms,
+        force_cache=True
     )
 
+    evaluator = None
     if parse_result.env_type == "test":
         print("Test environment selected")
         env = TestRewardSingleDemonstrationEnv(
@@ -87,10 +87,26 @@ if __name__ == '__main__':
         )
     else:
         print("Estimator training environment selected")
+        num_val_demonstrations = int(config["split"][1] * dataset.get_num_demonstrations())
+        config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
+
+        test_env = CropDemonstrationEnv(
+            demonstration_dataset=dataset,
+            config=config,
+            dataset_type_idx=DatasetModality.VALIDATION,
+            skip_reward=True
+        )
+
+        evaluator = CropEvaluator(
+            test_env=test_env,
+            num_iter=config["val_dem"]
+        )
+
         env = CropDemonstrationEnv(
             demonstration_dataset=dataset,
             config=config,
-            init_from=parse_result.init_from
+            init_from=parse_result.init_from,
+            evaluator=evaluator
         )
 
     monitor = Monitor(env=env, filename=f"{config['log_dir']}/")
@@ -117,6 +133,9 @@ if __name__ == '__main__':
         )
     else:
         raise ValueError("Invalid algorithm, please choose ppo or sac")
+
+    if evaluator is not None:
+        evaluator.set_rl_model(rl_model=model)
 
     score_callback_train = CropScoreCallback(
         score_name="tl_distance_train",

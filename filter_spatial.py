@@ -16,7 +16,8 @@ from lib.dsae.dsae_feature_provider import FeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.rl.callbacks import FeatureDistanceScoreCallback
-from lib.rl.demonstration_env import FilterSpatialFeatureEnv, FilterSpatialEvaluator
+from lib.rl.demonstration_env import FilterSpatialFeatureEnv
+from lib.rl.demonstration_eval import FilterSpatialEvaluator
 from lib.rl.utils import DatasetModality
 
 if __name__ == '__main__':
