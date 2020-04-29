@@ -366,14 +366,19 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         top_k_features = self.state.get_top_k_features(action)
         assert top_k_features.shape == (self.k * 2,)
         self.features.append(top_k_features)
+        prev_data = self.demonstration_indexer.get_prev_demonstration_data()
+        self.target_predictions.append(prev_data["target_vel_rot"])
+        self.pixels.append(prev_data["pixel"])
 
-        if self.sparse:
-            if not self.demonstration_indexer.done():
-                data = self.demonstration_indexer.get_curr_demonstration_data()
-                self.target_predictions.append(data["target_vel_rot"])
-                spatial_features = data["features"].cpu().numpy()
-                self.state = FilterSpatialFeatureState(self.k, spatial_features=spatial_features)
-                self.pixels.append(data["pixel"])
+        # dummy value in case the episode is done
+        spatial_features = np.ones(self.latent_dimension)
+        if not self.demonstration_indexer.done():
+            # set next state
+            data = self.demonstration_indexer.get_curr_demonstration_data()
+            spatial_features = data["features"].cpu().numpy()
+            self.state = FilterSpatialFeatureState(self.k, spatial_features=spatial_features)
+            if self.sparse:
+                # shortcircuit
                 return spatial_features, 0, False, {}
 
         if self.skip_reward:
@@ -384,13 +389,16 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
 
         assert len(self.features) == len(self.target_predictions)
         num_training = len(self.features)
-        # if last demonstration,instead, train, return neg val loss, set done to true
         # get validation dataset features and target predictions
         val_features, val_target_predictions = self.evaluator.evaluate_and_get()
+        assert len(val_features) == len(val_target_predictions)
+
         training_dataset, validation_dataset = FromListsDataset(
             self.features + val_features, self.target_predictions + val_target_predictions,
             keys=["features", "target_vel_rot"]
         ).split(num_training)
+        assert len(training_dataset) == num_training
+
         train_dataloader = DataLoader(training_dataset, batch_size=len(training_dataset), shuffle=True)
         validation_dataloader = DataLoader(validation_dataset, batch_size=len(validation_dataset), shuffle=True)
 
@@ -410,8 +418,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
             losses.append(action_predictor_manager.get_validation_loss())
 
         reward = - np.mean(losses)
-        # for dense, episode is done only if indexer says so
-        return np.ones(self.latent_dimension), reward, True if self.sparse else self.demonstration_indexer.done(), {}
+        return spatial_features, reward, self.demonstration_indexer.done(), {}
 
     def reset(self, num_demonstrations=1):
         # num_demonstrations: number of training demonstrations to sample
@@ -428,7 +435,7 @@ class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
         data = self.demonstration_indexer.get_curr_demonstration_data()
         spatial_features = data["features"].cpu().numpy()
         self.features = []
-        self.target_predictions = [data["target_vel_rot"]]
+        self.target_predictions = []
         self.state = FilterSpatialFeatureState(k=self.k, spatial_features=spatial_features)
-        self.pixels = [data["pixel"]]
+        self.pixels = []
         return spatial_features

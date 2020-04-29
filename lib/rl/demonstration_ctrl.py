@@ -55,9 +55,18 @@ class DemonstrationIndexer(object):
     def get_curr_demonstration_data(self):
         return self.demonstration_dataset[self.get_curr_demonstration_idx()]
 
+    def get_prev_demonstration_data(self):
+        return self.demonstration_dataset[self.get_prev_demonstration_idx()]
+
+    def get_idx(self, idx):
+        assert idx in range(len(self.indices))
+        return self.indices[idx]
+
     def get_curr_demonstration_idx(self):
-        assert self.curr_idx in range(len(self.indices))
-        return self.indices[self.curr_idx]
+        return self.get_idx(self.curr_idx)
+
+    def get_prev_demonstration_idx(self):
+        return self.get_idx(self.curr_idx - 1)
 
     def done(self):
         return self.curr_idx == len(self.indices)
