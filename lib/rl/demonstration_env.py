@@ -6,7 +6,6 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader
 
-from lib.rl.demonstration_ctrl import DemonstrationSampler
 from lib.common.test_utils import get_distance_between_boxes
 from lib.common.utils import get_network_param_if_init_from
 from lib.cv.controller import TrainingPixelROI
@@ -15,6 +14,7 @@ from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.dsae.dsae_action_predictor import ActionPredictorManager
 from lib.dsae.dsae_networks import DSAE_TargetActionPredictor
 from lib.meta.mil import MetaImitationLearning
+from lib.rl.demonstration_ctrl import DemonstrationSampler
 from lib.rl.state import ImageOffsetState, FilterSpatialFeatureState
 from lib.rl.utils import DatasetModality, CropScorer
 
@@ -118,7 +118,8 @@ class TestRewardSingleDemonstrationEnv(ImageSpaceProviderEnv):
 
 class CropDemonstrationEnv(ImageSpaceProviderEnv):
     def __init__(self, demonstration_dataset, config, random_provider=np.random.choice, estimator=TipVelocityEstimator,
-                 dataset_type_idx=DatasetModality.TRAINING, skip_reward=False, init_from=None, evaluator=None):
+                 dataset_type_idx=DatasetModality.TRAINING, skip_reward=False, init_from=None, evaluator=None,
+                 sparse=True):
         super().__init__(config["size"])
         self.demonstration_dataset = demonstration_dataset
         self.config = config
@@ -152,6 +153,8 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
         self.epoch_list = []
         self.validation_list = []
 
+        # should the reward be sparse or dense? If dense, we train an NN at every env step
+        self.sparse = sparse
         self.evaluator = evaluator  # evaluator may be None for test environments
         self.skip_reward = skip_reward  # skip reward computation when testing
 
@@ -279,6 +282,12 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
     def save_validation_losses_list(self, path):
         import torch
         torch.save(dict(validation_list=self.validation_list), path)
+
+
+# TODO: complete: CropEnv but with spatial features, obtained directly from dataset (i.e. mix between Crop env and FilterSpatial env)
+class SpatialFeatureCropEnv(object):
+    def __init__(self):
+        pass
 
 
 class FilterSpatialFeatureSpaceProvider(gym.Env, ABC):

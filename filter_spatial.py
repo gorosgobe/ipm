@@ -32,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument("--k", type=int, required=True)
     parser.add_argument("--val_dem", required=True)
     parser.add_argument("--train_dem", required=True)
+    parser.add_argument("--sparse", required=True)
 
     parser.add_argument("--seed", default="random")
     parser.add_argument("--n_steps", type=int, default=128)
@@ -66,6 +67,7 @@ if __name__ == '__main__':
         train_dem=parse_result.train_dem,
         log_dir="filter_spatial_output_log/",
         full_tb_log=parse_result.full_tb_log == "yes",
+        sparse=parse_result.sparse == "yes"
     )
 
     pprint.pprint(config)
@@ -127,7 +129,7 @@ if __name__ == '__main__':
         skip_reward=True
     )
 
-    # 5 validation demonstrations for validation loss estimation
+    # validation demonstrations for validation loss estimation
     evaluator = FilterSpatialEvaluator(test_env=validation_env, num_iter=config["val_dem"])
     env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],
@@ -139,7 +141,8 @@ if __name__ == '__main__':
         k=config["k"],
         num_average_training=config["num_avg_training"],
         evaluator=evaluator,
-        num_training_demonstrations=config["train_dem"]
+        num_training_demonstrations=config["train_dem"],
+        sparse=config["sparse"]
     )
     monitor = Monitor(env=env, filename=config["log_dir"])
     if config["algo"] == "ppo":
