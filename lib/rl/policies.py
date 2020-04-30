@@ -71,11 +71,12 @@ def add_coord_channels(image_batch, image_size):
     # See https://arxiv.org/pdf/1807.03247.pdf
     # An Intriguing Failing of convolutional neural networks and the CoordConv solution, Liu et al., 2018
     width, height = image_size
+    batch_size = tf.shape(image_batch)[0]
     i, j = SpatialDimensionAdder.get_spatial_dimensions(height, width)
     i = i * 2 - 1  # -1, 1
     j = j * 2 - 1
-    i_tensor = tf.convert_to_tensor(i)
-    j_tensor = tf.convert_to_tensor(j)
+    i_tensor = tf.tile(tf.convert_to_tensor(i.expand_dims(0)), [batch_size, 1, 1, 1])
+    j_tensor = tf.tile(tf.convert_to_tensor(j.expand_dims(0)), [batch_size, 1, 1, 1])
     # first i channel, then j channel, like in the rest of our code
     return tf.concat([image_batch, i_tensor, j_tensor], axis=-1)
 
