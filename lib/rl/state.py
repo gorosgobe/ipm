@@ -107,6 +107,9 @@ class SpatialOffsetState(object):
         self.original_height = original_height
         self.x_center_previous = x_center_previous
         self.y_center_previous = y_center_previous
+        if self.x_center_previous is None and self.y_center_previous is None:
+            self.x_center_previous = int((original_width - 1) / 2)
+            self.y_center_previous = int((original_height - 1) / 2)
 
     def get_spatial_features(self):
         return self.spatial_features

@@ -5,6 +5,8 @@ from stable_baselines.common.tf_layers import conv, linear, conv_to_fc, mlp
 from stable_baselines.sac.policies import SACPolicy, LOG_STD_MIN, LOG_STD_MAX, gaussian_likelihood, gaussian_entropy, \
     apply_squashing_func
 
+from lib.cv.controller import SpatialDimensionAdder
+
 
 def extractor(observations, image_size, crop_size=(32, 24), add_coord=False, tile=False, **kwargs):
     width, height = image_size
@@ -66,33 +68,16 @@ def get_tile_map(corner, h, w):
 
 
 def add_coord_channels(image_batch, image_size):
-    # Adapted from code provided in https://arxiv.org/pdf/1807.03247.pdf
+    # See https://arxiv.org/pdf/1807.03247.pdf
     # An Intriguing Failing of convolutional neural networks and the CoordConv solution, Liu et al., 2018
-    # TODO: this might be wrong
     width, height = image_size
-    batch_size_tensor = tf.shape(image_batch)[0]
-    x_dim = height
-    y_dim = width
-    # (batch size, x_dim, y_dim, channels) = (b, h, w, c)
-    xx_ones = tf.ones([batch_size_tensor, x_dim], dtype=tf.int32)
-    xx_ones = tf.expand_dims(xx_ones, -1)
-    xx_range = tf.tile(tf.expand_dims(tf.range(y_dim), 0), [batch_size_tensor, 1])
-    xx_range = tf.expand_dims(xx_range, 1)
-    xx_channel = tf.matmul(xx_ones, xx_range)
-    xx_channel = tf.expand_dims(xx_channel, -1)
-    yy_ones = tf.ones([batch_size_tensor, y_dim], dtype=tf.int32)
-    yy_ones = tf.expand_dims(yy_ones, 1)
-    yy_range = tf.tile(tf.expand_dims(tf.range(x_dim), 0), [batch_size_tensor, 1])
-
-    yy_range = tf.expand_dims(yy_range, -1)
-    yy_channel = tf.matmul(yy_range, yy_ones)
-    yy_channel = tf.expand_dims(yy_channel, -1)
-    xx_channel = tf.cast(xx_channel, "float32") / (x_dim - 1)
-    yy_channel = tf.cast(yy_channel, "float32") / (y_dim - 1)
-    xx_channel = xx_channel * 2 - 1
-    yy_channel = yy_channel * 2 - 1
+    i, j = SpatialDimensionAdder.get_spatial_dimensions(height, width)
+    i = i * 2 - 1  # -1, 1
+    j = j * 2 - 1
+    i_tensor = tf.convert_to_tensor(i)
+    j_tensor = tf.convert_to_tensor(j)
     # first i channel, then j channel, like in the rest of our code
-    return tf.concat([image_batch, yy_channel, xx_channel], axis=-1)
+    return tf.concat([image_batch, i_tensor, j_tensor], axis=-1)
 
 
 class PPONoScaleCNNFeedForwardPolicy(ActorCriticPolicy):

@@ -64,6 +64,7 @@ class SpatialDimensionAdder(object):
 
     @staticmethod
     def get_r_map(i, j):
+        # TODO: might need to use normalised i and j
         return np.sqrt(np.square(i) + np.square(j))
 
     @staticmethod
@@ -73,6 +74,7 @@ class SpatialDimensionAdder(object):
         i, j = SpatialDimensionAdder.get_spatial_dimensions(height, width)
         result = np.concatenate((image, i, j), axis=2)
         if add_r_map:
+            # TODO: check this if time is available
             r_map = SpatialDimensionAdder.get_r_map(i, j)
             result = np.concatenate((result, r_map), axis=2)
         return result
