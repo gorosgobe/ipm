@@ -75,8 +75,8 @@ def add_coord_channels(image_batch, image_size):
     i, j = SpatialDimensionAdder.get_spatial_dimensions(height, width)
     i = i * 2 - 1  # -1, 1
     j = j * 2 - 1
-    i_tensor = tf.tile(tf.convert_to_tensor(i.expand_dims(0)), [batch_size, 1, 1, 1])
-    j_tensor = tf.tile(tf.convert_to_tensor(j.expand_dims(0)), [batch_size, 1, 1, 1])
+    i_tensor = tf.tile(tf.expand_dims(tf.convert_to_tensor(i), 0), [batch_size, 1, 1, 1])
+    j_tensor = tf.tile(tf.expand_dims(tf.convert_to_tensor(j), 0), [batch_size, 1, 1, 1])
     # first i channel, then j channel, like in the rest of our code
     return tf.concat([image_batch, i_tensor, j_tensor], axis=-1)
 
