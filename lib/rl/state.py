@@ -77,6 +77,7 @@ class ImageOffsetState(object):
             y_center_previous=y_center_previous,
         )
 
+    # for testing purposes more than anything, same for str and repr
     def __eq__(self, other):
         comparison = self.x_center_previous == other.x_center_previous and \
                      self.y_center_previous == other.y_center_previous
@@ -95,6 +96,49 @@ class ImageOffsetState(object):
 
     def __repr__(self):
         return self.__str__()
+
+
+class SpatialOffsetState(object):
+    def __init__(self, spatial_features, original_width=128, original_height=96, x_center_previous=None,
+                 y_center_previous=None):
+        self.spatial_features = spatial_features
+        # width and height are not determined by the spatial features, so we need to store them
+        self.original_width = original_width
+        self.original_height = original_height
+        self.x_center_previous = x_center_previous
+        self.y_center_previous = y_center_previous
+
+    def get_spatial_features(self):
+        return self.spatial_features
+
+    def get_center_crop(self):
+        return self.x_center_previous, self.y_center_previous
+
+    def apply_action(self, spatial_features, dx, dy, cropped_width, cropped_height, restrict_crop_move=None):
+        x_center_previous = self.x_center_previous + int(
+            dx * ((min(self.original_width,
+                       restrict_crop_move) if restrict_crop_move is not None else self.original_width) - 1)
+        )
+        y_center_previous = self.y_center_previous + int(
+            dy * ((min(self.original_height,
+                       restrict_crop_move) if restrict_crop_move is not None else self.original_height) - 1)
+        )
+        x_center_previous, y_center_previous = CvUtils.fit_crop_to_image(
+            center_x=x_center_previous,
+            center_y=y_center_previous,
+            height=self.original_height,
+            width=self.original_width,
+            cropped_height=cropped_height,
+            cropped_width=cropped_width
+        )
+        assert 0 <= x_center_previous < self.original_width and 0 <= y_center_previous < self.original_height
+        return SpatialOffsetState(
+            spatial_features=spatial_features,
+            original_width=self.original_width,
+            original_height=self.original_height,
+            x_center_previous=x_center_previous,
+            y_center_previous=y_center_previous,
+        )
 
 
 class FilterSpatialFeatureState(object):

@@ -284,9 +284,53 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
         torch.save(dict(validation_list=self.validation_list), path)
 
 
+class SpatialFeatureCropSpaceProvider(gym.Env, ABC):
+    def __init__(self, latent_dimension):
+        super().__init__()
+        # represent offset to move the crop by
+        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,))
+        # observation are spatial features + center of previous crop, all in range [-1.0, 1.0]
+        self.observation_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(latent_dimension + 2,))
+
+    def render(self, mode='human'):
+        raise NotImplementedError("Not going to render this environment")
+        pass
+
+
 # TODO: complete: CropEnv but with spatial features, obtained directly from dataset (i.e. mix between Crop env and FilterSpatial env)
-class SpatialFeatureCropEnv(object):
-    def __init__(self):
+class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
+    def __init__(self, latent_dimension, feature_provider, demonstration_dataset, split, dataset_type_idx, device,
+                 evaluator=None, random_provider=np.random.choice, skip_reward=False, sparse=True):
+        super().__init__(latent_dimension)
+        self.feature_provider = feature_provider
+        self.latent_dimension = latent_dimension
+        # do we want a sparse or dense reward signal? If dense, we train an NN at every env step
+        self.sparse = sparse
+        self.features = None
+        self.target_predictions = None
+        self.demonstration_dataset = demonstration_dataset
+        self.demonstration_sampler = DemonstrationSampler(
+            split=split,
+            dataset_type_idx=dataset_type_idx.value,
+            num_demonstrations=self.demonstration_dataset.get_num_demonstrations(),
+            random_provider=random_provider
+        )
+
+        self.demonstration_indexer = None
+        self.state = None
+        self.device = device
+
+        self.pixels = None
+
+        self.evaluator = evaluator  # evaluator may be None for test environments
+        self.skip_reward = skip_reward
+        if self.evaluator is None and not self.skip_reward:
+            raise ValueError("We need an evaluator to compute the reward on a validation set!")
+
+    def reset(self, num_demonstrations=1):
+        pass
+
+    def step(self, action):
         pass
 
 
