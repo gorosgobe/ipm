@@ -15,8 +15,25 @@ from lib.dsae.dsae_action_predictor import ActionPredictorManager
 from lib.dsae.dsae_networks import DSAE_TargetActionPredictor
 from lib.meta.mil import MetaImitationLearning
 from lib.rl.demonstration_ctrl import DemonstrationSampler
-from lib.rl.state import ImageOffsetState, FilterSpatialFeatureState
+from lib.rl.state import ImageOffsetState, FilterSpatialFeatureState, SpatialOffsetState
 from lib.rl.utils import DatasetModality, CropScorer
+
+
+class CropDemonstrationUtils(object):
+    @staticmethod
+    def get_processed_crop_info(states_with_images_and_crops, pixel_cropper, to_tensor):
+        cropped_images_and_bounding_boxes = (
+            pixel_cropper.crop(
+                states_with_images_and_crops[i].get_np_image(),
+                states_with_images_and_crops[i + 1].get_center_crop()
+            ) for i in range(len(states_with_images_and_crops) - 1)
+        )
+
+        cropped_images = map(lambda img_n_box: img_n_box[0], cropped_images_and_bounding_boxes)
+        cropped_images = list(map(lambda img: to_tensor(img), cropped_images))
+        tip_velocities = [state.get_tip_velocity() for state in states_with_images_and_crops[:-1]]
+        rotations = [state.get_rotations() for state in states_with_images_and_crops[:-1]]
+        return cropped_images, tip_velocities, rotations
 
 
 class ImageSpaceProviderEnv(gym.Env, ABC):
@@ -260,18 +277,11 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
         return reward
 
     def get_processed_data_from_states(self):
-        cropped_images_and_bounding_boxes = (
-            self.pixel_cropper.crop(
-                self.demonstration_states[i].get_np_image(),
-                self.demonstration_states[i + 1].get_center_crop()
-            ) for i in range(len(self.demonstration_states) - 1)
+        return CropDemonstrationUtils.get_processed_crop_info(
+            states_with_images_and_crops=self.demonstration_states,
+            pixel_cropper=self.pixel_cropper,
+            to_tensor=self.to_tensor
         )
-
-        cropped_images = map(lambda img_n_box: img_n_box[0], cropped_images_and_bounding_boxes)
-        cropped_images = list(map(lambda img: self.to_tensor(img), cropped_images))
-        tip_velocities = [state.get_tip_velocity() for state in self.demonstration_states[:-1]]
-        rotations = [state.get_rotations() for state in self.demonstration_states[:-1]]
-        return cropped_images, tip_velocities, rotations
 
     def get_epoch_list_stats(self):
         if len(self.epoch_list) == 0:
@@ -297,17 +307,19 @@ class SpatialFeatureCropSpaceProvider(gym.Env, ABC):
         pass
 
 
-# TODO: complete: CropEnv but with spatial features, obtained directly from dataset (i.e. mix between Crop env and FilterSpatial env)
 class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
-    def __init__(self, latent_dimension, feature_provider, demonstration_dataset, split, dataset_type_idx, device,
-                 evaluator=None, random_provider=np.random.choice, skip_reward=False, sparse=True):
+    def __init__(self, latent_dimension, demonstration_dataset, split, dataset_type_idx, cropped_size, device,
+                 network_klass, evaluator=None, random_provider=np.random.choice, skip_reward=False, sparse=True,
+                 restrict_crop_move=None, shuffle=True, estimator=TipVelocityEstimator):
         super().__init__(latent_dimension)
-        self.feature_provider = feature_provider
+        self.cropped_width, self.cropped_height = cropped_size
+        self.pixel_cropper = TrainingPixelROI(self.cropped_height, self.cropped_width, add_spatial_maps=True)
+        self.to_tensor = torchvision.transforms.ToTensor()
         self.latent_dimension = latent_dimension
+        self.network_klass = network_klass
+        self.estimator = estimator
         # do we want a sparse or dense reward signal? If dense, we train an NN at every env step
         self.sparse = sparse
-        self.features = None
-        self.target_predictions = None
         self.demonstration_dataset = demonstration_dataset
         self.demonstration_sampler = DemonstrationSampler(
             split=split,
@@ -317,21 +329,118 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
         )
 
         self.demonstration_indexer = None
+        self.states = None
         self.state = None
         self.device = device
 
-        self.pixels = None
-
+        self.restrict_crop_move = restrict_crop_move
+        self.shuffle = shuffle
         self.evaluator = evaluator  # evaluator may be None for test environments
         self.skip_reward = skip_reward
         if self.evaluator is None and not self.skip_reward:
             raise ValueError("We need an evaluator to compute the reward on a validation set!")
 
     def reset(self, num_demonstrations=1):
-        pass
+        self.demonstration_indexer = self.demonstration_sampler.get_demonstration_indexer(
+            demonstration_dataset=self.demonstration_dataset, demonstrations=num_demonstrations
+        )
+
+        self.states = []
+
+        data = self.demonstration_indexer.get_curr_demonstration_data()
+        spatial_features = data["features"].cpu().numpy()
+        image_offset_state = ImageOffsetState(data=data)
+        self.state = SpatialOffsetState(
+            spatial_features=spatial_features,
+            image_offset_state=image_offset_state
+        )
+        return self.state.get()
 
     def step(self, action):
-        pass
+        self.states.append(self.state)
+        self.demonstration_indexer.advance()
+
+        if not self.demonstration_indexer.done():
+            data = self.demonstration_indexer.get_curr_demonstration_data()
+            spatial_features = data["features"].cpu().numpy()
+            self.state = self.state.apply_action(
+                spatial_features=spatial_features, data=data, dx=action[0], dy=action[1],
+                cropped_width=self.cropped_width, cropped_height=self.cropped_height,
+                restrict_crop_move=self.restrict_crop_move
+            )
+            center_crop_pixel = self.state.get_center_crop()
+            return self.state.get(), 0, False, dict(center_crop_pixel=center_crop_pixel)
+
+        if self.skip_reward:
+            return None, -1, True, {}
+
+        # at the end, so add dummy state to hold last crop
+        self.states.append(
+            self.state.apply_action(
+                spatial_features=None, data=None, dx=action[0], dy=action[1],
+                cropped_width=self.cropped_width, cropped_height=self.cropped_height,
+                restrict_crop_move=self.restrict_crop_move
+            )
+        )
+        assert len(self.states) == self.demonstration_indexer.get_length() + 1
+        # train network to get reward
+        cropped_training_images, training_tip_velocities, training_rotations = self.get_processed_data_from_states()
+        assert len(cropped_training_images) == len(training_tip_velocities) == len(training_rotations)
+        cropped_validation_images, validation_tip_velocities, validation_rotations = self.evaluator.evaluate_and_get()
+        assert len(cropped_validation_images) == len(validation_tip_velocities) == len(validation_rotations)
+
+        # Use first demonstration for training, second for validation (correlations within demonstrations)
+        training_dataset, validation_dataset = FromListsDataset(
+            cropped_training_images + cropped_validation_images,
+            training_tip_velocities + validation_tip_velocities,
+            training_rotations + validation_rotations,
+            keys=["image", "tip_velocities", "rotations"]
+        ).split(self.demonstration_indexer.get_length())
+
+        assert len(training_dataset) == len(cropped_training_images)
+        assert len(validation_dataset) == len(cropped_validation_images)
+
+        # train with everything as the batch, its small anyways
+        train_data_loader = DataLoader(
+            training_dataset,
+            batch_size=len(training_dataset),
+            num_workers=0,  # in memory, so none needed
+            shuffle=self.shuffle
+        )
+        validation_data_loader = DataLoader(
+            validation_dataset,
+            batch_size=len(validation_dataset),
+            num_workers=0,
+            shuffle=self.shuffle
+        )
+
+        estimator = self.estimator(
+            batch_size=len(training_dataset),
+            learning_rate=0.0001,
+            image_size=(self.cropped_width, self.cropped_height),
+            network_klass=self.network_klass,
+            device=self.device,
+            patience=100,
+            verbose=False
+        )
+
+        estimator.train(
+            data_loader=train_data_loader,
+            max_epochs=100,
+            validate_epochs=1,
+            val_loader=validation_data_loader,
+        )
+        reward = -estimator.get_best_val_loss()
+
+        # dummy observation, needed for SAC
+        return np.ones(self.latent_dimension), reward, True, dict(center_crop_pixel=self.states[-1].get_center_crop())
+
+    def get_processed_data_from_states(self):
+        return CropDemonstrationUtils.get_processed_crop_info(
+            states_with_images_and_crops=self.states,
+            pixel_cropper=self.pixel_cropper,
+            to_tensor=self.to_tensor
+        )
 
 
 class FilterSpatialFeatureSpaceProvider(gym.Env, ABC):
@@ -350,11 +459,10 @@ class FilterSpatialFeatureSpaceProvider(gym.Env, ABC):
 
 
 class FilterSpatialFeatureEnv(FilterSpatialFeatureSpaceProvider):
-    def __init__(self, latent_dimension, feature_provider, demonstration_dataset, split, dataset_type_idx, device,
+    def __init__(self, latent_dimension, demonstration_dataset, split, dataset_type_idx, device,
                  evaluator=None, num_training_demonstrations=None, num_average_training=3, k=10,
                  random_provider=np.random.choice, skip_reward=False, sparse=True):
         super().__init__(latent_dimension)
-        self.feature_provider = feature_provider
         self.latent_dimension = latent_dimension
         self.k = k
         self.num_average_training = num_average_training

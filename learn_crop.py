@@ -37,7 +37,6 @@ if __name__ == '__main__':
 
     dataset = "scene1/scene1"
     config = dict(
-        n_envs=16,
         buffer_size=parse_result.buffer_size,
         target_updates=parse_result.target_updates,
         size=(128, 96),
@@ -145,7 +144,7 @@ if __name__ == '__main__':
         config=config,
         demonstration_dataset=dataset,
         crop_test_modality=DatasetModality.TRAINING,
-        compute_score_every=parse_result.score_every,  # every rollout, for the time being
+        compute_score_every=parse_result.score_every,
         number_rollouts=1,
         save_images_every=parse_result.images_every
     )

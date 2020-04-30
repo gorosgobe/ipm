@@ -13,17 +13,15 @@ def extractor(observations, image_size, crop_size=(32, 24), add_coord=False, til
     observation_size = observations.shape[1]
     center_previous, images_1d = tf.split(observations, axis=1, num_or_size_splits=[2, int(observation_size - 2)])
     images = tf.reshape(images_1d, (-1, height, width, 3))
+
     if add_coord:
         images = add_coord_channels(images, image_size)
     activ = tf.nn.relu
-    out_conv1 = activ(
-        conv(images, "c1", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
+    out_conv1 = activ(conv(images, "c1", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
 
     if not tile:
-        out_conv2 = activ(
-            conv(out_conv1, "c2", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
-        out_conv3 = activ(
-            conv(out_conv2, "c3", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
+        out_conv2 = activ(conv(out_conv1, "c2", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
+        out_conv3 = activ(conv(out_conv2, "c3", n_filters=64, filter_size=5, stride=2, pad="SAME", init_scale=np.sqrt(2), **kwargs))
         out_conv3_flattened = conv_to_fc(out_conv3)
         out_fc1 = activ(linear(out_conv3_flattened, "fc1", n_hidden=62, init_scale=np.sqrt(2)))
         # normalise centers to -1, 1

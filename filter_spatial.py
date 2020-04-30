@@ -120,7 +120,6 @@ if __name__ == '__main__':
 
     validation_env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],
-        feature_provider=feature_provider,
         demonstration_dataset=dataset,
         split=config["split"],
         dataset_type_idx=DatasetModality.VALIDATION,
@@ -133,7 +132,6 @@ if __name__ == '__main__':
     evaluator = FilterSpatialEvaluator(test_env=validation_env, num_iter=config["val_dem"])
     env = FilterSpatialFeatureEnv(
         latent_dimension=config["latent_dimension"],
-        feature_provider=feature_provider,
         demonstration_dataset=dataset,
         split=config["split"],
         dataset_type_idx=DatasetModality.TRAINING,
