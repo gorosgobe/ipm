@@ -2,7 +2,6 @@ import numpy as np
 import tensorflow as tf
 from stable_baselines.common.callbacks import BaseCallback
 
-from lib.rl.demonstration_env import CropDemonstrationEnv
 from lib.rl.utils import CropTester
 from lib.common.test_utils import get_distances_between_chosen_features_and_pixels
 
@@ -39,10 +38,7 @@ class FeatureDistanceScoreCallback(BaseCallback):
                 value=[tf.Summary.Value(tag=f"feature_distance_minimum", simple_value=minimum)])
             self.locals['writer'].add_summary(summary_minimum, self.num_timesteps)
 
-            #TODO: extend for when training with more than one demonstration (?, this means more sparsity, so maybe not?)
-
-            # mean at the beginning of the demonstration - intuitively (?) this should be close to target, especially for
-            # np.min case as opposed to np.mean
+            # mean at the beginning of the demonstration
             # norms is (episode length, k)
             initial_mean = np.mean(norms[:3, :])
             summary_initial_mean = tf.Summary(
@@ -62,20 +58,16 @@ class CropScoreCallback(BaseCallback):
     Logs a produced score to Tensorboard.
     """
 
-    def __init__(self, score_name, score_function, prefix, config, demonstration_dataset, crop_test_modality,
-                 compute_score_every, log_dir, number_rollouts, save_images_every=-1, verbose=0,
-                 environment_klass=CropDemonstrationEnv):
+    def __init__(self, score_name, score_function, prefix, config, compute_score_every, log_dir, number_rollouts,
+                 test_env, save_images_every=-1, verbose=0):
         super().__init__(verbose)
         self.score_name = score_name
         self.score_function = score_function
-        self.crop_tester = CropTester(config, demonstration_dataset, crop_test_modality,
-                                      environment_klass=environment_klass)
+        self.crop_tester = CropTester(config, test_env=test_env)
         self.log_dir = log_dir
         self.prefix = prefix  # when saving images
         self.compute_score_every = compute_score_every
         self.number_rollouts = number_rollouts  # number of times to sample environment
-        # TODO: change to use indexer, and reset with num_demonstrations, that should do it
-        self.random = True  # Sample randomly from the environment?
         self.save_images_every = save_images_every  # if -1, dont save images
         self.count_rollouts = 0
 

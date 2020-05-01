@@ -136,18 +136,25 @@ if __name__ == '__main__':
     if evaluator is not None:
         evaluator.set_rl_model(rl_model=model)
 
+    score_test_env = CropDemonstrationEnv(
+        demonstration_dataset=dataset,
+        config=config,
+        dataset_type_idx=DatasetModality.VALIDATION,
+        skip_reward=True
+    )
+
     score_callback_train = CropScoreCallback(
         score_name="tl_distance_train",
         score_function=get_distance_between_boxes,
         prefix=f"{config['name']}_train",
         log_dir=f"{config['log_dir']}/train_{parse_result.algo}",
         config=config,
-        demonstration_dataset=dataset,
-        crop_test_modality=DatasetModality.TRAINING,
         compute_score_every=parse_result.score_every,
         number_rollouts=1,
-        save_images_every=parse_result.images_every
+        save_images_every=parse_result.images_every,
+        test_env=score_test_env
     )
+
     model.learn(total_timesteps=parse_result.timesteps, callback=CallbackList([score_callback_train]))
 
     try:

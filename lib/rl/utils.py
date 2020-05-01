@@ -57,7 +57,7 @@ class CropScorer(object):
 
 
 class CropTester(object):
-    def __init__(self, config, demonstration_dataset, crop_test_modality, environment_klass):
+    def __init__(self, config, test_env):
         self.config = config
         self.dataset_plain_images = ImageTipVelocitiesDataset(
             velocities_csv=config["velocities_csv"],
@@ -84,12 +84,7 @@ class CropTester(object):
         self.scorer = CropScorer(config=config)
         # during training we expect reward to go up, but we also want to
         # use this to validate throughout training and to test the model
-        self.env = environment_klass(
-            demonstration_dataset=demonstration_dataset,
-            config=config,
-            dataset_type_idx=crop_test_modality,
-            skip_reward=True
-        )
+        self.env = test_env
 
     # for a single rollout
     def get_crop_score_per_rollout(self, criterion, model, save_images=False, log_dir="", prefix=""):
@@ -104,9 +99,9 @@ class CropTester(object):
         cropped_width, cropped_height = self.config["cropped_size"]
 
         while not done:
-            demonstration_index = self.env.get_curr_demonstration_idx()
             action, _states = model.predict(obs)
             obs, reward, done, info = self.env.step(action)
+            demonstration_index = self.env.get_curr_demonstration_idx()
             center = info["center_crop_pixel"]
 
             score, tl_gt, br_gt, predicted_pixel_info_tl, predicted_pixel_info_br = self.scorer.get_score(

@@ -30,11 +30,12 @@ if __name__ == '__main__':
     parser.add_argument("--name", required=True)
     parser.add_argument("--score_every", type=int, required=True)
     parser.add_argument("--images_every", type=int, required=True)
+    parser.add_argument("--latent", type=int, required=True)
     parser.add_argument("--val_dem", required=True)
     parser.add_argument("--dsae_path", required=True)
     parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--restrict_crop_move", type=int)
-    parser.add_argument("--init_from", )
+    parser.add_argument("--output_divisor", type=int, default=4)
     parse_result = parser.parse_args()
 
     dataset = "scene1/scene1"
@@ -43,6 +44,9 @@ if __name__ == '__main__':
         cropped_size=(32, 24),
         network_klass=AttentionNetworkCoord_32,
         seed=get_seed("random"),
+        latent_dimension=parse_result.latent,
+        output_divisor=parse_result.output_divisor,
+        dsae_path=parse_result.dsae_path,
         velocities_csv=f"{dataset}/velocities.csv",
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
@@ -106,7 +110,7 @@ if __name__ == '__main__':
 
     test_env = SpatialFeatureCropEnv(
         demonstration_dataset=dataset,
-        latent_dimension=config["latent"],
+        latent_dimension=config["latent_dimension"],
         cropped_size=config["cropped_size"],
         split=config["split"],
         device=config["device"],
@@ -122,7 +126,7 @@ if __name__ == '__main__':
 
     env = SpatialFeatureCropEnv(
         demonstration_dataset=dataset,
-        latent_dimension=config["latent"],
+        latent_dimension=config["latent_dimension"],
         cropped_size=config["cropped_size"],
         split=config["split"],
         device=config["device"],
@@ -156,17 +160,28 @@ if __name__ == '__main__':
     if evaluator is not None:
         evaluator.set_rl_model(rl_model=model)
 
+    # separate test environment for callback
+    score_test_env = SpatialFeatureCropEnv(
+        demonstration_dataset=dataset,
+        latent_dimension=config["latent_dimension"],
+        cropped_size=config["cropped_size"],
+        split=config["split"],
+        device=config["device"],
+        network_klass=config["network_klass"],
+        dataset_type_idx=DatasetModality.VALIDATION,
+        skip_reward=True
+    )
+
     score_callback_train = CropScoreCallback(
         score_name="tl_distance_train",
         score_function=get_distance_between_boxes,
         prefix=f"{config['name']}_train",
         log_dir=f"{config['log_dir']}/train_{parse_result.algo}",
         config=config,
-        demonstration_dataset=dataset,
-        crop_test_modality=DatasetModality.TRAINING,
         compute_score_every=parse_result.score_every,
         number_rollouts=1,
-        save_images_every=parse_result.images_every
+        save_images_every=parse_result.images_every,
+        test_env=score_test_env
     )
     model.learn(total_timesteps=parse_result.timesteps, callback=CallbackList([score_callback_train]))
     model.save(os.path.join("models/rl", config["name"]))

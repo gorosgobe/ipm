@@ -178,6 +178,11 @@ class CropDemonstrationEnv(ImageSpaceProviderEnv):
         if self.evaluator is None and not self.skip_reward:
             raise ValueError("We need an evaluator to compute the reward on a validation set!")
 
+    def get_curr_demonstration_idx(self):
+        # this is called after step() by callbacks, so demonstration index has advanced and we returned the pixel information
+        # of the previous image - hence the previous index is required
+        return self.demonstration_indexer.get_prev_demonstration_idx()
+
     def reset(self, num_demonstrations=1):
         self.final_training_crop = None
 
@@ -340,6 +345,11 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
         if self.evaluator is None and not self.skip_reward:
             raise ValueError("We need an evaluator to compute the reward on a validation set!")
 
+    def get_curr_demonstration_idx(self):
+        # this is called after step() by callbacks, so demonstration index has advanced and we returned the pixel information
+        # of the previous image - hence the previous index is required
+        return self.demonstration_indexer.get_prev_demonstration_idx()
+
     def reset(self, num_demonstrations=1):
         self.demonstration_indexer = self.demonstration_sampler.get_demonstration_indexer(
             demonstration_dataset=self.demonstration_dataset, demonstrations=num_demonstrations
@@ -371,9 +381,6 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
             center_crop_pixel = self.state.get_center_crop()
             return self.state.get(), 0, False, dict(center_crop_pixel=center_crop_pixel)
 
-        if self.skip_reward:
-            return None, -1, True, {}
-
         # at the end, so add dummy state to hold last crop
         self.states.append(
             self.state.apply_action(
@@ -383,6 +390,10 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
             )
         )
         assert len(self.states) == self.demonstration_indexer.get_length() + 1
+
+        if self.skip_reward:
+            return None, -1, True, dict(center_crop_pixel=self.states[-1].get_center_crop())
+
         # train network to get reward
         cropped_training_images, training_tip_velocities, training_rotations = self.get_processed_data_from_states()
         assert len(cropped_training_images) == len(training_tip_velocities) == len(training_rotations)
@@ -433,7 +444,7 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
         reward = -estimator.get_best_val_loss()
 
         # dummy observation, needed for SAC
-        return np.ones(self.latent_dimension), reward, True, dict(center_crop_pixel=self.states[-1].get_center_crop())
+        return np.ones(self.latent_dimension + 2), reward, True, dict(center_crop_pixel=self.states[-1].get_center_crop())
 
     def get_processed_data_from_states(self):
         return CropDemonstrationUtils.get_processed_crop_info(
