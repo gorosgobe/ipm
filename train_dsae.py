@@ -73,9 +73,9 @@ if __name__ == '__main__':
         = get_demonstrations(dataset, config["split"], limit_train_coeff=config["training"])
 
     dataloader = DataLoader(dataset=training_demonstrations, batch_size=config["batch_size"], shuffle=True,
-                            num_workers=6)
+                            num_workers=4)
     validation_dataloader = DataLoader(dataset=validation_demonstrations, batch_size=config["batch_size"], shuffle=True,
-                                       num_workers=6)
+                                       num_workers=4)
     test_dataloader = DataLoader(dataset=test_demonstrations, batch_size=config["batch_size"], shuffle=False,
                                  num_workers=4)
 
