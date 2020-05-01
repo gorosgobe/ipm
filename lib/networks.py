@@ -66,7 +66,7 @@ class AttentionNetworkTile_32(AttentionNetworkTile):
 
 
 class AttentionNetworkCoord(torch.nn.Module):
-    def __init__(self, _image_width, _image_height, add_se_blocks=False):
+    def __init__(self, _image_width, _image_height, add_se_blocks=False, reduction=16):
         super().__init__()
         self.add_se_blocks = add_se_blocks
         # spatial information is encoded as coord feature maps, one for x and one for y dimensions, fourth/fifth channels
@@ -80,9 +80,9 @@ class AttentionNetworkCoord(torch.nn.Module):
         self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
         if self.add_se_blocks:
-            self.se_1 = SELayer(channel=64)
-            self.se_2 = SELayer(channel=32)
-            self.se_3 = SELayer(channel=16)
+            self.se_1 = SELayer(channel=64, reduction=reduction)
+            self.se_2 = SELayer(channel=32, reduction=reduction)
+            self.se_3 = SELayer(channel=16, reduction=reduction)
 
     def forward(self, x):
         if isinstance(x, tuple):
@@ -107,19 +107,19 @@ class AttentionNetworkCoord(torch.nn.Module):
 
 
 class AttentionNetworkCoord_32(AttentionNetworkCoord):
-    def __init__(self, image_width, image_height, add_se_blocks=False):
-        super().__init__(image_width, image_height, add_se_blocks=add_se_blocks)
+    def __init__(self, image_width, image_height, add_se_blocks=False, reduction=16):
+        super().__init__(image_width, image_height, add_se_blocks=add_se_blocks, reduction=reduction)
         self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
 
 
 class AttentionNetworkCoordSE(AttentionNetworkCoord):
     def __init__(self, image_width, image_height):
-        super().__init__(image_width, image_height, add_se_blocks=True)
+        super().__init__(image_width, image_height, add_se_blocks=True, reduction=4)
 
 
 class AttentionNetworkCoordSE_32(AttentionNetworkCoord_32):
     def __init__(self, image_width, image_height):
-        super().__init__(image_width, image_height, add_se_blocks=True)
+        super().__init__(image_width, image_height, add_se_blocks=True, reduction=4)
 
 
 class AttentionNetworkCoordRot(AttentionNetworkCoord):
