@@ -114,12 +114,12 @@ class AttentionNetworkCoord_32(AttentionNetworkCoord):
 
 class AttentionNetworkCoordSE(AttentionNetworkCoord):
     def __init__(self, image_width, image_height):
-        super().__init__(image_width, image_height, add_se_blocks=True, reduction=4)
+        super().__init__(image_width, image_height, add_se_blocks=True)
 
 
 class AttentionNetworkCoordSE_32(AttentionNetworkCoord_32):
     def __init__(self, image_width, image_height):
-        super().__init__(image_width, image_height, add_se_blocks=True, reduction=4)
+        super().__init__(image_width, image_height, add_se_blocks=True)
 
 
 class AttentionNetworkCoordRot(AttentionNetworkCoord):
