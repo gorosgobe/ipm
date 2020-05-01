@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument("--latent", type=int, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--training", type=float, required=True)
+    parser.add_argument("--batch_size", type=int, required=True)
     # set to 2 or 4
     parser.add_argument("--output_divisor", type=int, required=True)
     parse_result = parser.parse_args()
@@ -39,7 +40,7 @@ if __name__ == '__main__':
         latent_dimension=parse_result.latent,
         lr=0.001,
         num_epochs=parse_result.epochs,
-        batch_size=64,
+        batch_size=parse_result.batch_size,
         add_g_slow=parse_result.g_slow == "yes",
         version=parse_result.version,
         output_divisor=parse_result.output_divisor,

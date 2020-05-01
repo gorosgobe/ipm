@@ -54,7 +54,7 @@ if __name__ == '__main__':
         latent_dimension=parse_result.latent,
         output_divisor=parse_result.output_divisor,
         split=[0.8, 0.1, 0.1],
-        training=0.8,
+        training=parse_result.training,
         size=(96, 128),
         batch_size=32,
         k=parse_result.k,
