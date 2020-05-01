@@ -66,6 +66,9 @@ if __name__ == "__main__":
         version = AttentionNetworkCoordRot_32 if parse_result.size == 32 else AttentionNetworkCoordRot
         add_spatial_maps = True
         add_r_map = True
+    elif version.lower() == "coord_se":
+        version = AttentionNetworkCoordSE_32 if parse_result.size == 32 else AttentionNetworkCoordSE
+        add_spatial_maps = True
     else:
         raise ValueError(f"Attention network version {version} is not available")
 

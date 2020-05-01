@@ -3,6 +3,7 @@ import torch.nn.functional as F
 
 from lib.cv.controller import SpatialDimensionAdder
 from lib.cv.pos_enc import PositionalEncodings
+from senet_pytorch.senet.se_module import SELayer
 
 
 class AttentionNetworkTile(torch.nn.Module):
@@ -65,8 +66,9 @@ class AttentionNetworkTile_32(AttentionNetworkTile):
 
 
 class AttentionNetworkCoord(torch.nn.Module):
-    def __init__(self, _image_width, _image_height):
+    def __init__(self, _image_width, _image_height, add_se_blocks=False):
         super().__init__()
+        self.add_se_blocks = add_se_blocks
         # spatial information is encoded as coord feature maps, one for x and one for y dimensions, fourth/fifth channels
         self.conv1 = torch.nn.Conv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
@@ -77,6 +79,10 @@ class AttentionNetworkCoord(torch.nn.Module):
         self.fc1 = torch.nn.Linear(in_features=384, out_features=64)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
+        if self.add_se_blocks:
+            self.se_1 = SELayer(channel=64)
+            self.se_2 = SELayer(channel=32)
+            self.se_3 = SELayer(channel=16)
 
     def forward(self, x):
         if isinstance(x, tuple):
@@ -85,8 +91,14 @@ class AttentionNetworkCoord(torch.nn.Module):
             image_batch = x
         batch_size = image_batch.size()[0]
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(image_batch)))
+        if self.add_se_blocks:
+            out_conv1 = self.se_1(out_conv1)
         out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
+        if self.add_se_blocks:
+            out_conv2 = self.se_2(out_conv2)
         out_conv3 = F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
+        if self.add_se_blocks:
+            out_conv3 = self.se_3(out_conv3)
         out_conv3 = out_conv3.view(batch_size, -1)
         out_fc1 = F.relu(self.fc1.forward(out_conv3))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
@@ -95,9 +107,19 @@ class AttentionNetworkCoord(torch.nn.Module):
 
 
 class AttentionNetworkCoord_32(AttentionNetworkCoord):
-    def __init__(self, image_width, image_height):
-        super().__init__(image_width, image_height)
+    def __init__(self, image_width, image_height, add_se_blocks=False):
+        super().__init__(image_width, image_height, add_se_blocks=add_se_blocks)
         self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
+
+
+class AttentionNetworkCoordSE(AttentionNetworkCoord):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height, add_se_blocks=True)
+
+
+class AttentionNetworkCoordSE_32(AttentionNetworkCoord_32):
+    def __init__(self, image_width, image_height):
+        super().__init__(image_width, image_height, add_se_blocks=True)
 
 
 class AttentionNetworkCoordRot(AttentionNetworkCoord):
