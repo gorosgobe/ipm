@@ -19,6 +19,8 @@ if __name__ == "__main__":
     parser.add_argument("--version", required=True)
     parser.add_argument("--size", type=int, required=True)
     parser.add_argument("--random_std", type=int)
+    parser.add_argument("--patience", type=int, default=10)
+    parser.add_argument("--learning_rate", type=float, default=0.0001)
     parser.add_argument("--loss")
     parser.add_argument("--seed")
     parser.add_argument("--init_from")
@@ -100,12 +102,13 @@ if __name__ == "__main__":
         batch_size=32,
         split=[0.8, 0.1, 0.1],
         name=parse_result.name,
-        learning_rate=0.0001,
+        learning_rate=parse_result.learning_rate,
         max_epochs=250,
         validate_epochs=1,
         save_to_location="models/",
         network_klass=version,
         loss_params=loss_params,
+        patience=parse_result.patience,
         init_from=parse_result.init_from
     )
 
@@ -145,6 +148,7 @@ if __name__ == "__main__":
         batch_size=config["batch_size"],
         learning_rate=config["learning_rate"],
         image_size=config["size"],
+        patience=config["patience"],
         **network_param,
         # transforms without initial resize, so they can be pickled correctly
         transforms=transforms,
