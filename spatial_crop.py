@@ -19,7 +19,7 @@ from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.networks import AttentionNetworkCoord_32
 from lib.rl.callbacks import CropScoreCallback
 from lib.rl.demonstration_env import SpatialFeatureCropEnv
-from lib.rl.demonstration_eval import CropEvaluator
+from lib.rl.demonstration_eval import CropEvaluator, RandomCropEvaluator
 from lib.rl.utils import DatasetModality
 
 if __name__ == '__main__':
@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument("--latent", type=int, required=True)
     parser.add_argument("--val_dem", required=True)
     parser.add_argument("--dsae_path", required=True)
+    parser.add_argument("--random_val_crop", required=True)
     parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--restrict_crop_move", type=int)
     parser.add_argument("--output_divisor", type=int, default=4)
@@ -56,6 +57,7 @@ if __name__ == '__main__':
         log_dir="spatial_crop_output_log",
         shuffle=True,
         val_dem=parse_result.val_dem,
+        random_val_crop=parse_result.random_val_crop == "yes",
         restrict_crop_move=parse_result.restrict_crop_move
     )
 
@@ -119,10 +121,16 @@ if __name__ == '__main__':
         skip_reward=True
     )
 
-    evaluator = CropEvaluator(
-        test_env=test_env,
-        num_iter=config["val_dem"]
-    )
+    if config["random_val_crop"]:
+        evaluator = RandomCropEvaluator(
+            test_env=test_env,
+            num_iter=config["val_dem"]
+        )
+    else:
+        evaluator = CropEvaluator(
+            test_env=test_env,
+            num_iter=config["val_dem"]
+        )
 
     env = SpatialFeatureCropEnv(
         demonstration_dataset=dataset,

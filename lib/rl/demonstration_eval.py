@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class MetaTrainingEvaluator(object):
     def __init__(self, test_env, num_iter):
         self.test_env = test_env
@@ -21,6 +24,14 @@ class MetaTrainingEvaluator(object):
             action, _states = rl_model.predict(obs, deterministic=True)
             obs, _, done, info = test_env.step(action)
 
+    @staticmethod
+    def random_and_run(test_env, num_iter):
+        _obs = test_env.reset(num_demonstrations=num_iter)
+        done = False
+        while not done:
+            action = np.random.uniform(-1.0, 1.0, size=2)
+            _obs, _, done, info = test_env.step(action)
+
 
 class CropEvaluator(MetaTrainingEvaluator):
     def __init__(self, test_env, num_iter=1):
@@ -28,6 +39,15 @@ class CropEvaluator(MetaTrainingEvaluator):
 
     def evaluate_and_get(self):
         MetaTrainingEvaluator.reset_and_run(self.rl_model, self.test_env, self.num_iter)
+        return self.test_env.get_processed_data_from_states()
+
+
+class RandomCropEvaluator(MetaTrainingEvaluator):
+    def __init__(self, test_env, num_iter=1):
+        super().__init__(test_env, num_iter)
+
+    def evaluate_and_get(self):
+        MetaTrainingEvaluator.random_and_run(self.test_env, self.num_iter)
         return self.test_env.get_processed_data_from_states()
 
 

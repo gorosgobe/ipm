@@ -431,7 +431,7 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
             image_size=(self.cropped_width, self.cropped_height),
             network_klass=self.network_klass,
             device=self.device,
-            patience=100,
+            patience=10,
             verbose=False
         )
 
