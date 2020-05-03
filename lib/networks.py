@@ -392,6 +392,58 @@ class FullImageNetworkCoord_32(FullImageNetwork_32):
         return super().forward(image_batch_spatial)
 
 
+class FullSoftImageNetwork(torch.nn.Module):
+    def __init__(self, image_width, image_height):
+        super().__init__()
+        self.image_width = image_width
+        self.image_height = image_height
+        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.batch_norm1 = torch.nn.BatchNorm2d(64)
+        self.soft1 = SoftBlock(in_channels=64)
+        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
+        self.batch_norm2 = torch.nn.BatchNorm2d(32)
+        self.soft2 = SoftBlock(in_channels=32)
+        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
+        self.batch_norm3 = torch.nn.BatchNorm2d(16)
+        self.soft3 = SoftBlock(in_channels=16)
+        self.fc1 = torch.nn.Linear(in_features=2240, out_features=64)
+        self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
+        self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
+
+    def forward(self, x):
+        batch_size = x.size()[0]
+        out_conv1 = self.soft1(F.relu(self.batch_norm1.forward(self.conv1.forward(x))))
+        out_conv2 = self.soft2(F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1))))
+        out_conv3 = self.soft3(F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2))))
+        out_conv3 = out_conv3.view(batch_size, -1)
+        out_fc1 = F.relu(self.fc1.forward(out_conv3))
+        out_fc2 = F.relu(self.fc2.forward(out_fc1))
+        out_fc3 = self.fc3.forward(out_fc2)
+        return out_fc3
+
+
+class SoftBlock(torch.nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+        self.key_layer = torch.nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1)
+        self.key_batch_norm = torch.nn.BatchNorm2d(in_channels)
+        self.query_layer = torch.nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1)
+        self.query_batch_norm = torch.nn.BatchNorm2d(in_channels)
+        self.values_layer = torch.nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1)
+        self.values_batch_norm = torch.nn.BatchNorm2d(in_channels)
+        self.softmax = torch.nn.Softmax2d()
+
+    def forward(self, x):
+        # x is (B, C, H, W)
+        key_proj = self.key_batch_norm(self.key_layer(x))
+        query_proj = self.query_batch_norm(self.query_layer(x))
+        values_proj = self.values_batch_norm(self.values_layer(x))
+        attention_map = self.softmax(key_proj * query_proj)
+        attended_output_diff = attention_map * values_proj
+        assert x.size() == attended_output_diff.size()
+        return x + attended_output_diff
+
+
 class Network(torch.nn.Module):
     def __init__(self, image_width, image_height):
         super().__init__()

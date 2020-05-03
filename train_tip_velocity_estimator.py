@@ -26,7 +26,12 @@ if __name__ == "__main__":
     seed = get_seed(parse_result.seed)
     print("Seed:", seed)
     size = (128, 96)
-    version = FullImageNetworkCoord if parse_result.version == "coord" else FullImageNetwork
+    if parse_result.version == "coord":
+        version = FullImageNetworkCoord
+    elif parse_result.version == "soft":
+        version = FullSoftImageNetwork
+    else:
+        version = FullImageNetwork
     optimiser_params = get_optimiser_params(parse_result.optim)
     print("Optimiser params:")
     pprint.pprint(optimiser_params)
