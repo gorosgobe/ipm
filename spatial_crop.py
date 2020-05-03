@@ -118,7 +118,8 @@ if __name__ == '__main__':
         device=config["device"],
         network_klass=config["network_klass"],
         dataset_type_idx=DatasetModality.VALIDATION,
-        skip_reward=True
+        skip_reward=True,
+        restrict_crop_move=config["restrict_crop_move"]
     )
 
     if config["random_val_crop"]:
@@ -140,7 +141,8 @@ if __name__ == '__main__':
         device=config["device"],
         network_klass=config["network_klass"],
         dataset_type_idx=DatasetModality.TRAINING,
-        evaluator=evaluator
+        evaluator=evaluator,
+        restrict_crop_move=config["restrict_crop_move"]
     )
 
     monitor = Monitor(env=env, filename=f"{config['log_dir']}/")
@@ -177,7 +179,8 @@ if __name__ == '__main__':
         device=config["device"],
         network_klass=config["network_klass"],
         dataset_type_idx=DatasetModality.VALIDATION,
-        skip_reward=True
+        skip_reward=True,
+        restrict_crop_move=config["restrict_crop_move"]
     )
 
     score_callback_train = CropScoreCallback(
