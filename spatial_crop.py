@@ -34,12 +34,13 @@ if __name__ == '__main__':
     parser.add_argument("--train_dem", required=True)
     parser.add_argument("--val_dem", required=True)
     parser.add_argument("--dsae_path", required=True)
+    parser.add_argument("--dataset", required=True)
     parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--restrict_crop_move", type=int)
     parser.add_argument("--output_divisor", type=int, default=4)
     parse_result = parser.parse_args()
 
-    dataset = "scene1/scene1"
+    dataset = parse_result.dataset
     config = dict(
         size=(128, 96),
         cropped_size=(32, 24),
