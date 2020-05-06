@@ -314,14 +314,15 @@ class SpatialFeatureCropSpaceProvider(gym.Env, ABC):
 
 class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
     def __init__(self, latent_dimension, demonstration_dataset, split, dataset_type_idx, cropped_size, device,
-                 network_klass, evaluator=None, random_provider=np.random.choice, skip_reward=False, sparse=True,
-                 restrict_crop_move=None, shuffle=True, estimator=TipVelocityEstimator):
+                 network_klass, num_training_demonstrations=None, evaluator=None, random_provider=np.random.choice,
+                 skip_reward=False, sparse=True, restrict_crop_move=None, shuffle=True, estimator=TipVelocityEstimator):
         super().__init__(latent_dimension)
         self.cropped_width, self.cropped_height = cropped_size
         self.pixel_cropper = TrainingPixelROI(self.cropped_height, self.cropped_width, add_spatial_maps=True)
         self.to_tensor = torchvision.transforms.ToTensor()
         self.latent_dimension = latent_dimension
         self.network_klass = network_klass
+        self.num_training_demonstrations = num_training_demonstrations
         self.estimator = estimator
         # do we want a sparse or dense reward signal? If dense, we train an NN at every env step
         self.sparse = sparse
@@ -351,6 +352,10 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
         return self.demonstration_indexer.get_prev_demonstration_idx()
 
     def reset(self, num_demonstrations=1):
+        if self.num_training_demonstrations is not None:
+            # training data has num_training_demonstrations true episodes
+            num_demonstrations = self.num_training_demonstrations
+
         self.demonstration_indexer = self.demonstration_sampler.get_demonstration_indexer(
             demonstration_dataset=self.demonstration_dataset, demonstrations=num_demonstrations
         )

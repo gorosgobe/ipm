@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument("--score_every", type=int, required=True)
     parser.add_argument("--images_every", type=int, required=True)
     parser.add_argument("--latent", type=int, required=True)
+    parser.add_argument("--train_dem", required=True)
     parser.add_argument("--val_dem", required=True)
     parser.add_argument("--dsae_path", required=True)
     parser.add_argument("--random_val_crop", required=True)
@@ -56,6 +57,7 @@ if __name__ == '__main__':
         name=parse_result.name,
         log_dir="spatial_crop_output_log",
         shuffle=True,
+        train_dem=parse_result.train_dem,
         val_dem=parse_result.val_dem,
         random_val_crop=parse_result.random_val_crop == "yes",
         restrict_crop_move=parse_result.restrict_crop_move
@@ -107,6 +109,8 @@ if __name__ == '__main__':
         add_image=True
     )
 
+    num_train_demonstrations = int(config["split"][0] * dataset.get_num_demonstrations())
+    config["train_dem"] = num_train_demonstrations if config["train_dem"] == "all" else int(config["train_dem"])
     num_val_demonstrations = int(config["split"][1] * dataset.get_num_demonstrations())
     config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
 
@@ -142,6 +146,7 @@ if __name__ == '__main__':
         network_klass=config["network_klass"],
         dataset_type_idx=DatasetModality.TRAINING,
         evaluator=evaluator,
+        num_training_demonstrations=config["train_dem"],
         restrict_crop_move=config["restrict_crop_move"]
     )
 
