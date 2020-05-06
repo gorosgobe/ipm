@@ -19,7 +19,7 @@ from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.networks import AttentionNetworkCoord_32
 from lib.rl.callbacks import CropScoreCallback
 from lib.rl.demonstration_env import SpatialFeatureCropEnv
-from lib.rl.demonstration_eval import CropEvaluator, RandomCropEvaluator
+from lib.rl.demonstration_eval import CropEvaluator
 from lib.rl.utils import DatasetModality
 
 if __name__ == '__main__':
@@ -52,7 +52,7 @@ if __name__ == '__main__':
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        split=[parse_result.training, 0.1, 0.1],
+        split=[0.007, 0.1, 0.1],
         name=parse_result.name,
         log_dir="spatial_crop_output_log",
         shuffle=True,
@@ -119,14 +119,14 @@ if __name__ == '__main__':
         split=config["split"],
         device=config["device"],
         network_klass=config["network_klass"],
-        dataset_type_idx=DatasetModality.VALIDATION,
+        dataset_type_idx=DatasetModality.TRAINING,
         skip_reward=True,
         restrict_crop_move=config["restrict_crop_move"]
     )
 
     evaluator = CropEvaluator(
         test_env=test_env,
-        num_iter=config["val_dem"]
+        num_iter=1
     )
 
     env = SpatialFeatureCropEnv(
@@ -175,7 +175,7 @@ if __name__ == '__main__':
         split=config["split"],
         device=config["device"],
         network_klass=config["network_klass"],
-        dataset_type_idx=DatasetModality.VALIDATION,
+        dataset_type_idx=DatasetModality.TRAINING,
         skip_reward=True,
         restrict_crop_move=config["restrict_crop_move"]
     )
