@@ -165,3 +165,10 @@ class CameraScene5(Scene):
 
     def get_distractor_safe_distances(self):
         return [0.1, 0.1, 0.1, 0.1, 0.1, 0.075, 0.05, 0.1]
+
+
+class CameraSceneSimplest(Scene):
+    SCENE_FILE = "camera_reach_cube_simplest.ttt"
+
+    def __init__(self, headless=True):
+        super().__init__(self.SCENE_FILE, headless=headless)

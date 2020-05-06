@@ -37,10 +37,12 @@ class SimGTOrientationEstimator(SimGTEstimator):
 
 
 class SimGTVelocityEstimator(SimGTEstimator):
-    def __init__(self, target_position, generating=False):
+    def __init__(self, target_position, generating=False, discontinuity=True):
         super().__init__()
         self.target_position = target_position
         self.generating = generating
+        # do we want a discontinuity around the target position? orientation estimator is not affected by this
+        self.discontinuity = discontinuity
         self.initial_direction = None
 
     def get_gt_tip_velocity(self, camera_position):
@@ -54,7 +56,8 @@ class SimGTVelocityEstimator(SimGTEstimator):
         if distance_to_target < self.precision:
             # if we have reached the target, we still want examples past the target
             # if we are simply evaluating the precision, we do not want jumps, but the precise answer
-            if not self.generating or self.passed_discontinuity:
+            # if we are not interested in a discontinuity, always hit this case
+            if (not self.generating or self.passed_discontinuity) or not self.discontinuity:
                 self.stop_simulation = True
                 return np.array([0.0, 0.0, 0.0]), should_zero
 

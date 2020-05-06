@@ -3,22 +3,22 @@ import shutil
 
 import numpy as np
 
-from simulation.camera_robot import CameraRobot
-from simulation.scenes import CameraScene1
+from lib.simulation.camera_robot import CameraRobot
+from lib.simulation.scenes import CameraScene1, CameraSceneSimplest
+from lib.common.utils import save_images_and_tip_velocities
 
 if __name__ == "__main__":
 
     seed = 2019
     np.random.seed(seed)
 
-    with CameraScene1(headless=True) as (pr, scene):
+    with CameraSceneSimplest(headless=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
-        # 5250 -> 28 * 150 / 0.8
-        # This is because we are using padding to 28, but we want
-        # to keep the information from previous datasets which had 150 demonstrations for training, while not having
-        # any padding (for comparability)
-        min_samples = 5250
+        # 5250
+        min_samples = 300
+        # usually True, unless testing with simpler datasets
+        discontinuity = False
         # count of number of training samples so far (image, tip velocity)
         total_count = 0
         counts = []
@@ -32,7 +32,7 @@ if __name__ == "__main__":
         shutil.rmtree(folder, ignore_errors=True)
         os.mkdir(folder)
         os.chdir(folder)
-        robot = CameraRobot(pr, show_paths=True)
+        robot = CameraRobot(pr, show_paths=False)
         print("Position camera:", robot.movable_camera.get_position())
         target_cube = scene.get_target()
         target_cube_position = target_cube.get_position()
@@ -45,20 +45,19 @@ if __name__ == "__main__":
             print("Offset {}".format(offset))
             result = robot.generate_image_simulation(
                 scene=scene, offset=offset, target_position=target_above_cube, target_object=target_cube,
-                randomise_distractors=True
+                randomise_distractors=True, discontinuity=discontinuity
             )
-            # save_images_and_tip_velocities(
-            #     demonstration_num=demonstration_num,
-            #     tip_velocity_file=tip_velocity_file,
-            #     metadata_file=metadata_file,
-            #     rotations_file=rotations_file,
-            #     augment_to_steps=-1,
-            #     **result
-            # )
+            save_images_and_tip_velocities(
+                demonstration_num=demonstration_num,
+                tip_velocity_file=tip_velocity_file,
+                metadata_file=metadata_file,
+                rotations_file=rotations_file,
+                **result
+            )
             demonstration_num += 1
             total_count += len(result["tip_velocities"])
             counts.append(len(result["tip_velocities"]))
-            stop_demonstration.append(result["count_stop_demonstration"])
+            stop_demonstration.append(result["count_stop_demonstration"] if result["count_stop_demonstration"] is not None else -1)
 
         print("Counts mean:", np.array(counts).mean())
         print("Stop demonstration mean:", np.array(stop_demonstration).mean())

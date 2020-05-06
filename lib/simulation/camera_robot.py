@@ -27,7 +27,7 @@ class CameraRobot(object):
         return np.concatenate((xy_position_offset, z_position_offset, xy_orientation_offset, z_offset), axis=0)
 
     def generate_image_simulation(self, offset, scene, target_position, target_object, draw_center_pixel=False,
-                                  debug=False, randomise_distractors=False):
+                                  debug=False, randomise_distractors=False, discontinuity=True):
 
         # position and orientation in 6 x 1 vector
         offset_position, offset_orientation = np.split(offset, 2)
@@ -50,9 +50,10 @@ class CameraRobot(object):
         relative_target_orientations = []
         images = []
         crop_pixels = []
-        sim_gt_velocity = SimGTVelocityEstimator(target_position, generating=True)
+        sim_gt_velocity = SimGTVelocityEstimator(target_position, generating=True, discontinuity=discontinuity)
         sim_gt_orientation = SimGTOrientationEstimator(target_position, self.TARGET_ORIENTATION)
         count = 0
+        count_stop_demonstration = None
         while True:
             count += 1
             # world camera position
@@ -86,6 +87,7 @@ class CameraRobot(object):
 
             velocity, should_zero = sim_gt_velocity.get_gt_tip_velocity(camera_position)
             if should_zero:
+                # number of images in demonstration before discontinuity
                 count_stop_demonstration = count
             # if should_zero, apply velocity but append zeros so model does not get confused
             # this is the case when we want to add more data around target discontinuity
