@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
     evaluator = CropEvaluator(
         test_env=test_env,
-        num_iter=1
+        num_iter=config["train_dem"]
     )
 
     env = SpatialFeatureCropEnv(
@@ -188,7 +188,7 @@ if __name__ == '__main__':
         log_dir=f"{config['log_dir']}/train_{parse_result.algo}",
         config=config,
         compute_score_every=parse_result.score_every,
-        number_rollouts=1,
+        number_rollouts=config["train_dem"],
         save_images_every=parse_result.images_every,
         test_env=score_test_env
     )
