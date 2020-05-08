@@ -181,7 +181,7 @@ if __name__ == '__main__':
             verbose=1,
             gamma=1.0,
             # default for ppo is 0.01, we preserve that
-            ent_coef=0.01 if config["ent_coeff"] == "auto" else config["ent_coeff"],
+            ent_coef=0.01 if config["ent_coeff"] == "auto" else float(config["ent_coeff"]),
             n_steps=config["ppo_n_steps"],
             nminibatches=config["ppo_nminibatches"],
             tensorboard_log=config["log_dir"]
@@ -193,7 +193,7 @@ if __name__ == '__main__':
             verbose=1,
             gamma=1.0,
             buffer_size=1000000,
-            ent_coef=config["ent_coeff"],
+            ent_coef=config["ent_coeff"] if isinstance(config["ent_coeff"], str) else float(config["ent_coeff"]),
             action_noise=OrnsteinUhlenbeckActionNoise(mean=0, sigma=0.5) if config["action_noise"] else None,
             tensorboard_log=config["log_dir"]
         )
