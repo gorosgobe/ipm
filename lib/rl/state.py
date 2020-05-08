@@ -55,13 +55,21 @@ class ImageOffsetState(object):
     def set_center_crop(self, crop):
         self.x_center_previous, self.y_center_previous = crop
 
-    def apply_action(self, data, dx, dy, cropped_width, cropped_height, restrict_crop_move=None):
+    def apply_action(self, data, dx, dy, cropped_width, cropped_height, restrict_crop_move=None, scale=None):
         x_center_previous = self.x_center_previous + int(
             dx * ((min(self.w, restrict_crop_move) if restrict_crop_move is not None else self.w) - 1)
         )
         y_center_previous = self.y_center_previous + int(
             dy * ((min(self.h, restrict_crop_move) if restrict_crop_move is not None else self.h) - 1)
         )
+
+        if scale is not None:
+            scale = (scale + 1) / 2
+            assert 0.0 <= scale <= 1.0
+            # crop dimensions based on scale
+            cropped_height = int(cropped_height + (self.h - cropped_height) * scale)
+            cropped_width = int(cropped_width + (self.w - cropped_width) * scale)
+
         x_center_previous, y_center_previous = CvUtils.fit_crop_to_image(
             center_x=x_center_previous,
             center_y=y_center_previous,
@@ -70,6 +78,7 @@ class ImageOffsetState(object):
             cropped_height=cropped_height,
             cropped_width=cropped_width
         )
+
         assert 0 <= x_center_previous < self.w and 0 <= y_center_previous < self.h
         return ImageOffsetState(
             data=data,
@@ -99,10 +108,11 @@ class ImageOffsetState(object):
 
 
 class SpatialOffsetState(object):
-    def __init__(self, spatial_features, image_offset_state):
+    def __init__(self, spatial_features, image_offset_state, scale=None):
         self.spatial_features = spatial_features  # numpy array in CPU
         # width and height are not determined by the spatial features, so we need to store them
         self.image_offset_state = image_offset_state
+        self.scale = scale
 
     def get(self):
         # we do not use custom network in agent, so normalise to be in -1.0, 1.0
@@ -112,7 +122,10 @@ class SpatialOffsetState(object):
         x_center_previous = x_center_previous * 2 - 1
         y_center_previous = y_center_previous * 2 - 1
         assert -1.0 <= x_center_previous <= 1.0 and -1.0 <= y_center_previous <= 1.0
-        return np.concatenate(([x_center_previous, y_center_previous], self.spatial_features))
+        if self.scale is None:
+            return np.concatenate(([x_center_previous, y_center_previous], self.spatial_features))
+        else:
+            return np.concatenate(([self.scale, x_center_previous, y_center_previous], self.spatial_features))
 
     def get_tip_velocity(self):
         return self.image_offset_state.get_data()["target_vel_rot"][:3]
@@ -126,14 +139,19 @@ class SpatialOffsetState(object):
     def get_center_crop(self):
         return self.image_offset_state.get_center_crop()
 
-    def apply_action(self, spatial_features, data, dx, dy, cropped_width, cropped_height, restrict_crop_move=None):
+    def get_scale(self):
+        return self.scale
+
+    def apply_action(self, spatial_features, data, dx, dy, cropped_width, cropped_height, restrict_crop_move=None,
+                     scale=None):
         image_offset_state = self.image_offset_state.apply_action(
             data=data, dx=dx, dy=dy, cropped_width=cropped_width, cropped_height=cropped_height,
-            restrict_crop_move=restrict_crop_move
+            restrict_crop_move=restrict_crop_move, scale=scale
         )
         return SpatialOffsetState(
             spatial_features=spatial_features,
-            image_offset_state=image_offset_state
+            image_offset_state=image_offset_state,
+            scale=scale
         )
 
 

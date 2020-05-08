@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
         # Minimum number of training samples we want to generate
         # 5250
-        min_samples = 300
+        min_samples = 5250
         # usually True, unless testing with simpler datasets
         discontinuity = False
         # count of number of training samples so far (image, tip velocity)

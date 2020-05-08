@@ -14,9 +14,12 @@ class MetaTrainingEvaluator(object):
         raise NotImplementedError("evaluate_and_get needs to be implemented")
 
     @staticmethod
-    def reset_and_run(rl_model, test_env, num_iter):
+    def reset_and_run(rl_model, test_env, num_iter, scale=None):
         if rl_model is None:
             raise ValueError("You forgot to set the RL model!")
+
+        if scale is not None:
+            test_env.scale = scale
 
         obs = test_env.reset(num_demonstrations=num_iter)
         done = False
@@ -37,8 +40,8 @@ class CropEvaluator(MetaTrainingEvaluator):
     def __init__(self, test_env, num_iter=1):
         super().__init__(test_env, num_iter)
 
-    def evaluate_and_get(self):
-        MetaTrainingEvaluator.reset_and_run(self.rl_model, self.test_env, self.num_iter)
+    def evaluate_and_get(self, scale=None):
+        MetaTrainingEvaluator.reset_and_run(self.rl_model, self.test_env, self.num_iter, scale)
         return self.test_env.get_processed_data_from_states()
 
 

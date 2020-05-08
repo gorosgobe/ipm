@@ -5,6 +5,7 @@ import pprint
 from stable_baselines import PPO2, SAC
 from stable_baselines.bench import Monitor
 from stable_baselines.common.callbacks import CallbackList
+from stable_baselines.common.noise import ActionNoise, OrnsteinUhlenbeckActionNoise
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.sac import MlpPolicy
 from torchvision import transforms
@@ -16,9 +17,9 @@ from lib.dsae.dsae_dataset import DSAE_FeatureProviderDataset
 from lib.dsae.dsae_feature_provider import FeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
-from lib.networks import AttentionNetworkCoord_32
+from lib.networks import AttentionNetworkCoord_32, AttentionNetworkCoordGeneral, AttentionNetworkCoord
 from lib.rl.callbacks import CropScoreCallback
-from lib.rl.demonstration_env import SpatialFeatureCropEnv
+from demonstration_spatial_crop import SpatialFeatureCropEnv
 from lib.rl.demonstration_eval import CropEvaluator, RandomCropEvaluator
 from lib.rl.utils import DatasetModality
 
@@ -38,13 +39,30 @@ if __name__ == '__main__':
     parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--restrict_crop_move", type=int)
     parser.add_argument("--output_divisor", type=int, default=4)
+    parser.add_argument("--scale_decrease_every", type=int)
+    parser.add_argument("--ent_coeff", default="auto")
+    parser.add_argument("--action_noise", default="no")
+    parser.add_argument("--ppo_n_steps", type=int, default=128)
+    parser.add_argument("--size", type=int, default=32)
     parse_result = parser.parse_args()
+
+    if parse_result.size == 32:
+        network_klass = AttentionNetworkCoord_32
+        cropped_size = (32, 24)
+    elif parse_result.size == 64:
+        network_klass = AttentionNetworkCoord
+        cropped_size = (64, 48)
+    else:
+        raise ValueError("Size was not 32 nor 64!")
+
+    if parse_result.scale_decrease_every is not None:
+        network_klass = AttentionNetworkCoordGeneral
 
     dataset = parse_result.dataset
     config = dict(
         size=(128, 96),
-        cropped_size=(32, 24),
-        network_klass=AttentionNetworkCoord_32,
+        cropped_size=cropped_size,
+        network_klass=network_klass,
         seed=get_seed("random"),
         latent_dimension=parse_result.latent,
         output_divisor=parse_result.output_divisor,
@@ -59,7 +77,11 @@ if __name__ == '__main__':
         shuffle=True,
         train_dem=parse_result.train_dem,
         val_dem=parse_result.val_dem,
-        restrict_crop_move=parse_result.restrict_crop_move
+        restrict_crop_move=parse_result.restrict_crop_move,
+        scale_decrease_every=parse_result.scale_decrease_every,
+        ent_coeff=parse_result.ent_coeff,
+        action_noise=parse_result.action_noise == "yes",
+        ppo_n_steps=parse_result.ppo_n_steps
     )
 
     device = set_up_cuda(config["seed"])
@@ -103,7 +125,7 @@ if __name__ == '__main__':
             transforms.ToPILImage(),
             transforms.Resize(size=(height, width))
         ]),
-        cache=True,
+        cache=False,
         add_pixel=True,
         add_image=True
     )
@@ -122,7 +144,10 @@ if __name__ == '__main__':
         network_klass=config["network_klass"],
         dataset_type_idx=DatasetModality.VALIDATION,
         skip_reward=True,
-        restrict_crop_move=config["restrict_crop_move"]
+        restrict_crop_move=config["restrict_crop_move"],
+        # makes sure scale is initialised properly in test environment
+        # even if it is overwritten by evaluator
+        scale=config["scale_decrease_every"] is not None,
     )
 
     evaluator = CropEvaluator(
@@ -140,7 +165,9 @@ if __name__ == '__main__':
         dataset_type_idx=DatasetModality.TRAINING,
         evaluator=evaluator,
         num_training_demonstrations=config["train_dem"],
-        restrict_crop_move=config["restrict_crop_move"]
+        restrict_crop_move=config["restrict_crop_move"],
+        scale=config["scale_decrease_every"] is not None,
+        decrease_scale_every=config["scale_decrease_every"]
     )
 
     monitor = Monitor(env=env, filename=f"{config['log_dir']}/")
@@ -151,6 +178,7 @@ if __name__ == '__main__':
             dummy,
             verbose=1,
             gamma=1.0,
+            n_steps=config["ppo_n_steps"],
             tensorboard_log=config["log_dir"]
         )
     elif parse_result.algo == "sac":
@@ -160,6 +188,8 @@ if __name__ == '__main__':
             verbose=1,
             gamma=1.0,
             buffer_size=1000000,
+            ent_coef=config["ent_coeff"],
+            action_noise=OrnsteinUhlenbeckActionNoise(mean=0, sigma=0.5) if config["action_noise"] else None,
             tensorboard_log=config["log_dir"]
         )
     else:
@@ -190,7 +220,8 @@ if __name__ == '__main__':
         compute_score_every=parse_result.score_every,
         number_rollouts=1,
         save_images_every=parse_result.images_every,
-        test_env=score_test_env
+        test_env=score_test_env,
+        env_for_scale=env if config["scale_decrease_every"] is not None else None
     )
     model.learn(total_timesteps=parse_result.timesteps, callback=CallbackList([score_callback_train]))
     model.save(os.path.join("models/rl", config["name"]))

@@ -66,7 +66,7 @@ class AttentionNetworkTile_32(AttentionNetworkTile):
 
 
 class AttentionNetworkCoord(torch.nn.Module):
-    def __init__(self, _image_width, _image_height, add_se_blocks=False, reduction=16):
+    def __init__(self, _image_width, _image_height, add_se_blocks=False, reduction=16, flattened=384):
         super().__init__()
         self.add_se_blocks = add_se_blocks
         # spatial information is encoded as coord feature maps, one for x and one for y dimensions, fourth/fifth channels
@@ -76,7 +76,7 @@ class AttentionNetworkCoord(torch.nn.Module):
         self.batch_norm2 = torch.nn.BatchNorm2d(32)
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
         self.batch_norm3 = torch.nn.BatchNorm2d(16)
-        self.fc1 = torch.nn.Linear(in_features=384, out_features=64)
+        self.fc1 = torch.nn.Linear(in_features=flattened, out_features=64)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
         if self.add_se_blocks:
@@ -108,8 +108,24 @@ class AttentionNetworkCoord(torch.nn.Module):
 
 class AttentionNetworkCoord_32(AttentionNetworkCoord):
     def __init__(self, image_width, image_height, add_se_blocks=False, reduction=16):
-        super().__init__(image_width, image_height, add_se_blocks=add_se_blocks, reduction=reduction)
-        self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
+        super().__init__(image_width, image_height, add_se_blocks=add_se_blocks, reduction=reduction, flattened=32)
+
+
+class AttentionNetworkCoordGeneral(AttentionNetworkCoord):
+    def __init__(self, image_width, image_height, flattened):
+        super().__init__(image_width, image_height, flattened=flattened)
+
+    @staticmethod
+    def create(width, height):
+        w_prime = ((width - 5 + 2) // 2) + 1
+        w_prime = ((w_prime - 7 + 2) // 2) + 1
+        w_prime = ((w_prime - 5 + 2) // 2) + 1
+        h_prime = ((height - 5 + 2) // 2) + 1
+        h_prime = ((h_prime - 7 + 2) // 2) + 1
+        h_prime = ((h_prime - 5 + 2) // 2) + 1
+        # 16 output channels
+        flattened = h_prime * w_prime * 16
+        return lambda i_w, im_h, f=flattened: AttentionNetworkCoordGeneral(i_w, im_h, flattened=f)
 
 
 class AttentionNetworkCoordSE(AttentionNetworkCoord):

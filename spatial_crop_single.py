@@ -18,7 +18,7 @@ from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.networks import AttentionNetworkCoord_32
 from lib.rl.callbacks import CropScoreCallback
-from lib.rl.demonstration_env import SpatialFeatureCropEnv
+from demonstration_spatial_crop import SpatialFeatureCropEnv
 from lib.rl.demonstration_eval import CropEvaluator
 from lib.rl.utils import DatasetModality
 

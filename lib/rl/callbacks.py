@@ -59,11 +59,11 @@ class CropScoreCallback(BaseCallback):
     """
 
     def __init__(self, score_name, score_function, prefix, config, compute_score_every, log_dir, number_rollouts,
-                 test_env, save_images_every=-1, verbose=0):
+                 test_env, save_images_every=-1, verbose=0, env_for_scale=None):
         super().__init__(verbose)
         self.score_name = score_name
         self.score_function = score_function
-        self.crop_tester = CropTester(config, test_env=test_env)
+        self.crop_tester = CropTester(config, test_env=test_env, env_for_scale=env_for_scale)
         self.log_dir = log_dir
         self.prefix = prefix  # when saving images
         self.compute_score_every = compute_score_every

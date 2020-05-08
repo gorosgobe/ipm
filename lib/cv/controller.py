@@ -183,12 +183,12 @@ class TrainingPixelROI(TrainingROI):
     def crop(self, image, pixel):
         loaded_pixel_estimator = LoadedPixelEstimator(pixel)
         true_pixel_roi = TruePixelROI(
-            self.cropped_height,
-            self.cropped_width,
-            loaded_pixel_estimator,
-            FakeHandle(),
-            self.add_spatial_maps,
-            self.crop_deviation_sampler,
+            cropped_height=self.cropped_height,
+            cropped_width=self.cropped_width,
+            pixel_position_estimator=loaded_pixel_estimator,
+            target_object=FakeHandle(),
+            add_spatial_maps=self.add_spatial_maps,
+            crop_deviation_sampler=self.crop_deviation_sampler,
             add_r_map=self.add_r_map
         )
         return true_pixel_roi.crop(image)

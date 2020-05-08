@@ -44,6 +44,14 @@ class CropScorer(object):
         tl_gt_down = downsample_coordinates(*tl_gt, og_width=640, og_height=480, to_width=width, to_height=height)
         br_gt_down = downsample_coordinates(*br_gt, og_width=640, og_height=480, to_width=width, to_height=height)
 
+        predicted_center = CvUtils.fit_crop_to_image(
+            center_x=predicted_center[0],
+            center_y=predicted_center[1],
+            height=height,
+            width=width,
+            cropped_width=cropped_width,
+            cropped_height=cropped_height
+        )
         # Predicted crop
         coords = CvUtils.get_bounding_box_coordinates(predicted_center[0], predicted_center[1],
                                                       cropped_height=cropped_height,
@@ -57,7 +65,7 @@ class CropScorer(object):
 
 
 class CropTester(object):
-    def __init__(self, config, test_env):
+    def __init__(self, config, test_env, env_for_scale=None):
         self.config = config
         self.dataset_plain_images = ImageTipVelocitiesDataset(
             velocities_csv=config["velocities_csv"],
@@ -66,25 +74,12 @@ class CropTester(object):
             root_dir=config["root_dir"]
         )
         self.resize = ResizeTransform(config["size"])
-        width, height = config["size"]
-        cropped_width, cropped_height = config["cropped_size"]
-        divisor_width = int(width / cropped_width)
-        divisor_height = int(height / cropped_height)
-        self.dataset_get_crop_box = ImageTipVelocitiesDataset(
-            velocities_csv=config["velocities_csv"],
-            rotations_csv=config["rotations_csv"],
-            metadata=config["metadata"],
-            root_dir=config["root_dir"],
-            transform=self.resize,
-            ignore_cache_if_cropper=True,
-            initial_pixel_cropper=TrainingPixelROI(
-                480 // divisor_height, 640 // divisor_width
-            )
-        )
         self.scorer = CropScorer(config=config)
         # during training we expect reward to go up, but we also want to
         # use this to validate throughout training and to test the model
         self.env = test_env
+        # to get scale
+        self.env_for_scale = env_for_scale
 
     # for a single rollout
     def get_crop_score_per_rollout(self, criterion, model, save_images=False, log_dir="", prefix=""):
@@ -98,7 +93,15 @@ class CropTester(object):
         width, height = self.config["size"]
         cropped_width, cropped_height = self.config["cropped_size"]
 
+        if self.env_for_scale is not None:
+            scale = (self.env_for_scale.get_scale() + 1) / 2
+            cropped_width = int(cropped_width + (width - cropped_width) * scale)
+            cropped_height = int(cropped_height + (height - cropped_height) * scale)
+            print("Scale crop tester", self.env_for_scale.get_scale())
+
         while not done:
+            if self.env_for_scale is not None:
+                obs = np.concatenate(([self.env_for_scale.get_scale()], obs))
             action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, info = self.env.step(action)
             demonstration_index = self.env.get_curr_demonstration_idx()
