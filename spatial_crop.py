@@ -44,6 +44,7 @@ if __name__ == '__main__':
     parser.add_argument("--action_noise", default="no")
     parser.add_argument("--ppo_n_steps", type=int, default=128)
     parser.add_argument("--size", type=int, default=32)
+    parser.add_argument("--nminibatches", type=int, default=4)
     parse_result = parser.parse_args()
 
     if parse_result.size == 32:
@@ -81,7 +82,8 @@ if __name__ == '__main__':
         scale_decrease_every=parse_result.scale_decrease_every,
         ent_coeff=parse_result.ent_coeff,
         action_noise=parse_result.action_noise == "yes",
-        ppo_n_steps=parse_result.ppo_n_steps
+        ppo_n_steps=parse_result.ppo_n_steps,
+        ppo_nminibatches=parse_result.nminibatches,
     )
 
     device = set_up_cuda(config["seed"])
@@ -178,7 +180,10 @@ if __name__ == '__main__':
             dummy,
             verbose=1,
             gamma=1.0,
+            # default for ppo is 0.01, we preserve that
+            ent_coef=0.01 if config["ent_coeff"] == "auto" else config["ent_coeff"],
             n_steps=config["ppo_n_steps"],
+            nminibatches=config["ppo_nminibatches"],
             tensorboard_log=config["log_dir"]
         )
     elif parse_result.algo == "sac":
