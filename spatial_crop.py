@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument("--action_noise", default="no")
     parser.add_argument("--ppo_n_steps", type=int, default=128)
     parser.add_argument("--size", type=int, default=32)
-    parser.add_argument("--training_only", default=False)
+    parser.add_argument("--training_only", default="no")
     parser.add_argument("--nminibatches", type=int, default=4)
     parse_result = parser.parse_args()
 
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         action_noise=parse_result.action_noise == "yes",
         ppo_n_steps=parse_result.ppo_n_steps,
         ppo_nminibatches=parse_result.nminibatches,
-        training_only=parse_result.training_only,
+        training_only=parse_result.training_only == "yes",
     )
 
     device = set_up_cuda(config["seed"])
