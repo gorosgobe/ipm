@@ -5,7 +5,7 @@ import pprint
 from stable_baselines import PPO2, SAC
 from stable_baselines.bench import Monitor
 from stable_baselines.common.callbacks import CallbackList
-from stable_baselines.common.noise import ActionNoise, OrnsteinUhlenbeckActionNoise
+from stable_baselines.common.noise import OrnsteinUhlenbeckActionNoise
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.sac import MlpPolicy
 from torchvision import transforms
@@ -19,8 +19,8 @@ from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.networks import AttentionNetworkCoord_32, AttentionNetworkCoordGeneral, AttentionNetworkCoord
 from lib.rl.callbacks import CropScoreCallback
-from demonstration_spatial_crop import SpatialFeatureCropEnv
-from lib.rl.demonstration_eval import CropEvaluator, RandomCropEvaluator
+from lib.rl.demonstration_spatial_crop import SpatialFeatureCropEnv
+from lib.rl.demonstration_eval import CropEvaluator
 from lib.rl.utils import DatasetModality
 
 if __name__ == '__main__':
