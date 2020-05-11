@@ -34,7 +34,7 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
                  scale=False, decrease_scale_every=int(1e5), size=(128, 96)):
         if scale:
             scale = 1.0
-            print(f"Environment with scale, decrease at rate 1/{decrease_scale_every}steps")
+            print(f"Environment with scale, decrease at rate 1/{decrease_scale_every} steps")
         else:
             scale = None
         super().__init__(latent_dimension, scale=scale)

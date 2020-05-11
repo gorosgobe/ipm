@@ -2,6 +2,7 @@ import argparse
 import os
 import pprint
 
+import numpy as np
 from stable_baselines import PPO2, SAC
 from stable_baselines.bench import Monitor
 from stable_baselines.common.callbacks import CallbackList
@@ -19,8 +20,8 @@ from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.networks import AttentionNetworkCoord_32, AttentionNetworkCoordGeneral, AttentionNetworkCoord
 from lib.rl.callbacks import CropScoreCallback
-from lib.rl.demonstration_spatial_crop import SpatialFeatureCropEnv
 from lib.rl.demonstration_eval import CropEvaluator
+from lib.rl.demonstration_spatial_crop import SpatialFeatureCropEnv
 from lib.rl.utils import DatasetModality
 
 if __name__ == '__main__':
@@ -136,7 +137,8 @@ if __name__ == '__main__':
 
     num_train_demonstrations = int(config["split"][0] * dataset.get_num_demonstrations())
     config["train_dem"] = num_train_demonstrations if config["train_dem"] == "all" else int(config["train_dem"])
-    num_val_demonstrations = int(config["split"][1 if not config["training_only"] else 0] * dataset.get_num_demonstrations())
+    num_val_demonstrations = int(
+        config["split"][1 if not config["training_only"] else 0] * dataset.get_num_demonstrations())
     config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
 
     test_env = SpatialFeatureCropEnv(
@@ -196,7 +198,8 @@ if __name__ == '__main__':
             gamma=1.0,
             buffer_size=1000000,
             ent_coef=config["ent_coeff"] if isinstance(config["ent_coeff"], str) else float(config["ent_coeff"]),
-            action_noise=OrnsteinUhlenbeckActionNoise(mean=0, sigma=0.5) if config["action_noise"] else None,
+            action_noise=OrnsteinUhlenbeckActionNoise(mean=np.zeros(2), sigma=float(0.5) * np.ones(2)) if config[
+                "action_noise"] else None,
             tensorboard_log=config["log_dir"]
         )
     else:
