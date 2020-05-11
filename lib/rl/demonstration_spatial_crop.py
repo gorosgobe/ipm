@@ -129,17 +129,31 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
 
     def step(self, action):
         self.states.append(self.state)
+        prev_which_dem = self.demonstration_indexer.get_which_demonstration()
         self.demonstration_indexer.advance()
+        after_which_dem = self.demonstration_indexer.get_which_demonstration()
+        assert after_which_dem - prev_which_dem == 0 or after_which_dem - prev_which_dem == 1
+        is_diff_demonstration = (after_which_dem - prev_which_dem == 1)
 
         if not self.demonstration_indexer.done():
             data = self.demonstration_indexer.get_curr_demonstration_data()
             spatial_features = data["features"].cpu().numpy()
+            # apply action to get state and center crop
             self.state = self.state.apply_action(
                 spatial_features=spatial_features, data=data, dx=action[0], dy=action[1],
                 cropped_width=self.cropped_width, cropped_height=self.cropped_height,
                 restrict_crop_move=self.restrict_crop_move, scale=self.scale
             )
             center_crop_pixel = self.state.get_center_crop()
+
+            if is_diff_demonstration:
+                # then we want the agent to get a center crop at the start of the demonstration
+                image_offset_state = ImageOffsetState(data=data)
+                self.state = SpatialOffsetState(
+                    spatial_features=spatial_features,
+                    image_offset_state=image_offset_state,
+                    scale=self.scale
+                )
             return self.state.get(), 0, False, dict(center_crop_pixel=center_crop_pixel)
 
         # at the end, so add dummy state to hold last crop
@@ -199,7 +213,7 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
             network_klass = network_klass.create(*image_size)
 
         estimator = self.estimator(
-            batch_size=len(training_dataset),
+            batch_size=min(len(training_dataset), 32),
             learning_rate=0.0001,
             image_size=image_size,
             network_klass=network_klass,

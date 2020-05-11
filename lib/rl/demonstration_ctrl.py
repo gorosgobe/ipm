@@ -27,14 +27,6 @@ class DemonstrationSampler(object):
             demonstration_dataset=demonstration_dataset
         )
 
-    def sample_train_val_demonstrations(self):
-        demonstration_idx, val_demonstration_idx = self.random_provider(
-            int(self.split[self.dataset_type_idx] * self.num_demonstrations), size=2,
-            replace=False)
-        demonstration_idx = self.get_global_demonstration_index(demonstration_idx)
-        val_demonstration_idx = self.get_global_demonstration_index(val_demonstration_idx)
-        return demonstration_idx, val_demonstration_idx
-
     def get_global_demonstration_index(self, index):
         return int(
             sum(self.split[:self.dataset_type_idx]) * self.num_demonstrations
@@ -48,9 +40,20 @@ class DemonstrationIndexer(object):
         self.lengths = list(map(lambda pair: pair[1] - pair[0] + 1, start_end_pairs))
         self.indices = reduce(lambda x, y: x + y, map(lambda pair: list(range(pair[0], pair[1] + 1)), start_end_pairs))
         self.curr_idx = 0
+        self.length_idx = 0
+        self.length_count = 0
 
     def advance(self):
         self.curr_idx += 1
+        self.length_count += 1
+        # if past a demonstration, advance the length index too, used to determine which demonstration we are in
+        if self.lengths[self.length_idx] == self.length_count:
+            self.length_count = 0
+            self.length_idx += 1
+
+    def get_which_demonstration(self):
+        # returns the index of the current demonstration (not of the current image), wrt the ones passed in
+        return self.length_idx
 
     def get_curr_demonstration_data(self):
         return self.demonstration_dataset[self.get_curr_demonstration_idx()]
