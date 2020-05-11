@@ -174,16 +174,15 @@ class SpatialFeatureCropEnv(SpatialFeatureCropSpaceProvider):
         assert len(training_dataset) == len(cropped_training_images)
         assert len(validation_dataset) == len(cropped_validation_images)
 
-        # train with everything as the batch, its small anyways
         train_data_loader = DataLoader(
             training_dataset,
-            batch_size=len(training_dataset),
+            batch_size=min(len(training_dataset), 32),
             num_workers=0,  # in memory, so none needed
             shuffle=self.shuffle
         )
         validation_data_loader = DataLoader(
             validation_dataset,
-            batch_size=len(validation_dataset),
+            batch_size=min(len(validation_dataset), 32),
             num_workers=0,
             shuffle=self.shuffle
         )

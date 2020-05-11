@@ -136,7 +136,7 @@ if __name__ == '__main__':
 
     num_train_demonstrations = int(config["split"][0] * dataset.get_num_demonstrations())
     config["train_dem"] = num_train_demonstrations if config["train_dem"] == "all" else int(config["train_dem"])
-    num_val_demonstrations = int(config["split"][1] * dataset.get_num_demonstrations())
+    num_val_demonstrations = int(config["split"][1 if not config["training_only"] else 0] * dataset.get_num_demonstrations())
     config["val_dem"] = num_val_demonstrations if config["val_dem"] == "all" else int(config["val_dem"])
 
     test_env = SpatialFeatureCropEnv(
