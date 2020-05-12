@@ -3,8 +3,9 @@ import time
 import torch
 from torchvision import transforms
 
-from lib.cv.dataset import ImageTipVelocitiesDataset
+from controller import TrainingPixelROI
 from lib.common.test_utils import downsample_coordinates
+from lib.cv.dataset import ImageTipVelocitiesDataset
 
 
 class DSAE_Dataset(ImageTipVelocitiesDataset):
@@ -122,3 +123,54 @@ class DSAE_FeatureProviderDataset(DSAE_Dataset):
             **(dict(pixel=sample["pixel"]) if self.add_pixel else {}),
         )
         return feature_sample
+
+
+class DSAE_SingleFeatureProviderDataset(object):
+    def __init__(self, feature_provider_dataset, feature_index):
+        self.feature_provider_dataset = feature_provider_dataset
+        self.feature_index = feature_index
+
+    def __len__(self):
+        return self.feature_provider_dataset.__len__()
+
+    def __getitem__(self, idx):
+        feature_sample = self.feature_provider_dataset[idx]
+        assert "image" in feature_sample
+        assert "features" in feature_sample
+        assert "target_vel_rot" in feature_sample
+
+        single_feature = feature_sample["features"].view(-1, 2)[self.feature_index]
+        sample = dict(
+            feature=single_feature,
+            image=feature_sample["image"],
+            target_vel_rot=feature_sample["target_vel_rot"]
+        )
+        return sample
+
+
+class DSAE_FeatureCropTVEAdapter(object):
+    def __init__(self, single_feature_dataset, crop_size, size=(128, 96), add_spatial_maps=True):
+        self.single_feature_dataset = single_feature_dataset
+        self.w, self.h = size
+        cropped_width, cropped_height = crop_size
+        self.pixel_cropper = TrainingPixelROI(
+            cropped_height=cropped_height,
+            cropped_width=cropped_width,
+            add_spatial_maps=add_spatial_maps
+        )
+
+    def __len__(self):
+        return self.single_feature_dataset.__len__()
+
+    def __getitem__(self, idx):
+        sample = self.single_feature_dataset[idx]
+        tip_velocities, rotations = torch.split(sample["target_vel_rot"], 3)
+        feature = (sample["feature"] + 1) / 2
+        # scale pixel to original size, such as 128, 96 range
+        pixel = (feature * torch.tensor([self.w - 1, self.h - 1], dtype=torch.float32)).type(dtype=torch.int32)
+        cropped_image = self.pixel_cropper.crop(sample["image"].numpy(), pixel)
+        return dict(
+            image=cropped_image,
+            tip_velocities=tip_velocities,
+            rotations=rotations
+        )

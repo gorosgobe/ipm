@@ -109,7 +109,7 @@ class TipVelocityEstimator(BestSaveable):
 
         self.verbose = verbose
 
-    def train(self, data_loader, max_epochs, val_loader, test_loader=None, validate_epochs=10):
+    def train(self, data_loader, max_epochs, val_loader, test_loader=None, validate_epochs=1):
         """
         validate_epochs: After how many epochs do we want to 
         validate our model against the validation dataset

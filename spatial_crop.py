@@ -130,7 +130,7 @@ if __name__ == '__main__':
             transforms.ToPILImage(),
             transforms.Resize(size=(height, width))
         ]),
-        cache=False,
+        cache=True,
         add_pixel=True,
         add_image=True
     )

@@ -3,3 +3,12 @@ __pycache__/
 PyRep/
 .idea/
 venv/
+scene1/
+scene2/
+scene3/
+scene4/
+scene5/
+simplescene/
+filter_spatial_output_log/
+spatial_crop_output_log/
+learn_crop_output_log/
