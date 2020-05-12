@@ -137,6 +137,7 @@ class TruePixelROI(ROI):
         x_min, x_max, y_min, y_max = CvUtils.get_bounding_box_coordinates(center_x, center_y, self.cropped_height,
                                                                           self.cropped_width)
         if x_min < 0 or x_max < 0 or y_min < 0 or y_max < 0:
+            print(f"x_min: {x_min}, x_max: {x_max}, y_min: {y_min}, y_max: {y_max}")
             raise ValueError("LESS THAN ZERO")
         # center, top left, top right, bottom left, bottom right
         bounding_box_pixels = [

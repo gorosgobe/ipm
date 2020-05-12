@@ -9,8 +9,8 @@ from lib.cv.dataset import ImageTipVelocitiesDataset
 
 
 class DSAE_Dataset(ImageTipVelocitiesDataset):
-    def __init__(self, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
-                 size, single_image=False):
+    def __init__(self, velocities_csv, rotations_csv, metadata, root_dir, input_resize_transform,
+                 size, reduced_transform=transforms.Lambda(lambda x: x), single_image=False):
         # dataset that loads three successor images
         # if at boundary, load the boundary image twice
         # set single_image to true to only load the center image
@@ -23,6 +23,7 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
         )
         self.input_resize_transform = input_resize_transform
         self.reduced_transform = reduced_transform
+        # reduced transform can be left as identity if single_image is True
         self.single_image = single_image
         self.h, self.w = size
 
@@ -76,10 +77,10 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
 
         sample = dict(
             images=torch.stack(list(map(lambda i: normalising_transform(i), imgs)), dim=0),
-            target_image=transforms.Compose([
+            target_image=(transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5])
-            ])(grayscaled),
+            ])(grayscaled) if not self.single_image else None),
             target_vel_rot=center_target_vel_rot,
             pixel=torch.tensor(pixel)
         )
@@ -87,9 +88,9 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
 
 
 class DSAE_FeatureProviderDataset(DSAE_Dataset):
-    def __init__(self, feature_provider, velocities_csv, rotations_csv, metadata, root_dir, reduced_transform,
-                 input_resize_transform, size, cache, add_pixel=False, add_image=False):
-        super().__init__(velocities_csv, rotations_csv, metadata, root_dir, reduced_transform, input_resize_transform,
+    def __init__(self, feature_provider, velocities_csv, rotations_csv, metadata, root_dir,
+                 input_resize_transform, size, cache, reduced_transform=None, add_pixel=False, add_image=False):
+        super().__init__(velocities_csv, rotations_csv, metadata, root_dir, input_resize_transform,
                          size, single_image=True)
         self.feature_provider = feature_provider
         self.add_pixel = add_pixel
@@ -168,9 +169,9 @@ class DSAE_FeatureCropTVEAdapter(object):
         feature = (sample["feature"] + 1) / 2
         # scale pixel to original size, such as 128, 96 range
         pixel = (feature * torch.tensor([self.w - 1, self.h - 1], dtype=torch.float32)).type(dtype=torch.int32)
-        cropped_image = self.pixel_cropper.crop(sample["image"].numpy(), pixel)
+        cropped_image, _ = self.pixel_cropper.crop(sample["image"].numpy().transpose(1, 2, 0), pixel)
         return dict(
-            image=cropped_image,
+            image=transforms.ToTensor()(cropped_image),
             tip_velocities=tip_velocities,
             rotations=rotations
         )

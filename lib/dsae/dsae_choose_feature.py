@@ -1,20 +1,29 @@
 import numpy as np
 from torch.utils.data import DataLoader
 
-from dsae.dsae_dataset import DSAE_FeatureCropTVEAdapter, DSAE_SingleFeatureProviderDataset
+from lib.common.utils import get_demonstrations
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
+from lib.dsae.dsae_dataset import DSAE_FeatureCropTVEAdapter, DSAE_SingleFeatureProviderDataset
 from lib.networks import AttentionNetworkCoordGeneral
+from lib.common.saveable import Saveable
 
 
-class DSAE_ValFeatureChooser(object):
-    # Uses heuristic: pick feature such that when we crop around it, it gives us the
-    # best performance on a validation set
-    def __init__(self, latent_dimension, feature_provider_dataset, device):
+class DSAE_ValFeatureChooser(Saveable):
+    # Uses heuristic: pick feature from DSAE such that when we crop around it, it gives us the best performance on a
+    # validation set
+    def __init__(self, name, latent_dimension, feature_provider_dataset, split, device, limit_train_coeff=-1):
+        super().__init__()
+        super().__init__()
+        self.name = name
         self.features = latent_dimension // 2
         self.device = device
-        # TODO: split here
-        self.training_dataset = feature_provider_dataset
-        self.validation_dataset = feature_provider_dataset
+        self.training_dataset, self.validation_dataset, _ = get_demonstrations(
+            dataset=feature_provider_dataset,
+            split=split,
+            limit_train_coeff=limit_train_coeff
+        )
+        self.losses = []
+        self.index = None
 
     def train_model_with_feature(self, index, crop_size=(32, 24)):
         estimator = TipVelocityEstimator(
@@ -22,7 +31,8 @@ class DSAE_ValFeatureChooser(object):
             learning_rate=0.0001,
             image_size=crop_size,
             network_klass=AttentionNetworkCoordGeneral.create(*crop_size),
-            device=self.device
+            device=self.device,
+            verbose=False
         )
 
         training_dataset = DSAE_FeatureCropTVEAdapter(
@@ -51,8 +61,20 @@ class DSAE_ValFeatureChooser(object):
 
     def get_best_feature_index(self):
         validation_losses = []
-        for idx, f in enumerate(len(self.features)):
+        self.features = 1
+        for idx, f in enumerate(range(self.features)):
             val_loss = self.train_model_with_feature(index=idx)
+            print(f"Index {idx}, val loss {val_loss}")
             validation_losses.append(val_loss)
 
-        return np.array(validation_losses).argmin()
+        self.losses = validation_losses
+        res = np.array(validation_losses).argmin()
+        self.index = res
+        return res
+
+    def get_info(self):
+        return dict(
+            name=self.name,
+            validation_losses=self.losses,
+            index=self.index
+        )
