@@ -1,4 +1,5 @@
 import unittest
+
 import numpy as np
 
 from cv.controller import TruePixelROI, RandomPixelROI
@@ -200,6 +201,39 @@ class TruePixelRoiTest(unittest.TestCase):
             [[21, 2 / 5, 3 / 3], [22, 3 / 5, 3 / 3], [23, 4 / 5, 3 / 3]]
         ]))
         self.assertEqual(pixels, CENTER_16_3x3_PIXELS)
+
+    def test_crop_full_without_all_height(self):
+        fpe = FakePixelEstimator((3, 2))
+        roi_estimator = TruePixelROI(2, 6, fpe, FakeObjectWithHandle())
+        crop, pixels = roi_estimator.crop(FAKE_IMAGE)
+        np.testing.assert_allclose(crop, np.array([
+            [[13], [14], [15], [16], [17], [18]],
+            [[19], [20], [21], [22], [23], [24]],
+        ]))
+
+    def test_crop_full_without_all_width(self):
+        fpe = FakePixelEstimator((3, 2))
+        roi_estimator = TruePixelROI(4, 2, fpe, FakeObjectWithHandle())
+        crop, pixels = roi_estimator.crop(FAKE_IMAGE)
+        np.testing.assert_allclose(crop, np.array([
+            [[4], [5]],
+            [[10], [11]],
+            [[16], [17]],
+            [[22], [23]],
+        ]))
+
+    def test_shape_matches(self):
+        test_pixels = [(127, 95), (-1, -1), (64, 48), (63, 47), (128, -5), (128, 96), (-5, 96)]
+        fake_pixel_estimators = [FakePixelEstimator(pix) for pix in test_pixels]
+        image = np.random.random((128, 96, 3))
+        for fpe in fake_pixel_estimators:
+            print("Pixel", fpe.pixel)
+            roi_estimator = TruePixelROI(128, 80, fpe, FakeObjectWithHandle())
+            crop, pixels = roi_estimator.crop(image)
+            self.assertEqual(crop.shape, (128, 80, 3))
+            roi_estimator = TruePixelROI(80, 96, fpe, FakeObjectWithHandle())
+            crop, pixels = roi_estimator.crop(image)
+            self.assertEqual(crop.shape, (80, 96, 3))
 
 
 class MockRandomProvider(object):
