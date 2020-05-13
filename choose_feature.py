@@ -100,7 +100,9 @@ if __name__ == '__main__':
             # max and min as defaults for AttentionNetworkCoord
         )
         searcher.search(total_trials=config["trials"])
-        searcher.save(os.path.join("models/bop_chooser", config["name"]))
+        path = os.path.join("models/bop_chooser", config["name"])
+        searcher.save(path)
+        searcher.save_plots(path)
     else:
         # latent_dimension // 2, number of trials
         # TODO: do this for multiple crop sizes
