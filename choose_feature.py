@@ -80,7 +80,6 @@ if __name__ == '__main__':
         size=(height, width),
         cache=True,
         add_image=True,
-        normalise=False
     )
 
     chooser = DSAE_ValFeatureChooser(

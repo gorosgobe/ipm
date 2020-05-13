@@ -10,7 +10,7 @@ from lib.cv.dataset import ImageTipVelocitiesDataset
 
 class DSAE_Dataset(ImageTipVelocitiesDataset):
     def __init__(self, velocities_csv, rotations_csv, metadata, root_dir, input_resize_transform,
-                 size, reduced_transform=transforms.Lambda(lambda x: x), single_image=False, normalise=True):
+                 size, reduced_transform=transforms.Lambda(lambda x: x), single_image=False):
         # dataset that loads three successor images
         # if at boundary, load the boundary image twice
         # set single_image to true to only load the center image
@@ -21,9 +21,6 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
             root_dir=root_dir,
             as_uint=True
         )
-        # this can be set by subclasses so they perform the normalisation directly
-        # in case they add CoordConv maps or something like that
-        self.normalise = normalise
         self.input_resize_transform = input_resize_transform
         self.reduced_transform = reduced_transform
         # reduced transform can be left as identity if single_image is True
@@ -66,13 +63,10 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
             # get grayscaled output target image
             grayscaled = self.reduced_transform(imgs[0])  # resize to reduced size and grayscale
 
-        if self.normalise:
-            normalising_transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-            ])
-        else:
-            normalising_transform = transforms.ToTensor()
+        normalising_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+        ])
 
         # also add our expected crop pixel, for use when testing
         instance_demonstration_idx = idx - d_data["start"]
@@ -95,9 +89,9 @@ class DSAE_Dataset(ImageTipVelocitiesDataset):
 
 class DSAE_FeatureProviderDataset(DSAE_Dataset):
     def __init__(self, feature_provider, velocities_csv, rotations_csv, metadata, root_dir,
-                 input_resize_transform, size, cache, reduced_transform=None, add_pixel=False, add_image=False, normalise=True):
+                 input_resize_transform, size, cache, reduced_transform=None, add_pixel=False, add_image=False):
         super().__init__(velocities_csv, rotations_csv, metadata, root_dir, input_resize_transform,
-                         size, single_image=True, normalise=normalise)
+                         size, single_image=True)
         self.feature_provider = feature_provider
         self.add_pixel = add_pixel
         self.add_image = add_image
@@ -169,7 +163,8 @@ class DSAE_FeatureCropTVEAdapter(object):
         )
         self.normalising_transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5, 0.5])
+            # image is already normalised
+            transforms.Normalize([0, 0, 0, 0.5, 0.5], [1, 1, 1, 0.5, 0.5])
         ])
 
     def __len__(self):
