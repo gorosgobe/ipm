@@ -3,13 +3,14 @@ import os
 
 from torchvision.transforms import transforms
 
+from lib.bop.crop_size_feature_search import CropSizeFeatureSearch
+from lib.common.utils import get_seed, set_up_cuda
 from lib.dsae.dsae import DSAE_Encoder, CustomDeepSpatialAutoencoder
 from lib.dsae.dsae_choose_feature import DSAE_ValFeatureChooser
 from lib.dsae.dsae_dataset import DSAE_FeatureProviderDataset
 from lib.dsae.dsae_feature_provider import FeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
-from lib.common.utils import get_seed, set_up_cuda
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -19,6 +20,8 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--output_divisor", type=int, default=4)
+    parser.add_argument("--is_bop", default="no")
+    parser.add_argument("--trials", type=int)
     parse_result = parser.parse_args()
 
     dataset = parse_result.dataset
@@ -34,8 +37,13 @@ if __name__ == '__main__':
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        output_divisor=parse_result.output_divisor
+        output_divisor=parse_result.output_divisor,
+        is_bop=parse_result.is_bop == "yes",
+        trials=parse_result.trials
     )
+
+    if config["is_bop"] and config["trials"] is None:
+        raise ValueError("Bayesian optimisation requires a number of trials!")
 
     device = set_up_cuda(config["seed"])
     config["device"] = device
@@ -71,7 +79,8 @@ if __name__ == '__main__':
         ]),
         size=(height, width),
         cache=True,
-        add_image=True
+        add_image=True,
+        normalise=False
     )
 
     chooser = DSAE_ValFeatureChooser(
@@ -83,6 +92,18 @@ if __name__ == '__main__':
         device=config["device"]
     )
 
-    feature_index = chooser.get_best_feature_index()
-    print(f"Best feature index {feature_index} for {config['dsae_path']}.")
-    chooser.save(os.path.join("models/dsae_chooser", config["name"]))
+    if config["is_bop"]:
+        searcher = CropSizeFeatureSearch(
+            name=config["name"],
+            latent_dimension=config["latent_dimension"],
+            dsae_feature_chooser=chooser,
+            # max and min as defaults for AttentionNetworkCoord
+        )
+        searcher.search(total_trials=config["trials"])
+        searcher.save(os.path.join("models/bop_chooser", config["name"]))
+    else:
+        # latent_dimension // 2, number of trials
+        # TODO: do this for multiple crop sizes
+        feature_index = chooser.get_best_feature_index()
+        print(f"Best feature index {feature_index} for {config['dsae_path']}.")
+        chooser.save(os.path.join("models/dsae_chooser", config["name"]))

@@ -61,7 +61,6 @@ class DSAE_ValFeatureChooser(Saveable):
 
     def get_best_feature_index(self):
         validation_losses = []
-        self.features = 1
         for idx, f in enumerate(range(self.features)):
             val_loss = self.train_model_with_feature(index=idx)
             print(f"Index {idx}, val loss {val_loss}")
