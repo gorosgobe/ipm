@@ -123,11 +123,12 @@ class DSAE_FeatureProviderDataset(DSAE_Dataset):
         sample = super().__getitem__(idx)
         # features of size (latent // 2, 2), convert to (latent,)
         features = self.feature_provider(sample["images"][0]).squeeze(0).view(-1)
+        # move to cpu here to avoid multiprocessing errors when accessing on cache
         feature_sample = dict(
-            features=features,
-            target_vel_rot=sample["target_vel_rot"],
-            **(dict(image=sample["images"][0]) if self.add_image else {}),
-            **(dict(pixel=sample["pixel"]) if self.add_pixel else {}),
+            features=features.cpu(),
+            target_vel_rot=sample["target_vel_rot"].cpu(),
+            **(dict(image=sample["images"][0].cpu()) if self.add_image else {}),
+            **(dict(pixel=sample["pixel"].cpu()) if self.add_pixel else {}),
         )
         return feature_sample
 
@@ -141,6 +142,7 @@ class DSAE_SingleFeatureProviderDataset(object):
         return self.feature_provider_dataset.__len__()
 
     def __getitem__(self, idx):
+        # feature sample is in CPU
         feature_sample = self.feature_provider_dataset[idx]
         assert "image" in feature_sample
         assert "features" in feature_sample
@@ -174,6 +176,7 @@ class DSAE_FeatureCropTVEAdapter(object):
         return self.single_feature_dataset.__len__()
 
     def __getitem__(self, idx):
+        # sample is in CPU
         sample = self.single_feature_dataset[idx]
         tip_velocities, rotations = torch.split(sample["target_vel_rot"], 3)
         feature = (sample["feature"] + 1) / 2
