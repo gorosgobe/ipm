@@ -64,7 +64,7 @@ if __name__ == '__main__':
         )
     )
     model.load_state_dict(DSAEManager.load_state_dict(os.path.join("models/dsae/", config["dsae_path"])))
-    model.to(config["device"])
+    # feature provider in CPU, only move to CUDA once loaded
     feature_provider = FeatureProvider(model=model, device=config["device"])
 
     feature_provider_dataset = DSAE_FeatureProviderDataset(

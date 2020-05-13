@@ -146,7 +146,7 @@ class DSAE_SingleFeatureProviderDataset(object):
         assert "features" in feature_sample
         assert "target_vel_rot" in feature_sample
 
-        single_feature = feature_sample["features"].cpu().view(-1, 2)[self.feature_index]
+        single_feature = feature_sample["features"].view(-1, 2)[self.feature_index]
         sample = dict(
             feature=single_feature,
             image=feature_sample["image"],
