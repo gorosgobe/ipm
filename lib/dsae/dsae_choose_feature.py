@@ -51,8 +51,8 @@ class DSAE_ValFeatureChooser(Saveable):
             crop_size=crop_size
         )
 
-        train_dataloader = DataLoader(dataset=training_dataset, batch_size=32, num_workers=4)
-        val_dataloader = DataLoader(dataset=validation_dataset, batch_size=32, num_workers=4)
+        train_dataloader = DataLoader(dataset=training_dataset, batch_size=32, num_workers=4, shuffle=True)
+        val_dataloader = DataLoader(dataset=validation_dataset, batch_size=32, num_workers=4, shuffle=True)
 
         estimator.train(data_loader=train_dataloader, max_epochs=200, val_loader=val_dataloader, validate_epochs=1)
         val_loss = estimator.get_best_val_loss()
