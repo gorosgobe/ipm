@@ -3,7 +3,7 @@ import time
 import torch
 from torchvision import transforms
 
-from controller import TrainingPixelROI
+from lib.cv.controller import TrainingPixelROI
 from lib.common.test_utils import downsample_coordinates
 from lib.cv.dataset import ImageTipVelocitiesDataset
 
