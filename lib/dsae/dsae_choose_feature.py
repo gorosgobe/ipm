@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 
 from lib.common.utils import get_demonstrations
@@ -70,6 +71,10 @@ class DSAE_ValFeatureChooser(Saveable):
         res = np.array(validation_losses).argmin()
         self.index = res
         return res
+
+    @staticmethod
+    def load_info(path):
+        return torch.load(path)
 
     def get_info(self):
         return dict(

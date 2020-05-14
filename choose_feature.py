@@ -22,6 +22,8 @@ if __name__ == '__main__':
     parser.add_argument("--output_divisor", type=int, default=4)
     parser.add_argument("--is_bop", default="no")
     parser.add_argument("--trials", type=int)
+    parser.add_argument("--index", type=int)
+    parser.add_argument("--index_load_from")
     parse_result = parser.parse_args()
 
     dataset = parse_result.dataset
@@ -39,11 +41,19 @@ if __name__ == '__main__':
         root_dir=dataset,
         output_divisor=parse_result.output_divisor,
         is_bop=parse_result.is_bop == "yes",
-        trials=parse_result.trials
+        trials=parse_result.trials,
+        index=None
     )
 
     if config["is_bop"] and config["trials"] is None:
         raise ValueError("Bayesian optimisation requires a number of trials!")
+
+    if config["is_bop"]:
+        if parse_result.index is not None:
+            config["index"] = parse_result.index
+        elif parse_result.index_load_from is not None:
+            info = DSAE_ValFeatureChooser.load_info(os.path.join("models/dsae_chooser", parse_result.index_load_from))
+            config["index"] = info["index"]
 
     device = set_up_cuda(config["seed"])
     config["device"] = device
@@ -98,7 +108,7 @@ if __name__ == '__main__':
             dsae_feature_chooser=chooser,
             # max and min as defaults for AttentionNetworkCoord
         )
-        searcher.search(total_trials=config["trials"])
+        searcher.search(total_trials=config["trials"], index=config["index"])
         path = os.path.join("models/bop_chooser", config["name"])
         searcher.save(path)
         searcher.save_plots(path)
