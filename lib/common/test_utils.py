@@ -43,6 +43,7 @@ class TestConfig(enum.Enum):
     COORD_32_ST_100 = 6
     ATTENTION_COORD_ROT_32 = 7
     DSAE = 8
+    RECURRENT_FULL = 9
 
 
 def get_testing_configs(camera_robot, target_cube):
@@ -51,6 +52,11 @@ def get_testing_configs(camera_robot, target_cube):
             {
                 "cropper": IdentityCropper(),
                 "c_type": ControllerType.RELATIVE_POSITION_AND_ORIENTATION
+            },
+        TestConfig.RECURRENT_FULL:
+            {
+                "cropper": IdentityCropper(),
+                "c_type": ControllerType.DEFAULT
             },
         TestConfig.FULL_IMAGE:
             {

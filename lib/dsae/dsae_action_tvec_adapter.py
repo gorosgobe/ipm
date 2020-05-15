@@ -24,6 +24,10 @@ class DSAETipVelocityEstimatorAdapter(object):
 
         return action
 
+    def start(self):
+        # only required for recurrent controllers
+        return
+
     def resize_image(self, image):
         # resize to input image, (96, 128)
         return self.resize_transform(image)

@@ -18,6 +18,7 @@ class SoftManager(BestSaveable):
         self.loss = nn.MSELoss(reduction="none")
         self.early_stopper = EarlyStopper(patience=10, saveable=self)
         self.best_info = None
+        self.hidden_size = hidden_size
 
     def train(self, num_epochs, train_dataloader, val_dataloader):
         self.model.to(self.device)
@@ -56,7 +57,7 @@ class SoftManager(BestSaveable):
         max_len = lengths.max().item()
         (b,) = lengths.size()
         # predicted targets (b, dem_len, 6)
-        predicted_targets, _hidden_state = self.model(demonstrations, lengths)
+        predicted_targets, _hidden_state = self.model(demonstrations)
         ones = torch.ones(b, max_len)
         mask = (torch.arange(0, max_len) * ones).to(self.device) < lengths.unsqueeze(-1)
         mask = mask.float()
@@ -70,5 +71,6 @@ class SoftManager(BestSaveable):
     def get_info(self):
         return dict(
             name=self.name,
-            state_dict=self.model.state_dict()
+            state_dict=self.model.state_dict(),
+            hidden_size=self.hidden_size
         )

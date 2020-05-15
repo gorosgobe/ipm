@@ -247,6 +247,9 @@ class TipVelocityController(object):
     def get_model(self):
         return self.tip_velocity_estimator
 
+    def start(self):
+        self.tip_velocity_estimator.start()
+
     def get_tip_control(self, image):
 
         # baseline controller does not require image at all

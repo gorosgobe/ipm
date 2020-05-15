@@ -77,7 +77,7 @@ class SoftCNNLSTMNetwork(nn.Module):
         self.lstm = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size)
         self.mlp = MLP(hidden_size=hidden_size)
 
-    def forward(self, x, lengths):
+    def forward(self, x, hidden_state=None):
         # (batch, d_len, C, H, W)
         b, d_len, c, h, w = x.size()
         x = x.view(b * d_len, c, h, w)
@@ -91,7 +91,6 @@ class SoftCNNLSTMNetwork(nn.Module):
         # 1: (demonstration_length, batch, C', H'*W')
         # 2: current hidden state (demonstration_length, batch, hidden_size)
         out = torch.zeros((d_len, b, 6)).to(x.device)
-        hidden_state = None
         for d_step, batch in enumerate(out_cnn_feature_vectors):
             # batch: (batch, C', H'xW')
             assert batch.size() == (b, c_p, h_p * w_p)

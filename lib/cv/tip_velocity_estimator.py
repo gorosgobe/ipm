@@ -325,3 +325,7 @@ class TipVelocityEstimator(BestSaveable):
     def get_num_epochs_trained(self):
         # does not take into account patience
         return len(self.training_losses)
+
+    def start(self):
+        # only required for recurrent controllers
+        return

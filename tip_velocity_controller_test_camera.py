@@ -3,17 +3,19 @@ import os
 
 import numpy as np
 import torch
+from stable_baselines import SAC, PPO2
 
-from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
-from lib.dsae.dsae_action_tvec_adapter import DSAETipVelocityEstimatorAdapter
-from lib.dsae.dsae_feature_provider import FeatureProvider
-from lib.dsae.dsae_manager import DSAEManager
-from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
-from lib.dsae.dsae_action_predictor import ActionPredictorManager
-from lib.simulation.camera_robot import CameraRobot
+from lib.common.test_utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
 from lib.cv.controller import TipVelocityController
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
-from lib.common.test_utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
+from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
+from lib.dsae.dsae_action_predictor import ActionPredictorManager
+from lib.dsae.dsae_action_tvec_adapter import DSAETipVelocityEstimatorAdapter
+from lib.dsae.dsae_feature_provider import FeatureProvider, FilterSpatialRLFeatureProvider
+from lib.dsae.dsae_manager import DSAEManager
+from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
+from lib.simulation.camera_robot import CameraRobot
+from soft.rnn_tvec_adapter import RNNTipVelocityControllerAdapter
 
 
 def get_full_image_networks(scene_trained, training_list, prefix=""):
@@ -76,7 +78,11 @@ def get_coord_attention_networks(size, scene_trained, training_list, prefix=""):
     return models_res, config
 
 
-def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, image_output_size=(24, 32)):
+def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, image_output_size=(24, 32), rl_path=None,
+                       is_sac=None):
+    if (rl_path is None) + (is_sac is None) == 1:
+        raise ValueError("rl_path and is_sac should be both None or both contain information about the RL model")
+
     state_dict = DSAEManager.load_state_dict(os.path.join("models/dsae", dsae_path))
     model = CustomDeepSpatialAutoencoder(
         encoder=DSAE_Encoder(
@@ -92,18 +98,37 @@ def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, im
         )
     )
     model.load_state_dict(state_dict)
-    feature_provider = FeatureProvider(model=model, device=torch.device("cpu"))
+    device = torch.device("cpu")
+
+    if rl_path is None:
+        feature_provider = FeatureProvider(model=model, device=device)
+    else:
+        path = os.path.join("models/rl", rl_path)
+        if is_sac:
+            rl_model = SAC.load(path)
+        else:
+            rl_model = PPO2.load(path)
+
+        feature_provider = FilterSpatialRLFeatureProvider(
+            feature_provider_model=model, device=device, rl_model=rl_model, k=k
+        )
+
     action_predictor = ActionPredictorManager.load(
         path=os.path.join("models/dsae/action_predictor", action_predictor_path),
         k=k
     )
 
-    dsae_tve_model = DSAETipVelocityEstimatorAdapter(feature_provider=feature_provider, action_predictor=action_predictor)
+    dsae_tve_model = DSAETipVelocityEstimatorAdapter(feature_provider=feature_provider,
+                                                     action_predictor=action_predictor)
     return dsae_tve_model
 
 
 def get_default_tve_model(tve_prefix, tve_model_name):
     return TipVelocityEstimator.load("models/{}{}.pt".format(tve_prefix, tve_model_name))
+
+
+def get_recurrent_tve_model(tve_prefix, tve_model_name):
+    return RNNTipVelocityControllerAdapter.load(os.path.join("models", tve_prefix, tve_model_name))
 
 
 if __name__ == "__main__":
@@ -153,14 +178,21 @@ if __name__ == "__main__":
     #     "AttentionNetworkcoordRot_scene1scene1_32_005",
     #
     # ]
-    prefix = "fixed_steps_datasets/v3/"
+    # testing_config_name = TestConfig.ATTENTION_COORD_32
+    # prefix = "fixed_steps_datasets/"
+    # models = ["FullImageNetworkSoft_scene1scene1_08_v1", "FullImageNetworkSoft_scene1scene1_08_v2", "FullImageNetworkSoft_scene1scene1_08_v3"]
 
     testing_config_name = TestConfig.DSAE
-    # define if network is dsae type
+    # # define if network is dsae type
     dsae_path = "target_64_0001_1_1_08_scene1scene1_v1.pt"
-    models = ["act_64_08_scene1scene1_v2.pt", "act_64_08_scene1scene1_v3.pt"]
+    models = ["act_ppo_dense_k3_64_0001_08_scene1scene1.pt"]
     latent_dimension = 128
-    k = 64
+    k = 3
+    # # for RL based versions
+    # rl_path = "ppo_test_v2"
+    rl_path = "ppo_dense_k3"
+    is_sac = False
+    # is_sac = False
 
     for model_name in models:
         s, test = get_scene_and_test_scene_configuration(model_name=model_name)
@@ -175,13 +207,20 @@ if __name__ == "__main__":
             cropper = testing_config["cropper"]
             c_type = testing_config["c_type"]
             if testing_config_name == TestConfig.DSAE:
+                print("DSAE-based policy!")
                 tve_model = get_dsae_tve_model(
                     dsae_path=dsae_path,
                     action_predictor_path=model_name,
                     latent_dimension=latent_dimension,
-                    k=k
+                    k=k,
+                    rl_path=rl_path,
+                    is_sac=is_sac
                 )
+            elif testing_config_name == TestConfig.RECURRENT_FULL:
+                print("Recurrent policy!")
+                tve_model = get_recurrent_tve_model(prefix, model_name)
             else:
+                print("Default type policy!")
                 tve_model = get_default_tve_model(prefix, model_name)
             controller = TipVelocityController(
                 tve_model=tve_model,
@@ -215,6 +254,7 @@ if __name__ == "__main__":
                 print("Offset:", offset)
                 distractor_positions = distractor_positions_list[idx]
                 print("Distractor positions:", distractor_positions)
+                controller.start()
                 result = camera_robot.run_controller_simulation(
                     controller=controller,
                     offset=np.array(offset),
@@ -225,7 +265,7 @@ if __name__ == "__main__":
                 )
                 count += 1
                 # for index, i in enumerate(result["images"]):
-                #     utils.save_image(i, "/home/pablo/Desktop/baseline-{}image{}.png".format(count, index))
+                #     save_image(i, "/home/pablo/Desktop/rl-{}image{}.png".format(count, index))
                 result_json["min_distances"][str(idx)] = result["min_distance"]
                 result_json["fixed_steps_distances"][str(idx)] = result["fixed_steps_distance"]
                 result_json["errors"][str(idx)] = dict(
