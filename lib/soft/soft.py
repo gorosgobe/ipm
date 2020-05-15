@@ -90,7 +90,7 @@ class SoftCNNLSTMNetwork(nn.Module):
         # apply soft attention, inputs
         # 1: (demonstration_length, batch, C', H'*W')
         # 2: current hidden state (demonstration_length, batch, hidden_size)
-        out = torch.zeros((d_len, b, 6))
+        out = torch.zeros((d_len, b, 6)).to(x.device)
         hidden_state = None
         for d_step, batch in enumerate(out_cnn_feature_vectors):
             # batch: (batch, C', H'xW')
