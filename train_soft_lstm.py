@@ -43,8 +43,7 @@ if __name__ == "__main__":
     print("Name:", config["name"])
     device = set_up_cuda(config["seed"])
     config["device"] = device
-    # TODO: CoordConv not used for the time being, consider as an extra
-    preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"], is_coord=False)
+    preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"])
 
     dataset = SoftRNNDataset(
         velocities_csv=config["velocities_csv"],

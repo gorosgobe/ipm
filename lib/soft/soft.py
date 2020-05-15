@@ -107,11 +107,14 @@ class SoftCNNLSTMNetwork(nn.Module):
         # 1: (demonstration_length, batch, C', H'*W')
         # 2: current hidden state (demonstration_length, batch, hidden_size)
         out = torch.zeros((d_len, b, 6)).to(x.device)
+        importances = []
         for d_step, batch in enumerate(out_cnn_feature_vectors):
             # batch: (batch, C', H'xW')
             assert batch.size() == (b, c_p, h_p * w_p)
             importance = self.attention(batch, hidden_state)
+            # store current importance for easy access
             self.importance = importance
+            importances.append(importance)
             # importance (batch, 1, H'xW')
             assert importance.size() == (b, 1, h_p * w_p)
             # context variable (batch, hidden_size)
@@ -122,4 +125,4 @@ class SoftCNNLSTMNetwork(nn.Module):
             out[d_step] = self.mlp(output.squeeze(0))
 
         # so out is (b, seq_len, 6) similarly to input
-        return out.transpose(0, 1), hidden_state
+        return out.transpose(0, 1), hidden_state, importances

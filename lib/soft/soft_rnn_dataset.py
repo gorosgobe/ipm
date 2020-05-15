@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Subset
 from torch.utils.data._utils.collate import default_collate
 
-from dsae.dsae import CoordinateUtils
+from lib.dsae.dsae import CoordinateUtils
 from lib.cv.dataset import ImageTipVelocitiesDataset
 
 

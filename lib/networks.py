@@ -398,6 +398,7 @@ class FullImageNetworkCoord_32(FullImageNetwork_32):
     def __init__(self, image_width, image_height):
         super().__init__(image_width, image_height)
         self.conv1 = torch.nn.Conv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)
+        # TODO: coord here is not normalised
         self.spatial_dimension_adder = SpatialDimensionAdder()
 
     def forward(self, x):
