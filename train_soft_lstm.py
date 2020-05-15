@@ -11,8 +11,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", required=True)
     parser.add_argument("--dataset", required=True)
-    parser.add_argument("--seed", default="random")
+    parser.add_argument("--batch_size", type=int, required=True)
     parser.add_argument("--epochs", type=int, required=True)
+    parser.add_argument("--seed", default="random")
     parser.add_argument("--training", type=float, default=0.8)
     parse_result = parser.parse_args()
 
@@ -28,7 +29,7 @@ if __name__ == "__main__":
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        batch_size=32,
+        batch_size=parse_result.batch_size,
         split=[0.8, 0.1, 0.1],
         name=parse_result.name,
         max_epochs=parse_result.epochs,
