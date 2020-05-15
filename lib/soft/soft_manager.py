@@ -58,7 +58,7 @@ class SoftManager(BestSaveable):
         # predicted targets (b, dem_len, 6)
         predicted_targets, _hidden_state = self.model(demonstrations, lengths)
         ones = torch.ones(b, max_len)
-        mask = (torch.arange(0, max_len) * ones) < lengths.unsqueeze(-1)
+        mask = (torch.arange(0, max_len) * ones).to(self.device) < lengths.unsqueeze(-1)
         mask = mask.float()
         # mask (b, dem_len)
         loss = self.loss(predicted_targets, targets)
