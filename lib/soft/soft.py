@@ -3,9 +3,14 @@ from torch import nn
 
 
 class CNN(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, is_coord):
         super().__init__()
-        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2)
+        self.conv1 = torch.nn.Conv2d(
+            in_channels=3 if not is_coord else 5,
+            out_channels=64,
+            kernel_size=5,
+            stride=2
+        )
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
         self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=64, kernel_size=7, stride=2)
         self.batch_norm2 = torch.nn.BatchNorm2d(64)
@@ -70,12 +75,22 @@ class SoftAttention(nn.Module):
 
 
 class SoftCNNLSTMNetwork(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, is_coord):
         super().__init__()
-        self.cnn = CNN(hidden_size=hidden_size)
+        self.cnn = CNN(hidden_size=hidden_size, is_coord=is_coord)
         self.attention = SoftAttention(hidden_size=hidden_size)
         self.lstm = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size)
         self.mlp = MLP(hidden_size=hidden_size)
+        self.importance = None
+        self.h_p = None
+        self.conv3_up = nn.UpsamplingBilinear2d(size=(22, 30))
+        self.conv2_up = nn.UpsamplingBilinear2d(size=(47, 63))
+        self.conv1_up = nn.UpsamplingBilinear2d(size=(96, 128))
+
+    def get_upsampled_attention(self):
+        b, _1, h_pxw_p = self.importance.size()
+        importance = self.importance.view(b, 1, self.h_p, -1)
+        return self.conv1_up(self.conv2_up(self.conv3_up(importance)))
 
     def forward(self, x, hidden_state=None):
         # (batch, d_len, C, H, W)
@@ -83,6 +98,7 @@ class SoftCNNLSTMNetwork(nn.Module):
         x = x.view(b * d_len, c, h, w)
         out_cnn = self.cnn(x)
         bxd_len, c_p, h_p, w_p = out_cnn.size()
+        self.h_p = h_p
         out_cnn = out_cnn.view(b, d_len, c_p, h_p, w_p)
         # output visual features: (batch, demonstration_length, C', H', W')
         out_cnn_view = out_cnn.transpose(0, 1)
@@ -95,6 +111,7 @@ class SoftCNNLSTMNetwork(nn.Module):
             # batch: (batch, C', H'xW')
             assert batch.size() == (b, c_p, h_p * w_p)
             importance = self.attention(batch, hidden_state)
+            self.importance = importance
             # importance (batch, 1, H'xW')
             assert importance.size() == (b, 1, h_p * w_p)
             # context variable (batch, hidden_size)

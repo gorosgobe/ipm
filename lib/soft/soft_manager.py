@@ -8,10 +8,10 @@ from lib.soft.soft import SoftCNNLSTMNetwork
 
 class SoftManager(BestSaveable):
 
-    def __init__(self, name, dataset, device, hidden_size):
+    def __init__(self, name, dataset, device, hidden_size, is_coord):
         super().__init__()
         self.name = name
-        self.model = SoftCNNLSTMNetwork(hidden_size=hidden_size)
+        self.model = SoftCNNLSTMNetwork(hidden_size=hidden_size, is_coord=is_coord)
         self.dataset = dataset
         self.device = device
         self.optimiser = torch.optim.Adam(self.model.parameters(), lr=0.0001)

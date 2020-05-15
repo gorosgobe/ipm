@@ -15,6 +15,8 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, required=True)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--training", type=float, default=0.8)
+    parser.add_argument("--val", type=float, default=0.1)
+    parser.add_argument("--is_coord", default="no")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -30,12 +32,12 @@ if __name__ == "__main__":
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
         batch_size=parse_result.batch_size,
-        split=[0.8, 0.1, 0.1],
+        split=[0.8, parse_result.val, 0.2 - parse_result.val],
         name=parse_result.name,
         max_epochs=parse_result.epochs,
         validate_epochs=1,
         save_to_location="models/",
-
+        is_coord=parse_result.is_coord == "yes"
     )
 
     print("Name:", config["name"])
@@ -50,7 +52,8 @@ if __name__ == "__main__":
         rotations_csv=config["rotations_csv"],
         root_dir=config["root_dir"],
         cache=True,
-        transform=preprocessing_transforms
+        transform=preprocessing_transforms,
+        is_coord=config["is_coord"]
     )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data
@@ -69,7 +72,8 @@ if __name__ == "__main__":
         name=config["name"],
         dataset=dataset,
         hidden_size=64,
-        device=config["device"]
+        device=config["device"],
+        is_coord=config["is_coord"]
     )
 
     manager.train(

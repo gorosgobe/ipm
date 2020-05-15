@@ -1,15 +1,17 @@
 import time
 
 import numpy as np
+import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Subset
 from torch.utils.data._utils.collate import default_collate
 
+from dsae.dsae import CoordinateUtils
 from lib.cv.dataset import ImageTipVelocitiesDataset
 
 
 class SoftRNNDataset(ImageTipVelocitiesDataset):
-    def __init__(self, velocities_csv, metadata, root_dir, rotations_csv, cache, transform):
+    def __init__(self, velocities_csv, metadata, root_dir, rotations_csv, cache, transform, is_coord):
         super().__init__(
             velocities_csv=velocities_csv,
             metadata=metadata,
@@ -17,6 +19,7 @@ class SoftRNNDataset(ImageTipVelocitiesDataset):
             rotations_csv=rotations_csv,
             transform=transform
         )
+        self.is_coord = is_coord
         self.cache = cache
         if self.cache:
             self.initialising = True
@@ -59,6 +62,18 @@ class SoftRNNDataset(ImageTipVelocitiesDataset):
             np.concatenate((dem_data["tip_velocities"], dem_data["rotations"])) for dem_data in demonstration_data
         ]
 
+        if self.is_coord:
+            result = []
+            c, h, w = demonstration_images[0].size()
+            image_x, image_y = CoordinateUtils.get_image_coordinates(h, w, normalise=True)
+            image_coordinates = torch.cat((image_x.unsqueeze(-1), image_y.unsqueeze(-1)), dim=-1)
+            image_coordinates = image_coordinates.permute(2, 0, 1)
+            # (2, H, W)
+            for image in demonstration_images:
+                res = torch.cat((image, image_coordinates), dim=0)
+                assert res.size() == (5, h, w)
+                result.append(res)
+            demonstration_images = result
         return dict(
             demonstration=demonstration_images,
             demonstration_targets=demonstration_targets,
