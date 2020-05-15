@@ -47,7 +47,7 @@ class SoftAttention(nn.Module):
         b, c_p, h_pxw_p = x.size()
         # h_t (batch, C' = hidden_size)
         if hidden_state is None:
-            h_t = torch.zeros((b, c_p))
+            h_t = torch.zeros((b, c_p)).to(x.device)
         else:
             h_t, _ = hidden_state
             # remove seq len dimension
