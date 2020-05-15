@@ -1,11 +1,32 @@
 import argparse
 import os
 
+from ax import optimize
 from torch.utils.data import DataLoader
 
 from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
 from lib.soft.soft_manager import SoftManager
 from lib.soft.soft_rnn_dataset import SoftRNNDataset
+
+
+def evaluation_function(parameterization, dataset, config, train_data_loader, validation_data_loader):
+    entropy_lambda = parameterization["entropy_lambda"]
+    manager = SoftManager(
+        name=config["name"],
+        dataset=dataset,
+        hidden_size=64,
+        device=config["device"],
+        is_coord=config["is_coord"],
+        entropy_lambda=entropy_lambda
+    )
+
+    manager.train(
+        num_epochs=config["max_epochs"],
+        train_dataloader=train_data_loader,
+        val_dataloader=validation_data_loader
+    )
+    return manager.get_best_val_loss()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -18,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument("--val", type=float, default=0.1)
     parser.add_argument("--is_coord", default="no")
     parser.add_argument("--entropy_lambda", type=float, default=1.0)
+    parser.add_argument("--is_bop", default="no")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -39,7 +61,8 @@ if __name__ == "__main__":
         validate_epochs=1,
         save_to_location="models/",
         is_coord=parse_result.is_coord == "yes",
-        entropy_lambda=parse_result.entropy_lambda
+        entropy_lambda=parse_result.entropy_lambda,
+        is_bop=parse_result.is_bop == "yes"
     )
 
     print("Name:", config["name"])
@@ -69,19 +92,39 @@ if __name__ == "__main__":
     validation_data_loader = DataLoader(val_demonstrations, batch_size=32, num_workers=4, shuffle=True,
                                         collate_fn=SoftRNNDataset.custom_collate)
 
-    manager = SoftManager(
-        name=config["name"],
-        dataset=dataset,
-        hidden_size=64,
-        device=config["device"],
-        is_coord=config["is_coord"],
-        entropy_lambda=config["entropy_lambda"]
-    )
+    if config["is_bop"]:
+        best_parameters, values, experiment, model = optimize(
+            parameters=[
+                dict(
+                    name="entropy_lambda", type="range", bounds=[1e-4, 1.0]
+                )
+            ],
+            evaluation_function=lambda params: evaluation_function(params, dataset=dataset, config=config,
+                                                                   train_data_loader=train_data_loader,
+                                                                   validation_data_loader=validation_data_loader),
+            total_trials=30,
+            minimize=True
+        )
+        print("Best entropy parameter:")
+        print(best_parameters)
+        print("Means, covariances")
+        means, covariances = values
+        print(means)
+        print(covariances)
+    else:
+        manager = SoftManager(
+            name=config["name"],
+            dataset=dataset,
+            hidden_size=64,
+            device=config["device"],
+            is_coord=config["is_coord"],
+            entropy_lambda=config["entropy_lambda"]
+        )
 
-    manager.train(
-        num_epochs=config["max_epochs"],
-        train_dataloader=train_data_loader,
-        val_dataloader=validation_data_loader
-    )
+        manager.train(
+            num_epochs=config["max_epochs"],
+            train_dataloader=train_data_loader,
+            val_dataloader=validation_data_loader
+        )
 
-    manager.save_best_model(os.path.join(config["save_to_location"], "soft_lstm"))
+        manager.save_best_model(os.path.join(config["save_to_location"], "soft_lstm"))

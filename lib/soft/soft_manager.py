@@ -96,6 +96,9 @@ class SoftManager(BestSaveable):
     def get_best_info(self):
         return self.best_info
 
+    def get_best_val_loss(self):
+        return self.early_stopper.get_best_val_loss()
+
     def get_info(self):
         return dict(
             name=self.name,
