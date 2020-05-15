@@ -17,6 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--val", type=float, default=0.1)
     parser.add_argument("--is_coord", default="no")
+    parser.add_argument("--entropy_lambda", type=float, default=1.0)
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -37,7 +38,8 @@ if __name__ == "__main__":
         max_epochs=parse_result.epochs,
         validate_epochs=1,
         save_to_location="models/",
-        is_coord=parse_result.is_coord == "yes"
+        is_coord=parse_result.is_coord == "yes",
+        entropy_lambda=parse_result.entropy_lambda
     )
 
     print("Name:", config["name"])
@@ -72,7 +74,8 @@ if __name__ == "__main__":
         dataset=dataset,
         hidden_size=64,
         device=config["device"],
-        is_coord=config["is_coord"]
+        is_coord=config["is_coord"],
+        entropy_lambda=config["entropy_lambda"]
     )
 
     manager.train(
