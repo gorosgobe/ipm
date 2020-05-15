@@ -106,4 +106,4 @@ class SoftCNNLSTMNetwork(nn.Module):
             out[d_step] = self.mlp(output.squeeze(0))
 
         # so out is (b, seq_len, 6) similarly to input
-        return out.transpose(0, 1)
+        return out.transpose(0, 1), hidden_state

@@ -15,7 +15,7 @@ class SoftManager(BestSaveable):
         self.dataset = dataset
         self.device = device
         self.optimiser = torch.optim.Adam(self.model.parameters(), lr=0.0001)
-        self.loss = nn.MSELoss()
+        self.loss = nn.MSELoss(reduction="none")
         self.early_stopper = EarlyStopper(patience=10, saveable=self)
         self.best_info = None
 
@@ -51,9 +51,18 @@ class SoftManager(BestSaveable):
         demonstrations = batch["demonstration"].to(self.device)
         # targets (b, dem_len, 6)
         targets = batch["demonstration_targets"].to(self.device)
+        # lengths (b)
         lengths = batch["lengths"].to(self.device)
-        predicted_targets = self.model(demonstrations, lengths)
-        return self.loss(predicted_targets, targets)
+        max_len = lengths.max().item()
+        (b,) = lengths.size()
+        # predicted targets (b, dem_len, 6)
+        predicted_targets, _hidden_state = self.model(demonstrations, lengths)
+        ones = torch.ones(b, max_len)
+        mask = (torch.arange(0, max_len) * ones) < lengths.unsqueeze(-1)
+        mask = mask.float()
+        # mask (b, dem_len)
+        loss = self.loss(predicted_targets, targets)
+        return torch.sum(loss * mask.unsqueeze(-1)) / torch.sum(mask)
 
     def get_best_info(self):
         return self.best_info

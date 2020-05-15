@@ -30,7 +30,6 @@ class SoftRNNDataset(ImageTipVelocitiesDataset):
 
     @staticmethod
     def custom_collate(batch):
-        # TODO: implement, use pack_sequence here
         demonstration = [default_collate(data_dict["demonstration"]) for data_dict in batch]
         lengths = default_collate([len(data_dict["demonstration"]) for data_dict in batch])
         padded_demonstration = pad_sequence(demonstration, batch_first=True)
