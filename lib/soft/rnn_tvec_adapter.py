@@ -53,8 +53,8 @@ class RNNTipVelocityControllerAdapter(object):
         result = []
         for pair in demonstration_attention_maps:
             torch_img, torch_attention = pair
-            np_img = (torch_img.permute(1, 2, 0).numpy() + 1) / 2
-            attention_heatmap = torch_attention.permute(1, 2, 0).numpy()
+            np_img = (torch_img.permute(1, 2, 0).cpu().numpy() + 1) / 2
+            attention_heatmap = torch_attention.permute(1, 2, 0).cpu().numpy()
             res = np_img * 0.7 + attention_heatmap * 3
             result.append(res)
         return result
