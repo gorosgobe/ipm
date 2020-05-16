@@ -77,7 +77,7 @@ if __name__ == "__main__":
         metadata=config["metadata"],
         rotations_csv=config["rotations_csv"],
         root_dir=config["root_dir"],
-        cache=True,
+        cache=False,
         transform=preprocessing_transforms,
         is_coord=config["is_coord"]
     )
@@ -128,5 +128,10 @@ if __name__ == "__main__":
             train_dataloader=train_data_loader,
             val_dataloader=validation_data_loader
         )
+
+        manager.plot_attention_on(train_data_loader, f"{config['name']}-train", 0)
+        manager.plot_attention_on(train_data_loader, f"{config['name']}-train", 1)
+        manager.plot_attention_on(validation_data_loader, f"{config['name']}-val", 0)
+        manager.plot_attention_on(validation_data_loader, f"{config['name']}-val", 1)
 
         manager.save_best_model(os.path.join(config["save_to_location"], "soft_lstm"))

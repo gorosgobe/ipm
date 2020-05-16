@@ -4,6 +4,8 @@ from torch import nn, distributions
 from lib.common.early_stopper import EarlyStopper
 from lib.common.saveable import BestSaveable
 from lib.soft.soft import SoftCNNLSTMNetwork
+from lib.soft.rnn_tvec_adapter import RNNTipVelocityControllerAdapter
+from lib.common.utils import save_image
 
 
 class SoftManager(BestSaveable):
@@ -68,6 +70,27 @@ class SoftManager(BestSaveable):
 
             if self.early_stopper.should_stop():
                 break
+
+    def plot_attention_on(self, dataloader, prefix, batch_index=0):
+        self.model.eval()
+        with torch.no_grad():
+            demonstration_attention_maps = []
+            for batch_idx, batch in enumerate(dataloader):
+                # (b, d_len, c, h, w)
+                demonstration = batch["demonstration"][batch_index].to(self.device)
+                hidden_state = None
+                for image in demonstration:
+                    predictions, hidden_state, importances = self.model(image.unsqueeze(0).unsqueeze(0),
+                                                                        hidden_state=hidden_state)
+                    demonstration_attention_maps.append(
+                        (image[:3], self.model.get_upsampled_attention().squeeze(0))
+                    )
+                break
+            # TODO: change this
+            blended_imgs = RNNTipVelocityControllerAdapter.get_np_attention_mapped_images_from(
+                demonstration_attention_maps)
+            for index, i in enumerate(blended_imgs):
+                save_image(i, "/home/pablo/Desktop/{}-{}image{}.png".format(prefix, batch_index, index))
 
     def get_loss(self, batch):
         demonstrations = batch["demonstration"].to(self.device)

@@ -90,7 +90,7 @@ class SoftCNNLSTMNetwork(nn.Module):
     def get_upsampled_attention(self):
         b, _1, h_pxw_p = self.importance.size()
         importance = self.importance.view(b, 1, self.h_p, -1)
-        return self.conv1_up(self.conv2_up(self.conv3_up(importance)))
+        return self.conv1_up(importance)
 
     def forward(self, x, hidden_state=None):
         # (batch, d_len, C, H, W)

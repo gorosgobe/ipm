@@ -231,7 +231,6 @@ class CameraRobot(object):
             combined_gt = np.concatenate((gt_velocity, gt_orientation), axis=0)
             # total error
             combined_error_norm = np.linalg.norm(combined_gt - control)
-            print("Combined error", combined_error_norm)
             combined_errors.append(
                 dict(error_norm=combined_error_norm, gt=combined_gt.tolist(), predicted=control.tolist()))
             velocity, rotation = np.split(control, 2)
@@ -243,6 +242,7 @@ class CameraRobot(object):
             rotation_error_norm = np.linalg.norm(gt_orientation - rotation)
             orientation_errors.append(
                 dict(error_norm=rotation_error_norm, gt=gt_orientation.tolist(), predicted=rotation.tolist()))
+            print("Combined error", combined_error_norm, "vel", velocity_error_norm, "rot", rotation_error_norm)
 
             rotations.append(rotation)
             # apply rotation
