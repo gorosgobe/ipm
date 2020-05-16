@@ -11,10 +11,11 @@ from lib.soft.soft_rnn_dataset import SoftRNNDataset
 
 def evaluation_function(parameterization, dataset, config, train_data_loader, validation_data_loader):
     entropy_lambda = parameterization["entropy_lambda"]
+    hidden_size = parameterization["hidden_size"]
     manager = SoftManager(
         name=config["name"],
         dataset=dataset,
-        hidden_size=config["hidden_size"],
+        hidden_size=hidden_size,
         device=config["device"],
         is_coord=config["is_coord"],
         entropy_lambda=entropy_lambda
@@ -99,6 +100,9 @@ if __name__ == "__main__":
             parameters=[
                 dict(
                     name="entropy_lambda", type="range", bounds=[1e-4, 1.0]
+                ),
+                dict(
+                    name="hidden_size", type="choice", values=[256, 512, 768, 1024]
                 )
             ],
             evaluation_function=lambda params: evaluation_function(params, dataset=dataset, config=config,

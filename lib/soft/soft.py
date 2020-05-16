@@ -42,9 +42,9 @@ class SoftAttention(nn.Module):
     def __init__(self, hidden_size):
         super().__init__()
         self.softmax = nn.Softmax(dim=-1)
-        self.fc_combine = nn.Linear(in_features=hidden_size, out_features=1)
-        self.fc_v_t = nn.Linear(in_features=hidden_size, out_features=hidden_size)
-        self.fc_h_t = nn.Linear(in_features=hidden_size, out_features=hidden_size)
+        self.fc_combine = nn.Linear(in_features=hidden_size // 4, out_features=1)
+        self.fc_v_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // 4)
+        self.fc_h_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // 4)
         self.activ = nn.ReLU()
 
     def forward(self, x, hidden_state):
@@ -58,14 +58,15 @@ class SoftAttention(nn.Module):
             # remove seq len dimension
             h_t = h_t.squeeze(0)
 
-        # proj_h_t (batch, C' = hidden_size)
+        # M = C' // 4 = hidden_size // 4
+        # proj_h_t (batch, M)
         proj_h_t = self.fc_h_t(h_t)
-        # proj_vs (batch*H'*W', C' = hidden_size)
+        # proj_vs (batch*H'*W', M)
         proj_vs = self.fc_v_t(x.transpose(1, 2).contiguous().view(b * h_pxw_p, c_p))
         # Linear(v_t^i) + Linear(h_t)
-        # (batch, H'*W', C') + (batch, 1, C')
+        # (batch, H'*W', M) + (batch, 1, M)
         sum_projs = proj_vs.view(b, h_pxw_p, c_p) + proj_h_t.unsqueeze(1)
-        # sum_projs (batch, H'*W', C')
+        # sum_projs (batch, H'*W', M)
         result = self.fc_combine(self.activ(sum_projs.view(b * h_pxw_p, c_p)))
         # result (batch*H'*W', 1)
         result = result.view(b, h_pxw_p, 1).transpose(1, 2)
