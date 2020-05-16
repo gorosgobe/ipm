@@ -12,12 +12,14 @@ from lib.soft.soft_rnn_dataset import SoftRNNDataset
 def evaluation_function(parameterization, dataset, config, train_data_loader, validation_data_loader):
     entropy_lambda = parameterization["entropy_lambda"]
     hidden_size = parameterization["hidden_size"]
+    projection_scale = parameterization["projection_scale"]
     manager = SoftManager(
         name=config["name"],
         dataset=dataset,
         hidden_size=hidden_size,
         device=config["device"],
         is_coord=config["is_coord"],
+        projection_scale=projection_scale,
         entropy_lambda=entropy_lambda
     )
 
@@ -42,6 +44,7 @@ if __name__ == "__main__":
     parser.add_argument("--entropy_lambda", type=float, default=1.0)
     parser.add_argument("--is_bop", default="no")
     parser.add_argument("--hidden_size", type=int, default=64)
+    parser.add_argument("--projection_scale", type=int, default=1)
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -65,7 +68,8 @@ if __name__ == "__main__":
         is_coord=parse_result.is_coord == "yes",
         entropy_lambda=parse_result.entropy_lambda,
         is_bop=parse_result.is_bop == "yes",
-        hidden_size=parse_result.hidden_size
+        hidden_size=parse_result.hidden_size,
+        projection_scale=parse_result.projection_scale
     )
 
     print("Name:", config["name"])
@@ -103,6 +107,9 @@ if __name__ == "__main__":
                 ),
                 dict(
                     name="hidden_size", type="choice", values=[256, 512, 768, 1024]
+                ),
+                dict(
+                    name="projection_scale", type="choice", values=[1, 2, 4, 8]
                 )
             ],
             evaluation_function=lambda params: evaluation_function(params, dataset=dataset, config=config,
@@ -124,7 +131,8 @@ if __name__ == "__main__":
             hidden_size=config["hidden_size"],
             device=config["device"],
             is_coord=config["is_coord"],
-            entropy_lambda=config["entropy_lambda"]
+            entropy_lambda=config["entropy_lambda"],
+            projection_scale=config["projection_scale"]
         )
 
         manager.train(
