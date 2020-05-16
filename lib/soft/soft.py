@@ -39,12 +39,12 @@ class MLP(nn.Module):
 
 
 class SoftAttention(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, projection_scale=1):
         super().__init__()
         self.softmax = nn.Softmax(dim=-1)
-        self.fc_combine = nn.Linear(in_features=hidden_size // 4, out_features=1)
-        self.fc_v_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // 4)
-        self.fc_h_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // 4)
+        self.fc_combine = nn.Linear(in_features=hidden_size // projection_scale, out_features=1)
+        self.fc_v_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // projection_scale)
+        self.fc_h_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // projection_scale)
         self.activ = nn.ReLU()
 
     def forward(self, x, hidden_state):
@@ -58,7 +58,7 @@ class SoftAttention(nn.Module):
             # remove seq len dimension
             h_t = h_t.squeeze(0)
 
-        # M = C' // 4 = hidden_size // 4
+        # M = C' // 4 = hidden_size // projection_scale
         # proj_h_t (batch, M)
         proj_h_t = self.fc_h_t(h_t)
         # proj_vs (batch*H'*W', M)
@@ -76,10 +76,10 @@ class SoftAttention(nn.Module):
 
 
 class SoftCNNLSTMNetwork(nn.Module):
-    def __init__(self, hidden_size, is_coord):
+    def __init__(self, hidden_size, is_coord, projection_scale):
         super().__init__()
         self.cnn = CNN(hidden_size=hidden_size, is_coord=is_coord)
-        self.attention = SoftAttention(hidden_size=hidden_size)
+        self.attention = SoftAttention(hidden_size=hidden_size, projection_scale=projection_scale)
         self.lstm = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size)
         self.mlp = MLP(hidden_size=hidden_size)
         self.importance = None

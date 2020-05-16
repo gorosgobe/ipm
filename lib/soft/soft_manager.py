@@ -10,11 +10,12 @@ from lib.common.utils import save_image
 
 class SoftManager(BestSaveable):
 
-    def __init__(self, name, dataset, device, hidden_size, is_coord, entropy_lambda=1.0):
+    def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, entropy_lambda=1.0):
         super().__init__()
         self.name = name
-        self.model = SoftCNNLSTMNetwork(hidden_size=hidden_size, is_coord=is_coord)
+        self.model = SoftCNNLSTMNetwork(hidden_size=hidden_size, is_coord=is_coord, projection_scale=projection_scale)
         self.is_coord = is_coord
+        self.projection_scale = projection_scale
         self.dataset = dataset
         self.device = device
         self.optimiser = torch.optim.Adam(self.model.parameters(), lr=0.0001)
@@ -127,5 +128,6 @@ class SoftManager(BestSaveable):
             name=self.name,
             state_dict=self.model.state_dict(),
             hidden_size=self.hidden_size,
-            is_coord=self.is_coord
+            is_coord=self.is_coord,
+            projection_scale=self.projection_scale
         )
