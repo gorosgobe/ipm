@@ -77,7 +77,7 @@ if __name__ == "__main__":
         metadata=config["metadata"],
         rotations_csv=config["rotations_csv"],
         root_dir=config["root_dir"],
-        cache=False,
+        cache=True,
         transform=preprocessing_transforms,
         is_coord=config["is_coord"]
     )

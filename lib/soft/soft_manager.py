@@ -90,7 +90,7 @@ class SoftManager(BestSaveable):
             blended_imgs = RNNTipVelocityControllerAdapter.get_np_attention_mapped_images_from(
                 demonstration_attention_maps)
             for index, i in enumerate(blended_imgs):
-                save_image(i, "/home/pablo/Desktop/{}-{}image{}.png".format(prefix, batch_index, index))
+                save_image(i, "{}-{}image{}.png".format(prefix, batch_index, index))
 
     def get_loss(self, batch):
         demonstrations = batch["demonstration"].to(self.device)
