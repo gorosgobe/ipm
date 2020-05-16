@@ -14,7 +14,7 @@ def evaluation_function(parameterization, dataset, config, train_data_loader, va
     manager = SoftManager(
         name=config["name"],
         dataset=dataset,
-        hidden_size=64,
+        hidden_size=config["hidden_size"],
         device=config["device"],
         is_coord=config["is_coord"],
         entropy_lambda=entropy_lambda
@@ -40,6 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("--is_coord", default="no")
     parser.add_argument("--entropy_lambda", type=float, default=1.0)
     parser.add_argument("--is_bop", default="no")
+    parser.add_argument("--hidden_size", type=int, default=64)
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -62,7 +63,8 @@ if __name__ == "__main__":
         save_to_location="models/",
         is_coord=parse_result.is_coord == "yes",
         entropy_lambda=parse_result.entropy_lambda,
-        is_bop=parse_result.is_bop == "yes"
+        is_bop=parse_result.is_bop == "yes",
+        hidden_size=parse_result.hidden_size
     )
 
     print("Name:", config["name"])
@@ -115,7 +117,7 @@ if __name__ == "__main__":
         manager = SoftManager(
             name=config["name"],
             dataset=dataset,
-            hidden_size=64,
+            hidden_size=config["hidden_size"],
             device=config["device"],
             is_coord=config["is_coord"],
             entropy_lambda=config["entropy_lambda"]

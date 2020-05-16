@@ -46,8 +46,12 @@ class RNNTipVelocityControllerAdapter(object):
         self.demonstration_attention_maps = []
 
     def get_np_attention_mapped_images(self):
+        return self.get_np_attention_mapped_images_from(self.demonstration_attention_maps)
+
+    @staticmethod
+    def get_np_attention_mapped_images_from(demonstration_attention_maps):
         result = []
-        for pair in self.demonstration_attention_maps:
+        for pair in demonstration_attention_maps:
             torch_img, torch_attention = pair
             np_img = (torch_img.permute(1, 2, 0).numpy() + 1) / 2
             attention_heatmap = torch_attention.permute(1, 2, 0).numpy()
