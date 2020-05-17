@@ -36,7 +36,7 @@ class CropSizeFeatureSearch(Saveable):
         if index is None:
             index = parameterization["feature"]
         print(f"Trial for feature {index}, size ({width}, {height})")
-        val_loss, estimator = self.dsae_feature_chooser.train_model_with_feature(
+        val_loss, _estimator = self.dsae_feature_chooser.train_model_with_feature(
             index=index,
             crop_size=(width, height)
         )

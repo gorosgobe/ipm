@@ -5,12 +5,12 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from controller import TrainingPixelROI
+from lib.common.saveable import Saveable
 from lib.common.utils import get_demonstrations, ResizeTransform
+from lib.cv.controller import TrainingPixelROI
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.dsae.dsae_dataset import DSAE_FeatureCropTVEAdapter, DSAE_SingleFeatureProviderDataset
 from lib.networks import AttentionNetworkCoordGeneral
-from lib.common.saveable import Saveable
 
 
 class DSAE_ValFeatureChooser(Saveable):
@@ -71,8 +71,10 @@ class DSAE_ValFeatureChooser(Saveable):
         best_estimator = None
         for idx, f in enumerate(range(self.features)):
             val_loss, estimator = self.train_model_with_feature(index=idx)
-            best_val_loss, best_estimator = val_loss, estimator if best_val_loss is None or val_loss < best_val_loss else \
-                (best_val_loss, best_estimator)
+
+            if best_val_loss is None or val_loss < best_val_loss:
+                best_val_loss, best_estimator = (val_loss, estimator)
+
             print(f"Index {idx}, val loss {val_loss}")
             validation_losses.append(val_loss)
 
@@ -135,5 +137,3 @@ class DSAE_ChooserROI(object):
         # crop to (32, 24) based on pixel, resulting image is unnormalised so TVE transforms work on it
         cropped_image = self.pixel_cropper.crop(image, pixel)
         return cropped_image
-
-
