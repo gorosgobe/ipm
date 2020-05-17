@@ -148,8 +148,7 @@ if __name__ == "__main__":
         metadata=config["metadata"],
         root_dir=config["root_dir"],
         initial_pixel_cropper=config["initial_pixel_cropper"],
-        transform=preprocessing_transforms,
-        ignore_cache_if_cropper=True
+        transform=preprocessing_transforms
     )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data

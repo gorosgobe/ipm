@@ -32,13 +32,6 @@ class LocalisationParamRegressor(nn.Module):
             nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
         )
 
-        if self.scale is None:
-            self.model[12].weight.data.zero_()
-            self.model[12].bias.data.copy_(torch.tensor([1, 0, 0], dtype=torch.float))
-        else:
-            self.model[12].weight.data.zero_()
-            self.model[12].bias.data.copy_(torch.tensor([0, 0], dtype=torch.float))
-
     def forward(self, x):
         """
         :param x: Image batch
@@ -65,7 +58,8 @@ class LocalisationParamRegressor(nn.Module):
             t_y_position = (position == 2).float()
             out = t_x * t_x_position + t_y * t_y_position
         # out (B, 6)
-        return out
+        # learn offset
+        return out + torch.tensor([[1, 0, 0, 0, 1, 0]], dtype=torch.float32).to(x.device)
 
 
 class SpatialTransformerNetwork(nn.Module):

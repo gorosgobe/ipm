@@ -89,7 +89,7 @@ class TipVelocityEstimator(BestSaveable):
             self.optimiser = optim(
                 [
                     {"params": self.network.model.parameters()},
-                    {"params": self.network.localisation_param_regressor.parameters(), "lr": learning_rate * 1e-2}
+                    {"params": self.network.localisation_param_regressor.parameters(), "lr": learning_rate}
                 ], lr=learning_rate, **optimiser_params
             )
         else:
