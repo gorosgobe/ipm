@@ -41,22 +41,18 @@ class LocalisationParamRegressor(nn.Module):
         """
         res = self.model(x)
         # res (B, 3)
+        scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
+        t_x_position = torch.tensor([[0, 0, 1, 0, 0, 0]]).to(x.device)
+        t_y_position = torch.tensor([[0, 0, 0, 0, 0, 1]]).to(x.device)
         if self.scale is None:
             s = res[:, 0].unsqueeze(-1)
             t_x = res[:, 1].unsqueeze(-1)
             t_y = res[:, 2].unsqueeze(-1)
-            position = torch.tensor([[1, 0, 2, 0, 1, 3]]).to(x.device)
-            scale_position = (position == 1).float()
-            t_x_position = (position == 2).float()
-            t_y_position = (position == 3).float()
             out = s * scale_position + t_x * t_x_position + t_y * t_y_position
         else:
             t_x = res[:, 0].unsqueeze(-1)
             t_y = res[:, 1].unsqueeze(-1)
-            position = torch.tensor([[self.scale, 0, 1, 0, self.scale, 2]]).to(x.device)
-            t_x_position = (position == 1).float()
-            t_y_position = (position == 2).float()
-            out = t_x * t_x_position + t_y * t_y_position
+            out = self.scale * scale_position + t_x * t_x_position + t_y * t_y_position
         # out (B, 6)
         # learn offset
         return out + torch.tensor([[1, 0, 0, 0, 1, 0]], dtype=torch.float32).to(x.device)
