@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--loss")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--init_from")
+    parser.add_argument("--scale", type=float)
     parser.add_argument("--pos_dim")
     parse_result = parser.parse_args()
 
@@ -83,7 +84,7 @@ if __name__ == "__main__":
         divisor = 1
         localisation_param_regressor = LocalisationParamRegressor(
             add_coord=True,
-            scale=None
+            scale=parse_result.scale
         )
         model = AttentionNetworkCoordGeneral.create(*size)(*size)
         add_spatial_maps = True
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         metadata=config["metadata"],
         root_dir=config["root_dir"],
         initial_pixel_cropper=config["initial_pixel_cropper"],
-        transform=preprocessing_transforms
+        transform=preprocessing_transforms,
     )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data
@@ -191,7 +192,8 @@ if __name__ == "__main__":
     )
 
     # save_best_model
-    tip_velocity_estimator.save_best_model(config["save_to_location"])
+    if config["max_epochs"] > 0:
+        tip_velocity_estimator.save_best_model(config["save_to_location"])
     # tip_velocity_estimator.plot_train_val_losses()
 
     if parse_result.version.lower() == "stn":
