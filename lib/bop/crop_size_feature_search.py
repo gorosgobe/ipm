@@ -35,7 +35,7 @@ class CropSizeFeatureSearch(Saveable):
         if index is None:
             index = parameterization["feature"]
         print(f"Trial for feature {index}, size ({width}, {height})")
-        val_loss = self.dsae_feature_chooser.train_model_with_feature(
+        val_loss, estimator = self.dsae_feature_chooser.train_model_with_feature(
             index=index,
             crop_size=(width, height)
         )
@@ -99,6 +99,11 @@ class CropSizeFeatureSearch(Saveable):
             ylabel="Validation loss",
         )
         self.improvement_plot = self.get_plot_str(improvement_plot.data)
+
+    def save(self, path, info=None):
+        # Also save best model
+        self.dsae_feature_chooser.save_estimator(path=path)
+        super().save(path=path, info=info)
 
     def get_info(self):
         return dict(

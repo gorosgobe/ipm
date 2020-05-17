@@ -25,9 +25,11 @@ class DSAE_ValFeatureChooser(Saveable):
         )
         self.losses = []
         self.index = None
+        self.best_estimator = None
 
     def train_model_with_feature(self, index, crop_size=(32, 24)):
         estimator = TipVelocityEstimator(
+            name=f"{self.name}_model",
             batch_size=32,
             learning_rate=0.0001,
             image_size=crop_size,
@@ -57,24 +59,36 @@ class DSAE_ValFeatureChooser(Saveable):
 
         estimator.train(data_loader=train_dataloader, max_epochs=200, val_loader=val_dataloader, validate_epochs=1)
         val_loss = estimator.get_best_val_loss()
-        # crop resolution
-        return val_loss
+        return val_loss, estimator
 
     def get_best_feature_index(self):
         validation_losses = []
+        best_val_loss = None
+        best_estimator = None
         for idx, f in enumerate(range(self.features)):
-            val_loss = self.train_model_with_feature(index=idx)
+            val_loss, estimator = self.train_model_with_feature(index=idx)
+            best_val_loss, best_estimator = val_loss, estimator if best_val_loss is None or val_loss < best_val_loss else \
+                (best_val_loss, best_estimator)
             print(f"Index {idx}, val loss {val_loss}")
             validation_losses.append(val_loss)
 
         self.losses = validation_losses
         res = np.array(validation_losses).argmin()
         self.index = res
+        self.best_estimator = best_estimator
         return res
 
     @staticmethod
     def load_info(path):
         return torch.load(path)
+
+    def save_estimator(self, path):
+        self.best_estimator.save_best_model(path=path)
+
+    def save(self, path, info=None):
+        # save best estimator as well as extra information
+        self.save_estimator(path=path)
+        super().save(path=path, info=info)
 
     def get_info(self):
         return dict(

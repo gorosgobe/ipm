@@ -103,7 +103,7 @@ if __name__ == "__main__":
         best_parameters, values, experiment, model = optimize(
             parameters=[
                 dict(
-                    name="entropy_lambda", type="range", bounds=[1e-4, 1.0]
+                    name="entropy_lambda", type="range", bounds=[0.0, 1.0]
                 ),
                 dict(
                     name="hidden_size", type="choice", values=[256, 512, 768, 1024]
