@@ -9,7 +9,8 @@ from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.meta.mil import MetaImitationLearning
 from lib.networks import *
-from lib.stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork
+from lib.stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, STN_SamplingType
+from lib.stn.stn_visualise import visualise
 
 if __name__ == "__main__":
 
@@ -22,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument("--random_std", type=int)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=0.0001)
+    parser.add_argument("--epochs", type=int, default=250)
     parser.add_argument("--loss")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--init_from")
@@ -80,7 +82,8 @@ if __name__ == "__main__":
         # should not crop
         divisor = 1
         localisation_param_regressor = LocalisationParamRegressor(
-            add_coord=True
+            add_coord=True,
+            scale=None
         )
         model = AttentionNetworkCoordGeneral.create(*size)(*size)
         add_spatial_maps = True
@@ -89,7 +92,8 @@ if __name__ == "__main__":
             return SpatialTransformerNetwork(
                 localisation_param_regressor=localisation_param_regressor,
                 model=model,
-                output_size=size
+                output_size=size,
+                sampling_type=STN_SamplingType.DEFAULT_BILINEAR
             )
     else:
         raise ValueError(f"Attention network version {version} is not available")
@@ -123,7 +127,7 @@ if __name__ == "__main__":
         split=[0.8, 0.1, 0.1],
         name=parse_result.name,
         learning_rate=parse_result.learning_rate,
-        max_epochs=250,
+        max_epochs=parse_result.epochs,
         validate_epochs=1,
         save_to_location="models/",
         network_klass=version,
@@ -145,6 +149,7 @@ if __name__ == "__main__":
         root_dir=config["root_dir"],
         initial_pixel_cropper=config["initial_pixel_cropper"],
         transform=preprocessing_transforms,
+        ignore_cache_if_cropper=True
     )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data
@@ -189,3 +194,8 @@ if __name__ == "__main__":
     # save_best_model
     tip_velocity_estimator.save_best_model(config["save_to_location"])
     # tip_velocity_estimator.plot_train_val_losses()
+
+    if parse_result.version.lower() == "stn":
+        # visualise test images and their transformations
+        visualise(name=config["name"], model=tip_velocity_estimator.get_network(), dataloader=test_data_loader)
+

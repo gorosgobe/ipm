@@ -4,21 +4,22 @@ import shutil
 import numpy as np
 
 from lib.simulation.camera_robot import CameraRobot
-from lib.simulation.scenes import CameraScene1, CameraSceneSimplest
+from lib.simulation.scenes import CameraScene1, CameraSceneSimplest, CameraScene2, CameraScene3, CameraScene4, \
+    CameraScene5
 from lib.common.utils import save_images_and_tip_velocities
 
 if __name__ == "__main__":
 
-    seed = 2019
+    seed = 2020
     np.random.seed(seed)
 
-    with CameraSceneSimplest(headless=True) as (pr, scene):
+    with CameraScene2(headless=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
         # 5250
         min_samples = 5250
         # usually True, unless testing with simpler datasets
-        discontinuity = False
+        discontinuity = True
         # count of number of training samples so far (image, tip velocity)
         total_count = 0
         counts = []
@@ -47,13 +48,13 @@ if __name__ == "__main__":
                 scene=scene, offset=offset, target_position=target_above_cube, target_object=target_cube,
                 randomise_distractors=True, discontinuity=discontinuity
             )
-            save_images_and_tip_velocities(
-                demonstration_num=demonstration_num,
-                tip_velocity_file=tip_velocity_file,
-                metadata_file=metadata_file,
-                rotations_file=rotations_file,
-                **result
-            )
+            # save_images_and_tip_velocities(
+            #     demonstration_num=demonstration_num,
+            #     tip_velocity_file=tip_velocity_file,
+            #     metadata_file=metadata_file,
+            #     rotations_file=rotations_file,
+            #     **result
+            # )
             demonstration_num += 1
             total_count += len(result["tip_velocities"])
             counts.append(len(result["tip_velocities"]))

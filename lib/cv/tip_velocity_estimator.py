@@ -56,7 +56,8 @@ class TipVelocityEstimatorLoss(object):
 
 
 class TipVelocityEstimator(BestSaveable):
-    def __init__(self, batch_size, learning_rate, image_size, network_klass=None, network=None, transforms=None, name="model", device=None,
+    def __init__(self, batch_size, learning_rate, image_size, network_klass=None, network=None, transforms=None,
+                 name="model", device=None,
                  patience=10, composite_loss_params=None, verbose=True, optimiser_params=None):
         super().__init__()
         self.name = name
@@ -82,14 +83,25 @@ class TipVelocityEstimator(BestSaveable):
         if optimiser_params is None:
             optimiser_params = dict(optim=torch.optim.Adam)
         optim = optimiser_params.pop("optim")
-        self.optimiser = optim(self.network.parameters(), lr=learning_rate, **optimiser_params)
+
+        # for spatial transformer, we use a smaller learning rate for localisation regressor for stability (see STN paper)
+        if network_klass is not None and network_klass.__name__ == "SpatialTransformerNetwork":
+            self.optimiser = optim(
+                [
+                    {"params": self.network.model.parameters()},
+                    {"params": self.network.localisation_param_regressor.parameters(), "lr": learning_rate * 1e-2}
+                ], lr=learning_rate, **optimiser_params
+            )
+        else:
+            self.optimiser = optim(self.network.parameters(), lr=learning_rate, **optimiser_params)
 
         self.composite_loss_params = composite_loss_params
         # For a composite loss, pass in the parameters as a dictionary
         if self.composite_loss_params is None:
             self.loss_func = TipVelocityEstimatorLoss(verbose=verbose)
         else:
-            self.loss_func = TipVelocityEstimatorLoss(is_composite_loss=True, verbose=verbose, **self.composite_loss_params)
+            self.loss_func = TipVelocityEstimatorLoss(is_composite_loss=True, verbose=verbose,
+                                                      **self.composite_loss_params)
 
         # set in train()
         self.train_data_loader = None
