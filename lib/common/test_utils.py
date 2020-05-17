@@ -155,17 +155,9 @@ def compute_95_interval(values):
 
 def get_achieved_and_target(distances, minimum_distances, special_distance):
     test_achieved = []
-    special_distance_count = 0
+    special_distance_count = len(list(filter(lambda x: x <= special_distance, minimum_distances.values())))
     for target_distance in distances:
-        achieved = 0
-        special_distance_count = 0
-        for i_str in minimum_distances:
-            dist = minimum_distances[i_str]
-            if dist <= target_distance:
-                achieved += 1
-            if dist <= special_distance:
-                special_distance_count += 1
-
+        achieved = len(list(filter(lambda x: x <= target_distance, minimum_distances.values())))
         test_achieved.append((target_distance, achieved))
 
     return test_achieved, special_distance_count

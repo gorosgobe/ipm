@@ -18,6 +18,8 @@ if __name__ == '__main__':
     mean_fixed_step_distances = OrderedDict()
     std_fixed_step_distances = OrderedDict()
 
+    mean_achieved = OrderedDict()
+
     for test_idx in range(2, len(sys.argv)):
         test_name = f"test_results/{sys.argv[test_idx]}"
         test_base_name = os.path.basename(test_name)
@@ -45,9 +47,10 @@ if __name__ == '__main__':
         add_value_to_test(mean_fixed_step_distances, test_base_name, res_fsd_mean)
 
         test_achieved, special_distance_count \
-            = get_achieved_and_target(distances, minimum_distances, special_distance)
+            = get_achieved_and_target(distances, fixed_step_distances, special_distance)
 
         special_counts.append((test_name, special_distance_count))
+        add_value_to_test(mean_achieved, test_base_name, special_distance_count / 100)
         achieved_plot.append((test_name, test_achieved))
 
     print(f"Count for distance {special_distance}: {special_counts}")
@@ -59,7 +62,9 @@ if __name__ == '__main__':
     # LaTeX
     res_mmd_latex = get_latex(mean_minimum_distances, std_minimum_distances)
     res_fsd_latex = get_latex(mean_fixed_step_distances, std_fixed_step_distances, display_all_values=False)
-
+    # TODO: add LATEX table for percentage < 3cm achieved
+    res_achieved_latex = get_latex(mean_achieved, mean_achieved, display_all_values=False)
     print("Latex MMD:", res_mmd_latex)
     print("Latex FSD:", res_fsd_latex)
+    print("Latex achieved <:", res_achieved_latex)
     plot_achieved(achieved_plot)

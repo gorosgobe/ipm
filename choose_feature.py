@@ -109,12 +109,11 @@ if __name__ == '__main__':
             # max and min as defaults for AttentionNetworkCoord
         )
         searcher.search(total_trials=config["trials"], index=config["index"])
-        path = os.path.join("models/bop_chooser", config["name"])
-        searcher.save(path)
-        searcher.save_plots(path)
+        searcher.save("models/bop_chooser")
+        searcher.save_plots("models/bop_chooser")
     else:
         # latent_dimension // 2, number of trials
         # TODO: do this for multiple crop sizes
         feature_index = chooser.get_best_feature_index()
         print(f"Best feature index {feature_index} for {config['dsae_path']}.")
-        chooser.save(os.path.join("models/dsae_chooser", config["name"]))
+        chooser.save("models/dsae_chooser")

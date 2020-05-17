@@ -1,8 +1,12 @@
+import os
+
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+from torchvision import transforms
 
-from lib.common.utils import get_demonstrations
+from controller import TrainingPixelROI
+from lib.common.utils import get_demonstrations, ResizeTransform
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.dsae.dsae_dataset import DSAE_FeatureCropTVEAdapter, DSAE_SingleFeatureProviderDataset
 from lib.networks import AttentionNetworkCoordGeneral
@@ -78,6 +82,9 @@ class DSAE_ValFeatureChooser(Saveable):
         self.best_estimator = best_estimator
         return res
 
+    def get_index(self):
+        return self.index
+
     @staticmethod
     def load_info(path):
         return torch.load(path)
@@ -88,7 +95,7 @@ class DSAE_ValFeatureChooser(Saveable):
     def save(self, path, info=None):
         # save best estimator as well as extra information
         self.save_estimator(path=path)
-        super().save(path=path, info=info)
+        super().save(path=os.path.join(path, self.name), info=info)
 
     def get_info(self):
         return dict(
@@ -96,3 +103,37 @@ class DSAE_ValFeatureChooser(Saveable):
             validation_losses=self.losses,
             index=self.index
         )
+
+
+class DSAE_ChooserROI(object):
+    def __init__(self, chooser_index, feature_provider, chooser_crop_size=(32, 24), size=(128, 96)):
+        self.chooser_index = chooser_index
+        self.chooser_crop_size = chooser_crop_size
+        self.feature_provider = feature_provider  # returns (B, C * 2)
+        self.size = size
+        self.resize_transform = ResizeTransform(size=size)
+        self.feature_provider_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        ])
+        cropped_width, cropped_height = chooser_crop_size
+        self.pixel_cropper = TrainingPixelROI(
+            cropped_height=cropped_height, cropped_width=cropped_width, add_spatial_maps=True
+        )
+
+    def crop(self, image):
+        # takes (640, 480) np image, should return (32, 24) cropped np image
+        image = self.resize_transform(image)
+        # convert to torch, perform normalisation and feed through autoencoder to get features
+        torch_img = self.feature_provider_transform(image)
+        features = self.feature_provider(torch_img.unsqueeze(0)).squeeze(0).view(-1, 2)
+        # get pixel from features
+        selected_feature = features[self.chooser_index]
+        selected_feature = (selected_feature + 1) / 2
+        w, h = self.size
+        pixel = (selected_feature * torch.tensor([w - 1, h - 1], dtype=torch.float32)).type(dtype=torch.int32)
+        # crop to (32, 24) based on pixel, resulting image is unnormalised so TVE transforms work on it
+        cropped_image = self.pixel_cropper.crop(image, pixel)
+        return cropped_image
+
+

@@ -12,7 +12,7 @@ from lib.dsae.dsae_test import DSAE_FeatureTest
 from lib.common.utils import get_demonstrations, get_seed, set_up_cuda
 from lib.dsae.dsae_dataset import DSAE_Dataset
 from lib.dsae.dsae_discrim import SoftSpatialDiscriminator, DiscriminatorManager
-from dsae.dsae_feature_provider import FeatureProvider
+from lib.dsae.dsae_feature_provider import FeatureProvider
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

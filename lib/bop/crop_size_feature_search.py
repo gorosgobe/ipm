@@ -1,4 +1,5 @@
 import json
+import os
 
 import numpy as np
 from ax import optimize
@@ -103,7 +104,7 @@ class CropSizeFeatureSearch(Saveable):
     def save(self, path, info=None):
         # Also save best model
         self.dsae_feature_chooser.save_estimator(path=path)
-        super().save(path=path, info=info)
+        super().save(path=os.path.join(path, self.name), info=info)
 
     def get_info(self):
         return dict(
@@ -116,6 +117,7 @@ class CropSizeFeatureSearch(Saveable):
         )
 
     def save_plots(self, path):
+        path = os.path.join(path, self.name)
         if self.best_plot_contour is not None:
             with open(path + "_contour.plot_str", "w+") as f:
                 f.write(self.best_plot_contour)

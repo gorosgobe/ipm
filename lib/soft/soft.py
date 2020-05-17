@@ -84,8 +84,6 @@ class SoftCNNLSTMNetwork(nn.Module):
         self.mlp = MLP(hidden_size=hidden_size)
         self.importance = None
         self.h_p = None
-        self.conv3_up = nn.UpsamplingBilinear2d(size=(22, 30))
-        self.conv2_up = nn.UpsamplingBilinear2d(size=(47, 63))
         self.conv1_up = nn.UpsamplingBilinear2d(size=(96, 128))
 
     def get_upsampled_attention(self):
