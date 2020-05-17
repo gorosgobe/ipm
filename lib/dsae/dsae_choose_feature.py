@@ -122,6 +122,10 @@ class DSAE_ChooserROI(object):
         self.pixel_cropper = TrainingPixelROI(
             cropped_height=cropped_height, cropped_width=cropped_width, add_spatial_maps=True
         )
+        self.cropped_np_image_normalisation = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5, 0.5])
+        ])
 
     def crop(self, image):
         # takes (640, 480) np image, should return (32, 24) cropped np image
@@ -134,6 +138,7 @@ class DSAE_ChooserROI(object):
         selected_feature = (selected_feature + 1) / 2
         w, h = self.size
         pixel = (selected_feature * torch.tensor([w - 1, h - 1], dtype=torch.float32)).type(dtype=torch.int32)
-        # crop to (32, 24) based on pixel, resulting image is unnormalised so TVE transforms work on it
-        cropped_image = self.pixel_cropper.crop(image, pixel)
-        return cropped_image
+        # crop to (32, 24) based on pixel, convert image to torch and normalise
+        # normalisation for DSAE Chooser is applied at the dataset level
+        cropped_image, _ = self.pixel_cropper.crop(image, pixel)
+        return self.cropped_np_image_normalisation(cropped_image), None

@@ -12,13 +12,13 @@ from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demo
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--name")
+    parser.add_argument("--name", required=True)
     parser.add_argument("--training", type=float)
-    parser.add_argument("--dataset")
+    parser.add_argument("--dataset", required=True)
     parser.add_argument("--size", type=int)
     parser.add_argument("--version")
     parser.add_argument("--loss")
-    parser.add_argument("--seed")
+    parser.add_argument("--seed", default="random")
     parser.add_argument("--optim", default=None)
     parse_result = parser.parse_args()
 
@@ -49,9 +49,6 @@ if __name__ == "__main__":
 
     config = dict(
         seed=seed,
-        # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
-        # otherwise we would be feeding a higher resolution cropped image
-        # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
         size=size,
         velocities_csv=f"{dataset}/velocities.csv",
         rotations_csv=f"{dataset}/rotations.csv",
@@ -60,7 +57,7 @@ if __name__ == "__main__":
         initial_pixel_cropper=None,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name=parse_result.name or "FullImageNetworkRand",
+        name=parse_result.name,
         learning_rate=0.0001,
         max_epochs=250,
         validate_epochs=1,

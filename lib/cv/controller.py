@@ -268,12 +268,16 @@ class TipVelocityController(object):
         # select region of interest (manual crop or RL agent)
         image, pixels = self.roi_estimator.crop(image)
         # resizes image
-        image = self.tip_velocity_estimator.resize_image(image)
+        if not isinstance(image, torch.Tensor):
+            # if image is a tensor, we assume resize has happened already
+            image = self.tip_velocity_estimator.resize_image(image)
+
         # apply normalisation and other transforms as required
-        transformed_image = self.tip_velocity_estimator.transforms(image)
+        if self.tip_velocity_estimator.transforms is not None:
+            image = self.tip_velocity_estimator.transforms(image)
 
         with torch.no_grad():
-            image_tensor = torch.unsqueeze(transformed_image, 0)
+            image_tensor = torch.unsqueeze(image, 0)
             # batch with single tip control command
             if self.controller_type == ControllerType.DEFAULT:
                 tip_control_single_batch = self.tip_velocity_estimator.predict(image_tensor)

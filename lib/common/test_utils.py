@@ -44,6 +44,7 @@ class TestConfig(enum.Enum):
     ATTENTION_COORD_ROT_32 = 7
     DSAE = 8
     RECURRENT_FULL = 9
+    DSAE_CHOOSE = 10
 
 
 def get_testing_configs(camera_robot, target_cube):
@@ -56,6 +57,11 @@ def get_testing_configs(camera_robot, target_cube):
         TestConfig.RECURRENT_FULL:
             {
                 "cropper": IdentityCropper(),
+                "c_type": ControllerType.DEFAULT
+            },
+        TestConfig.DSAE_CHOOSE:
+            {
+                "cropper": IdentityCropper(),  # will be overriden
                 "c_type": ControllerType.DEFAULT
             },
         TestConfig.FULL_IMAGE:
@@ -210,5 +216,3 @@ def get_distances_between_chosen_features_and_pixels(features, pixels, width=128
     # norms is of size (length episode, k)
     norms = np.linalg.norm(difference, axis=-1)
     return norms
-
-

@@ -9,20 +9,21 @@ from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.meta.mil import MetaImitationLearning
 from lib.networks import *
+from lib.stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", required=True)
-    parser.add_argument("--training", type=float)
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--size", type=int, required=True)
+    parser.add_argument("--training", type=float)
     parser.add_argument("--random_std", type=int)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=0.0001)
     parser.add_argument("--loss")
-    parser.add_argument("--seed")
+    parser.add_argument("--seed", default="random")
     parser.add_argument("--init_from")
     parser.add_argument("--pos_dim")
     parse_result = parser.parse_args()
@@ -39,6 +40,10 @@ if __name__ == "__main__":
     elif parse_result.size == 64:
         size = (64, 48)
         divisor = 2
+    elif parse_result.size == 128:
+        # only for STN
+        size = (128, 96)
+        divisor = 1
     else:
         raise ValueError("Invalid size!")
 
@@ -71,6 +76,21 @@ if __name__ == "__main__":
     elif version.lower() == "coord_se":
         version = AttentionNetworkCoordSE_32 if parse_result.size == 32 else AttentionNetworkCoordSE
         add_spatial_maps = True
+    elif version.lower() == "stn":
+        # should not crop
+        divisor = 1
+        localisation_param_regressor = LocalisationParamRegressor(
+            add_coord=True
+        )
+        model = AttentionNetworkCoordGeneral.create(*size)(*size)
+        add_spatial_maps = True
+
+        def version(_w, _h):
+            return SpatialTransformerNetwork(
+                localisation_param_regressor=localisation_param_regressor,
+                model=model,
+                output_size=size
+            )
     else:
         raise ValueError(f"Attention network version {version} is not available")
 
@@ -115,7 +135,8 @@ if __name__ == "__main__":
     print("Name:", config["name"])
 
     device = set_up_cuda(config["seed"])
-    preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"], is_coord=add_spatial_maps, add_r_map=add_r_map)
+    preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"], is_coord=add_spatial_maps,
+                                                                        add_r_map=add_r_map)
 
     dataset = ImageTipVelocitiesDataset(
         velocities_csv=config["velocities_csv"],

@@ -71,7 +71,10 @@ class TipVelocityEstimator(BestSaveable):
         if network_klass is None and network is None:
             raise ValueError("Either give a network klass to be initialised, or provide an already initialised network")
         if network_klass is not None:
-            self.network = network_klass(width, height)
+            if network_klass.__name__ == "AttentionNetworkCoordGeneral":
+                self.network = AttentionNetworkCoordGeneral.create(width, height)(width, height)
+            else:
+                self.network = network_klass(width, height)
         else:
             self.network = network
 

@@ -2,6 +2,7 @@ import json
 import os
 
 import numpy as np
+import torch
 from ax import optimize
 from ax.plot.contour import plot_contour
 from ax.plot.render import plot_config_to_html
@@ -106,6 +107,10 @@ class CropSizeFeatureSearch(Saveable):
         self.dsae_feature_chooser.save_estimator(path=path)
         super().save(path=os.path.join(path, self.name), info=info)
 
+    @staticmethod
+    def load_info(path):
+        return torch.load(path)
+
     def get_info(self):
         return dict(
             name=self.name,
@@ -113,7 +118,9 @@ class CropSizeFeatureSearch(Saveable):
             values=self.values,
             experiment=self.experiment,
             best_plot_contour=self.best_plot_contour,
-            improvement_plot=self.improvement_plot
+            improvement_plot=self.improvement_plot,
+            min=self.min,
+            max=self.max
         )
 
     def save_plots(self, path):

@@ -6,9 +6,6 @@ from torch import nn
 
 class STN_SamplingType(enum.Enum):
     DEFAULT_BILINEAR = 0
-    """
-    See "Linearized Multi-Sampling for Differentiable Image Transformation", https://arxiv.org/pdf/1901.07124.pdf
-    """
     LINEARISED = 1
 
 
@@ -16,19 +13,23 @@ class LocalisationParamRegressor(nn.Module):
     def __init__(self, add_coord=True):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=2),
+            nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=4),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(in_channels=64, out_channels=32, kernel_size=5, stride=2),
+            nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Linear(in_features=64 * 128, out_features=64),
+            nn.Flatten(),
+            nn.Linear(in_features=480, out_features=64),
             nn.ReLU(inplace=True),
             nn.Linear(in_features=64, out_features=3)
         )
+
+        self.model[12].weight.data.zero_()
+        self.model[12].bias.data.copy_(torch.tensor([1, 0, 0], dtype=torch.float))
 
     def forward(self, x):
         """
@@ -53,7 +54,7 @@ class LocalisationParamRegressor(nn.Module):
 
 class SpatialTransformerNetwork(nn.Module):
     def __init__(self, localisation_param_regressor, model, output_size,
-                 sampling_type=STN_SamplingType.STN_SamplingType):
+                 sampling_type=STN_SamplingType.DEFAULT_BILINEAR):
         super().__init__()
         self.localisation_param_regressor = localisation_param_regressor
         self.model = model
@@ -63,17 +64,21 @@ class SpatialTransformerNetwork(nn.Module):
         self.transformed_image = None
 
     def forward(self, x):
-        b, c, h, w = x.size()
-        transformation_params = self.localisation_param_regressor(x)
+        if isinstance(x, tuple):
+            image_batch, _, _, _, _ = x
+        else:
+            image_batch = x
+        b, c, h, w = image_batch.size()
+        transformation_params = self.localisation_param_regressor(image_batch)
         # transformation_params (b, 2 * 3)
         transformation_params = transformation_params.view(b, 2, 3)
         grid = nn.functional.affine_grid(transformation_params, (b, c, *self.output_size))
         if self.sampling_type == STN_SamplingType.DEFAULT_BILINEAR:
-            x = nn.functional.grid_sample(x, grid)
+            image_batch = nn.functional.grid_sample(image_batch, grid)
         else:
             # TODO: Use code provided from the paper's authors
             raise ValueError("Linearised Multi-Sampling is not implemented yet")
 
         # so we can access it, to plot
-        self.transformed_image = x
-        return self.model(x)
+        self.transformed_image = image_batch
+        return self.model(image_batch)
