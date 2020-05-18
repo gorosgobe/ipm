@@ -11,12 +11,58 @@ class STN_SamplingType(enum.Enum):
     LINEARISED = 1
 
 
+class FPN(nn.Module):
+    def __init__(self, add_coord=True):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=2, padding=3)
+        self.batch_norm1 = nn.BatchNorm2d(64)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=5, stride=2, padding=2)
+        self.batch_norm2 = nn.BatchNorm2d(128)
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=5, stride=2, padding=2)
+        self.batch_norm3 = nn.BatchNorm2d(256)
+        self.activ = nn.ReLU()
+        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear")
+        self.conv3_1x1 = nn.Conv2d(in_channels=256, out_channels=64, kernel_size=1)
+        self.conv2_1x1 = nn.Conv2d(in_channels=128, out_channels=64, kernel_size=1)
+        self.conv1_1x1 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=1)
+
+        self.batch_norm1_reduced = nn.BatchNorm2d(64)
+        self.batch_norm2_reduced = nn.BatchNorm2d(64)
+        self.batch_norm3_reduced = nn.BatchNorm2d(64)
+
+        self.batch_norm_final1 = nn.BatchNorm2d(16)
+        self.final1 = nn.Conv2d(in_channels=64, out_channels=16, kernel_size=3, stride=2)
+        self.batch_norm_final2 = nn.BatchNorm2d(16)
+        self.final2 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, stride=2)
+        self.flatten = nn.Flatten()
+
+    def forward(self, x):
+        out_conv1 = self.activ(self.batch_norm1(self.conv1(x)))
+        out_conv2 = self.activ(self.batch_norm2(self.conv2(out_conv1)))
+        out_conv3 = self.activ(self.batch_norm3(self.conv3(out_conv2)))
+
+        out_conv3_reduced = self.activ(self.batch_norm3_reduced(self.conv3_1x1(out_conv3)))
+        out_conv3_up = self.upsample(out_conv3_reduced)
+        out_conv2_reduced = self.activ(self.batch_norm2_reduced(self.conv2_1x1(out_conv2)))
+        out_3_to_2 = out_conv2_reduced + out_conv3_up
+
+        out_3_to_2_up = self.upsample(out_3_to_2)
+        out_conv1_reduced = self.activ(self.batch_norm1_reduced(self.conv1_1x1(out_conv1)))
+        out_2_to_1 = out_conv1_reduced + out_3_to_2_up
+
+        out = self.activ(self.batch_norm_final1(self.final1(out_2_to_1)))
+        out = self.activ(self.batch_norm_final2(self.final2(out)))
+
+        out_flattened = self.flatten(out)
+        return out_flattened
+
+
 class LocalisationParamRegressor(nn.Module):
-    def __init__(self, add_coord=True, scale=None):
+    def __init__(self, add_coord=True, scale=None, fpn=False):
         # if scale is None, learn it. Otherwise it must be a float value for the scale
         super().__init__()
         self.scale = scale
-        self.model = nn.Sequential(
+        self.cnn_model = nn.Sequential(
             nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=4),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
@@ -26,8 +72,12 @@ class LocalisationParamRegressor(nn.Module):
             nn.Conv2d(in_channels=64, out_channels=32, kernel_size=5, stride=2),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Flatten(),
-            nn.Linear(in_features=480, out_features=64),
+            nn.Flatten()
+        )
+        if fpn:
+            self.cnn_model = FPN(add_coord=True)
+        self.fc_model = nn.Sequential(
+            nn.Linear(in_features=480 if not fpn else 2640, out_features=64),
             nn.ReLU(inplace=True),
             nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
         )
@@ -39,7 +89,7 @@ class LocalisationParamRegressor(nn.Module):
         [ s 0 t_x]
         [ 0 s t_y]
         """
-        res = self.model(x)
+        res = self.fc_model(self.cnn_model(x))
         # res (B, 3)
         scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
         t_x_position = torch.tensor([[0, 0, 1, 0, 0, 0]]).to(x.device)

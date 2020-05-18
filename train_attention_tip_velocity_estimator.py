@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=0.0001)
     parser.add_argument("--epochs", type=int, default=250)
+    parser.add_argument("--fpn", default="no")
     parser.add_argument("--loss")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--init_from")
@@ -84,7 +85,8 @@ if __name__ == "__main__":
         divisor = 1
         localisation_param_regressor = LocalisationParamRegressor(
             add_coord=True,
-            scale=parse_result.scale
+            scale=parse_result.scale,
+            fpn=parse_result.fpn == "yes"
         )
         model = AttentionNetworkCoordGeneral.create(*size)(*size)
         add_spatial_maps = True
@@ -138,7 +140,7 @@ if __name__ == "__main__":
         network_klass=version,
         loss_params=loss_params,
         patience=parse_result.patience,
-        init_from=parse_result.init_from
+        init_from=parse_result.init_from,
     )
 
     print("Name:", config["name"])
