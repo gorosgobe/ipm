@@ -168,7 +168,7 @@ if __name__ == "__main__":
     train_data_loader = DataLoader(training_demonstrations, batch_size=config["batch_size"], num_workers=8,
                                    shuffle=True)
     validation_data_loader = DataLoader(val_demonstrations, batch_size=32, num_workers=8, shuffle=True)
-    test_data_loader = DataLoader(test_demonstrations, batch_size=32, num_workers=8, shuffle=True)
+    test_data_loader = DataLoader(test_demonstrations, batch_size=32, num_workers=8, shuffle=False)
 
     network_param = get_network_param_if_init_from(
         config["init_from"], config,

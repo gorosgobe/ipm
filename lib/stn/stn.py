@@ -2,6 +2,9 @@ import enum
 
 import torch
 from torch import nn
+from torch.nn import Sequential
+from torchmeta.modules import MetaModule, MetaSequential
+from torchmeta.modules.utils import get_subdict
 
 from lib.stn.linearized_multisampling_release.warp.linearized import LinearizedMutilSampler
 
@@ -10,7 +13,7 @@ class STN_SamplingType(enum.Enum):
     DEFAULT_BILINEAR = 0
     LINEARISED = 1
 
-
+# TODO: remove
 class FPN(nn.Module):
     def __init__(self, add_coord=True):
         super().__init__()
@@ -58,11 +61,11 @@ class FPN(nn.Module):
 
 
 class LocalisationParamRegressor(nn.Module):
-    def __init__(self, add_coord=True, scale=None, fpn=False):
+    def __init__(self, add_coord=True, scale=None):
         # if scale is None, learn it. Otherwise it must be a float value for the scale
         super().__init__()
         self.scale = scale
-        self.cnn_model = nn.Sequential(
+        self.cnn_model = Sequential(
             nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=4),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
@@ -74,22 +77,20 @@ class LocalisationParamRegressor(nn.Module):
             nn.ReLU(inplace=True),
             nn.Flatten()
         )
-        if fpn:
-            self.cnn_model = FPN(add_coord=True)
-        self.fc_model = nn.Sequential(
-            nn.Linear(in_features=480 if not fpn else 2640, out_features=64),
+        self.fc_model = Sequential(
+            nn.Linear(in_features=480, out_features=64),
             nn.ReLU(inplace=True),
             nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
         )
 
     def forward(self, x):
         """
-        :param x: Image batch
-        :return: Attention affine transform
+        Returns attention affine transform
         [ s 0 t_x]
         [ 0 s t_y]
         """
-        res = self.fc_model(self.cnn_model(x))
+        out_cnn_model = self.cnn_model(x)
+        res = self.fc_model(out_cnn_model)
         # res (B, 3)
         scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
         t_x_position = torch.tensor([[0, 0, 1, 0, 0, 0]]).to(x.device)
@@ -108,7 +109,7 @@ class LocalisationParamRegressor(nn.Module):
         return out + torch.tensor([[1, 0, 0, 0, 1, 0]], dtype=torch.float32).to(x.device)
 
 
-class SpatialTransformerNetwork(nn.Module):
+class SpatialTransformerNetwork(MetaModule):
     def __init__(self, localisation_param_regressor, model, output_size,
                  sampling_type=STN_SamplingType.DEFAULT_BILINEAR):
         super().__init__()
@@ -120,7 +121,7 @@ class SpatialTransformerNetwork(nn.Module):
         self.transformed_image = None
         self.transformation_params = None
 
-    def forward(self, x):
+    def forward(self, x, params=None):
         if isinstance(x, tuple):
             image_batch, _, _, _, _ = x
         else:
@@ -140,4 +141,4 @@ class SpatialTransformerNetwork(nn.Module):
         self.transformed_image = image_batch
         # downsample to coordconv size
         image_batch = nn.functional.interpolate(image_batch, mode="bilinear", size=(self.h, self.w), align_corners=True)
-        return self.model(image_batch)
+        return self.model(image_batch, params=params)

@@ -26,18 +26,30 @@ behaviour. The solution, as proposed in How To Train Your MAML, is outside the s
 
 
 class MetaAttentionNetworkCoord(MetaModule):
-    def __init__(self):
+    def __init__(self, flattened=384, track_running_stats=False):
         super().__init__()
         # spatial information is encoded as coord feature maps, one for x and one for y dimensions, fourth/fifth channels
         self.conv1 = MetaConv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)
-        self.batch_norm1 = MetaBatchNorm2d(64, track_running_stats=False)
+        self.batch_norm1 = MetaBatchNorm2d(64, track_running_stats=track_running_stats)
         self.conv2 = MetaConv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
-        self.batch_norm2 = MetaBatchNorm2d(32, track_running_stats=False)
+        self.batch_norm2 = MetaBatchNorm2d(32, track_running_stats=track_running_stats)
         self.conv3 = MetaConv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
-        self.batch_norm3 = MetaBatchNorm2d(16, track_running_stats=False)
-        self.fc1 = MetaLinear(in_features=384, out_features=64)
+        self.batch_norm3 = MetaBatchNorm2d(16, track_running_stats=track_running_stats)
+        self.fc1 = MetaLinear(in_features=flattened, out_features=64)
         self.fc2 = MetaLinear(in_features=64, out_features=64)
         self.fc3 = MetaLinear(in_features=64, out_features=6)
+
+    @staticmethod
+    def create(width, height):
+        w_prime = ((width - 5 + 2) // 2) + 1
+        w_prime = ((w_prime - 7 + 2) // 2) + 1
+        w_prime = ((w_prime - 5 + 2) // 2) + 1
+        h_prime = ((height - 5 + 2) // 2) + 1
+        h_prime = ((h_prime - 7 + 2) // 2) + 1
+        h_prime = ((h_prime - 5 + 2) // 2) + 1
+        # 16 output channels
+        flattened = h_prime * w_prime * 16
+        return lambda track, f=flattened: MetaAttentionNetworkCoord(flattened=f, track_running_stats=track)
 
     def forward(self, image_batch, params=None):
         batch_size = image_batch.size()[0]
@@ -55,6 +67,6 @@ class MetaAttentionNetworkCoord(MetaModule):
 
 
 class MetaAttentionNetworkCoord_32(MetaAttentionNetworkCoord):
-    def __init__(self):
-        super().__init__()
-        self.fc1 = MetaLinear(in_features=32, out_features=64)
+    def __init__(self, track_running_stats=False):
+        super().__init__(flattened=32, track_running_stats=track_running_stats)
+
