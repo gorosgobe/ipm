@@ -2,12 +2,13 @@ from collections import OrderedDict
 
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import MultiStepLR
 
 from lib.common.saveable import Saveable
 
 
 class STNManager(Saveable):
-    def __init__(self, name, stn, device, loc_lr=1e-4, model_lr=1e-5):
+    def __init__(self, name, stn, device, loc_lr=1e-3, model_lr=1e-2):
         super().__init__()
         self.name = name
         self.stn = stn
@@ -18,6 +19,8 @@ class STNManager(Saveable):
         self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
+        self.stn_scheduler = MultiStepLR(self.stn_optimiser, milestones=[20, 50], gamma=0.1)
+        self.model_scheduler = MultiStepLR(self.model_optimiser, milestones=[20, 50], gamma=0.1)
 
     def get_loss(self, batch, params=None):
         images = batch["image"].to(self.device)
@@ -76,6 +79,8 @@ class STNManager(Saveable):
                 val_loss.backward()
                 self.stn_optimiser.step()
 
+            self.stn_scheduler.step()
+            self.model_scheduler.step()
             # evaluate on val and test
             self.stn.model.eval()
             self.stn.localisation_param_regressor.eval()
