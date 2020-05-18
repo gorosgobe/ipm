@@ -79,9 +79,9 @@ class SpatialTransformerNetwork(nn.Module):
         transformation_params = self.localisation_param_regressor(image_batch)
         # transformation_params (b, 2 * 3)
         transformation_params = transformation_params.view(b, 2, 3)
-        grid = nn.functional.affine_grid(transformation_params, (b, c, h, w), align_corners=True)
+        grid = nn.functional.affine_grid(transformation_params, (b, c, h, w), align_corners=False)
         if self.sampling_type == STN_SamplingType.DEFAULT_BILINEAR:
-            image_batch = nn.functional.grid_sample(image_batch, grid, align_corners=True)
+            image_batch = nn.functional.grid_sample(image_batch, grid, align_corners=False)
         else:
             image_batch = LinearizedMutilSampler.linearized_grid_sample(image_batch, grid, "zeros")
 

@@ -246,7 +246,7 @@ class LinearizedMutilSampler():
         grid = grid.detach()
         input = input.repeat_interleave(num_grid, 0)
         warped_input = torch.nn.functional.grid_sample(input, grid, mode='bilinear',
-                                                       padding_mode=padding_mode, align_corners=True)
+                                                       padding_mode=padding_mode, align_corners=False)
         warped_input = warped_input.reshape(batch_size, num_grid, -1, height, width)
         return warped_input
 

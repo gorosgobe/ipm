@@ -21,7 +21,9 @@ def draw_line(start, end, img, colour):
     l = torch.tensor([0, 0]).int()
     start = torch.max(torch.min(start, u), l)
     end = torch.max(torch.min(end, u), l)
-    rr, cc = line(*tuple(start), *tuple(end))
+    rr, cc = line(*tuple(start.flip(0)), *tuple(end.flip(0)))
+    rr = np.clip(rr, 0, h - 1)
+    cc = np.clip(cc, 0, w - 1)
     img[rr, cc] = colour
 
 
@@ -32,10 +34,10 @@ def draw_transformation(image_batch, tl, tr, bl, br, same_colour=True):
         np_img = to_np(image)
         h, w, c = np_img.shape
         size_tensor = torch.tensor([w - 1, h - 1]).float()
-        tl_i = (tl[i].squeeze(1) * size_tensor).int().flip(0)
-        tr_i = (tr[i].squeeze(1) * size_tensor).int().flip(0)
-        bl_i = (bl[i].squeeze(1) * size_tensor).int().flip(0)
-        br_i = (br[i].squeeze(1) * size_tensor).int().flip(0)
+        tl_i = (tl[i].squeeze(1) * size_tensor).int()
+        tr_i = (tr[i].squeeze(1) * size_tensor).int()
+        bl_i = (bl[i].squeeze(1) * size_tensor).int()
+        br_i = (br[i].squeeze(1) * size_tensor).int()
         colour1 = (1.0, 0.0, 0.0)
         colour2 = (0.0, 1.0, 0.0)
         colour3 = (0.0, 0.0, 1.0)

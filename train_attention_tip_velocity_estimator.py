@@ -203,6 +203,7 @@ if __name__ == "__main__":
 
     if parse_result.version.lower() == "stn":
         # visualise test images and their transformations
-        tip_velocity_estimator.get_network().load_state_dict(tip_velocity_estimator.best_info["model_state_dict"])
+        if config["max_epochs"] > 0:
+            tip_velocity_estimator.get_network().load_state_dict(tip_velocity_estimator.best_info["model_state_dict"])
         visualise(name=config["name"], model=tip_velocity_estimator.get_network(), dataloader=test_data_loader)
 
