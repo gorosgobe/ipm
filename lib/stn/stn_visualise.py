@@ -16,6 +16,11 @@ def to_np(img):
 
 
 def draw_line(start, end, img, colour):
+    h, w, c = img.shape
+    u = torch.tensor([w - 1, h - 1]).int()
+    l = torch.tensor([0, 0]).int()
+    start = torch.max(torch.min(start, u), l)
+    end = torch.max(torch.min(end, u), l)
     rr, cc = line(*tuple(start), *tuple(end))
     img[rr, cc] = colour
 
