@@ -89,7 +89,7 @@ if __name__ == "__main__":
         model = AttentionNetworkCoordGeneral.create(*size)(*size)
         add_spatial_maps = True
 
-        def spatial_version(_w, _h):
+        def spatial_version(_w, _h, size=size):
             return SpatialTransformerNetwork(
                 localisation_param_regressor=localisation_param_regressor,
                 model=model,
@@ -154,6 +154,7 @@ if __name__ == "__main__":
         root_dir=config["root_dir"],
         initial_pixel_cropper=config["initial_pixel_cropper"],
         transform=preprocessing_transforms,
+        ignore_cache_if_cropper=device == torch.device("cpu")
     )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data
