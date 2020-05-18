@@ -85,12 +85,12 @@ class TipVelocityEstimator(BestSaveable):
         optim = optimiser_params.pop("optim")
 
         # for spatial transformer, we use a smaller learning rate for localisation regressor for stability (see STN paper)
-        if network_klass is not None and network_klass.__name__ == "SpatialTransformerNetwork":
+        if network_klass is not None and network_klass.__name__ == "spatial_version":
             self.optimiser = optim(
                 [
                     {"params": self.network.model.parameters()},
-                    {"params": self.network.localisation_param_regressor.parameters(), "lr": learning_rate}
-                ], lr=learning_rate, **optimiser_params
+                    {"params": self.network.localisation_param_regressor.parameters(), "lr": 1e-2 * learning_rate}
+                ], lr=1e-1 * learning_rate, **optimiser_params
             )
         else:
             self.optimiser = optim(self.network.parameters(), lr=learning_rate, **optimiser_params)

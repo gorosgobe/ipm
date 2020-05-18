@@ -89,13 +89,17 @@ if __name__ == "__main__":
         model = AttentionNetworkCoordGeneral.create(*size)(*size)
         add_spatial_maps = True
 
-        def version(_w, _h):
+        def spatial_version(_w, _h):
             return SpatialTransformerNetwork(
                 localisation_param_regressor=localisation_param_regressor,
                 model=model,
                 output_size=size,
                 sampling_type=STN_SamplingType.DEFAULT_BILINEAR
             )
+
+        version = spatial_version
+        # size is 128, 96 for images, CoordConv takes downsampled version
+        size = (128, 96)
     else:
         raise ValueError(f"Attention network version {version} is not available")
 

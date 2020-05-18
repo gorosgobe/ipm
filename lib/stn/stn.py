@@ -68,6 +68,7 @@ class SpatialTransformerNetwork(nn.Module):
         self.w, self.h = output_size
         self.sampling_type = sampling_type
         self.transformed_image = None
+        self.transformation_params = None
 
     def forward(self, x):
         if isinstance(x, tuple):
@@ -78,13 +79,15 @@ class SpatialTransformerNetwork(nn.Module):
         transformation_params = self.localisation_param_regressor(image_batch)
         # transformation_params (b, 2 * 3)
         transformation_params = transformation_params.view(b, 2, 3)
-        grid = nn.functional.affine_grid(transformation_params, (b, c, self.h, self.w), align_corners=True)
+        grid = nn.functional.affine_grid(transformation_params, (b, c, h, w), align_corners=True)
         if self.sampling_type == STN_SamplingType.DEFAULT_BILINEAR:
             image_batch = nn.functional.grid_sample(image_batch, grid, align_corners=True)
         else:
             image_batch = LinearizedMutilSampler.linearized_grid_sample(image_batch, grid, "zeros")
 
-
+        self.transformation_params = transformation_params
         # so we can access it, to plot
         self.transformed_image = image_batch
+        # downsample to coordconv size
+        image_batch = nn.functional.interpolate(image_batch, mode="bilinear", size=(self.h, self.w), align_corners=True)
         return self.model(image_batch)
