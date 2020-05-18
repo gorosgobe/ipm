@@ -29,6 +29,9 @@ class CropSizeFeatureSearch(Saveable):
         self.best_plot_contour = None
         self.improvement_plot = None
 
+        self.best_val_loss = None
+        self.best_estimator = None
+
     def evaluation_function(self, parameterization, index):
         min_width, min_height = self.min
         max_width, max_height = self.max
@@ -37,10 +40,14 @@ class CropSizeFeatureSearch(Saveable):
         if index is None:
             index = parameterization["feature"]
         print(f"Trial for feature {index}, size ({width}, {height})")
-        val_loss, _estimator = self.dsae_feature_chooser.train_model_with_feature(
+        val_loss, estimator = self.dsae_feature_chooser.train_model_with_feature(
             index=index,
             crop_size=(width, height)
         )
+
+        if self.best_val_loss is None or val_loss < self.best_val_loss:
+            print(f"New best estimator, width {width}, height {height}")
+            self.best_val_loss, self.best_estimator = (val_loss, estimator)
 
         return val_loss
 
@@ -104,7 +111,7 @@ class CropSizeFeatureSearch(Saveable):
 
     def save(self, path, info=None):
         # Also save best model
-        self.dsae_feature_chooser.save_estimator(path=path)
+        self.best_estimator.save_best_model(path=path)
         super().save(path=os.path.join(path, self.name), info=info)
 
     @staticmethod
