@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from numpy import product
 from torch import nn
 
@@ -155,3 +156,88 @@ class SoftCNNLSTMNetwork(nn.Module):
 
         # so out is (b, seq_len, 6) similarly to input
         return out.transpose(0, 1), hidden_state, importances
+
+
+class RecurrentBaseline(nn.Module):
+    def __init__(self, hidden_size, **kwargs):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size=6, hidden_size=hidden_size)
+        self.fc1 = torch.nn.Linear(in_features=hidden_size, out_features=64)
+        self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
+        self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
+
+    def forward(self, x, hidden_state=None):
+        # x (b, d_len, 6)
+        out_lstm, _hidden_state = self.lstm(x.transpose(0, 1))
+        # out_lstm (d_len, b, hidden_size)
+        out_fc1 = F.relu(self.fc1.forward(out_lstm.transpose(0, 1)))
+        out_fc2 = F.relu(self.fc2.forward(out_fc1))
+        out_fc3 = self.fc3.forward(out_fc2)
+        return out_fc3
+
+
+class RecurrentFullImage(nn.Module):
+    def __init__(self, hidden_size, **kwargs):
+        super().__init__()
+        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.batch_norm1 = torch.nn.BatchNorm2d(64)
+        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
+        self.batch_norm2 = torch.nn.BatchNorm2d(32)
+        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
+        self.batch_norm3 = torch.nn.BatchNorm2d(16)
+        self.fc1 = torch.nn.Linear(in_features=hidden_size, out_features=64)
+        self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
+        self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
+        self.lstm = nn.LSTM(input_size=2240, hidden_size=hidden_size)
+
+    def forward(self, x, hidden_state=None):
+        # x(batch, d_len, C, H, W)
+        b, d_len, c, h, w = x.size()
+        x = x.view(b * d_len, c, h, w)
+        out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(x)))
+        out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
+        out_conv3 = F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
+        out_conv3 = out_conv3.view(b, d_len, -1).transpose(0, 1)
+        # out_conv3 (d_len, b, c * h * w)
+        out_lstm, hidden_state = self.lstm(out_conv3)
+        # out_lstm (d_len, b, hidden)
+        out_lstm = out_lstm.transpose(0, 1).view(b * d_len, -1)
+        out_fc1 = F.relu(self.fc1.forward(out_lstm))
+        out_fc2 = F.relu(self.fc2.forward(out_fc1))
+        out_fc3 = self.fc3.forward(out_fc2)
+        # out is (b, seq_len, 6)
+        return out_fc3.view(b, d_len, 6)
+
+
+class RecurrentCoordConv_32(nn.Module):
+    def __init__(self, hidden_size, **kwargs):
+        super().__init__()
+        # spatial information is encoded as coord feature maps, one for x and one for y dimensions, fourth/fifth channels
+        self.conv1 = torch.nn.Conv2d(in_channels=5, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.batch_norm1 = torch.nn.BatchNorm2d(64)
+        self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
+        self.batch_norm2 = torch.nn.BatchNorm2d(32)
+        self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
+        self.batch_norm3 = torch.nn.BatchNorm2d(16)
+        self.fc1 = torch.nn.Linear(in_features=hidden_size, out_features=64)
+        self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
+        self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
+        self.lstm = nn.LSTM(input_size=32, hidden_size=hidden_size)
+
+    def forward(self, image_batch, hidden_state=None):
+        b, d_len, c, h, w = image_batch.size()
+        image_batch = image_batch.view(b * d_len, c, h, w)
+        out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(image_batch)))
+        out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
+        out_conv3 = F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
+
+        out_conv3 = out_conv3.view(b, d_len, -1).transpose(0, 1)
+        # out_conv3 (d_len, b, c * h * w)
+        out_lstm, hidden_state = self.lstm(out_conv3)
+        # out_lstm (d_len, b, hidden)
+        out_lstm = out_lstm.transpose(0, 1).view(b * d_len, -1)
+        out_fc1 = F.relu(self.fc1.forward(out_lstm))
+        out_fc2 = F.relu(self.fc2.forward(out_fc1))
+        out_fc3 = self.fc3.forward(out_fc2)
+        # out is (b, seq_len, 6)
+        return out_fc3.view(b, d_len, 6)
