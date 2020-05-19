@@ -10,10 +10,16 @@ from lib.common.utils import save_image
 
 class SoftManager(BestSaveable):
 
-    def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, entropy_lambda=1.0):
+    def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, keep_mask, separate_prediction, entropy_lambda=1.0):
         super().__init__()
         self.name = name
-        self.model = SoftCNNLSTMNetwork(hidden_size=hidden_size, is_coord=is_coord, projection_scale=projection_scale)
+        self.model = SoftCNNLSTMNetwork(
+            hidden_size=hidden_size,
+            is_coord=is_coord,
+            projection_scale=projection_scale,
+            separate_prediction=separate_prediction,
+            keep_masked=keep_mask
+        )
         self.is_coord = is_coord
         self.projection_scale = projection_scale
         self.dataset = dataset
@@ -23,6 +29,7 @@ class SoftManager(BestSaveable):
         self.early_stopper = EarlyStopper(patience=10, saveable=self)
         self.best_info = None
         self.hidden_size = hidden_size
+        self.separate_prediction = separate_prediction
         self.entropy_lambda = entropy_lambda
 
     def train(self, num_epochs, train_dataloader, val_dataloader):
@@ -87,7 +94,7 @@ class SoftManager(BestSaveable):
                         (image[:3], self.model.get_upsampled_attention().squeeze(0))
                     )
                 break
-            # TODO: change this
+            # TODO: change this name
             blended_imgs = RNNTipVelocityControllerAdapter.get_np_attention_mapped_images_from(
                 demonstration_attention_maps)
             for index, i in enumerate(blended_imgs):

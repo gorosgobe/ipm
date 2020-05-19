@@ -1,4 +1,5 @@
 import torch
+from numpy import product
 from torch import nn
 
 
@@ -11,6 +12,7 @@ class CNN(nn.Module):
             kernel_size=5,
             stride=2
         )
+        self.hidden_size = hidden_size
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
         self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=64, kernel_size=7, stride=2)
         self.batch_norm2 = torch.nn.BatchNorm2d(64)
@@ -24,14 +26,26 @@ class CNN(nn.Module):
         out_conv3 = self.activ(self.batch_norm3(self.conv3(out_conv2)))
         return out_conv3
 
+    def get_input_size_for(self, size):
+        h, w = size
+        h_p = (h - 5) // 2 + 1
+        h_p = (h_p - 7) // 2 + 1
+        h_p = (h_p - 5) // 2 + 1
+        w_p = (w - 5) // 2 + 1
+        w_p = (w_p - 7) // 2 + 1
+        w_p = (w_p - 5) // 2 + 1
+        return self.hidden_size, h_p, w_p
+
 
 class MLP(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, input_size):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Linear(in_features=hidden_size, out_features=64),
+            nn.Linear(in_features=input_size, out_features=64),
             nn.ReLU(),
-            nn.Linear(in_features=64, out_features=6)
+            nn.Linear(in_features=64, out_features=64),
+            nn.ReLU(),
+            nn.Linear(in_features=64, out_features=6),
         )
 
     def forward(self, x):
@@ -76,14 +90,23 @@ class SoftAttention(nn.Module):
 
 
 class SoftCNNLSTMNetwork(nn.Module):
-    def __init__(self, hidden_size, is_coord, projection_scale):
+    def __init__(self, hidden_size, is_coord, projection_scale, keep_masked=False, separate_prediction=False):
         super().__init__()
+        self.keep_masked = keep_masked
         self.cnn = CNN(hidden_size=hidden_size, is_coord=is_coord)
-        self.attention = SoftAttention(hidden_size=hidden_size, projection_scale=projection_scale)
-        self.lstm = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size)
-        self.mlp = MLP(hidden_size=hidden_size)
+        self.attention = SoftAttention(hidden_size=hidden_size,
+                                       projection_scale=projection_scale)
+        if self.keep_masked:
+            v_input_size = product(self.cnn.get_input_size_for((96, 128)))
+            # takes full size of image features
+            self.lstm = nn.LSTM(input_size=v_input_size, hidden_size=hidden_size)
+            self.mlp = MLP(input_size=v_input_size)
+        else:
+            self.lstm = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size)
+            self.mlp = MLP(input_size=hidden_size)
         self.importance = None
         self.h_p = None
+        self.separate_prediction = separate_prediction
         self.conv1_up = nn.UpsamplingBilinear2d(size=(96, 128))
 
     def get_upsampled_attention(self):
@@ -117,11 +140,18 @@ class SoftCNNLSTMNetwork(nn.Module):
             # importance (batch, 1, H'xW')
             assert importance.size() == (b, 1, h_p * w_p)
             # context variable (batch, hidden_size)
-            z_t = torch.sum(importance * batch, dim=-1)
-            assert z_t.size() == (b, c_p)
+            if self.keep_masked:
+                z_t = importance * batch
+                assert z_t.size() == (b, c_p, h_p * w_p)
+            else:
+                z_t = torch.sum(importance * batch, dim=-1)
+                assert z_t.size() == (b, c_p)
             # unsqueeze to add sequence dimension
             output, hidden_state = self.lstm(z_t.unsqueeze(0), hx=hidden_state)
-            out[d_step] = self.mlp(output.squeeze(0))
+            if self.separate_prediction:
+                out[d_step] = self.mlp(z_t)
+            else:
+                out[d_step] = self.mlp(output.squeeze(0))
 
         # so out is (b, seq_len, 6) similarly to input
         return out.transpose(0, 1), hidden_state, importances

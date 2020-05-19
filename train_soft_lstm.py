@@ -1,6 +1,7 @@
 import argparse
 import os
 
+import torch
 from ax import optimize
 from torch.utils.data import DataLoader
 
@@ -20,7 +21,9 @@ def evaluation_function(parameterization, dataset, config, train_data_loader, va
         device=config["device"],
         is_coord=config["is_coord"],
         projection_scale=projection_scale,
-        entropy_lambda=entropy_lambda
+        entropy_lambda=entropy_lambda,
+        separate_prediction=config["separate_prediction"],
+        keep_mask=config["keep_mask"]
     )
 
     manager.train(
@@ -45,6 +48,8 @@ if __name__ == "__main__":
     parser.add_argument("--is_bop", default="no")
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--projection_scale", type=int, default=1)
+    parser.add_argument("--separate_prediction", default="no")
+    parser.add_argument("--keep_mask", default="no")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -69,7 +74,9 @@ if __name__ == "__main__":
         entropy_lambda=parse_result.entropy_lambda,
         is_bop=parse_result.is_bop == "yes",
         hidden_size=parse_result.hidden_size,
-        projection_scale=parse_result.projection_scale
+        projection_scale=parse_result.projection_scale,
+        separate_prediction=parse_result.separate_prediction == "yes",
+        keep_mask=parse_result.keep_mask == "yes"
     )
 
     print("Name:", config["name"])
@@ -132,7 +139,9 @@ if __name__ == "__main__":
             device=config["device"],
             is_coord=config["is_coord"],
             entropy_lambda=config["entropy_lambda"],
-            projection_scale=config["projection_scale"]
+            projection_scale=config["projection_scale"],
+            separate_prediction=config["separate_prediction"],
+            keep_mask=config["keep_mask"]
         )
 
         manager.train(
