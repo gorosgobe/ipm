@@ -6,18 +6,53 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Subset
 from torch.utils.data._utils.collate import default_collate
 
+from lib.cv.dataset import ImageTipVelocitiesDataset, BaselineTipVelocitiesDataset
 from lib.dsae.dsae import CoordinateUtils
-from lib.cv.dataset import ImageTipVelocitiesDataset
+
+
+class BaselineRNNDataset(BaselineTipVelocitiesDataset):
+    def __init__(self, velocities_csv, metadata, rotations_csv, root_dir):
+        super().__init__(
+            velocities_csv=velocities_csv, metadata=metadata, rotations_csv=rotations_csv, root_dir=root_dir
+        )
+
+    def __len__(self):
+        return self.get_num_demonstrations()
+
+    def get_split(self, split_int, total_dems, start):
+        n_split_demonstrations = int(split_int * total_dems)
+        return Subset(self, np.arange(start, start + n_split_demonstrations)), n_split_demonstrations
+
+    def __getitem__(self, idx):
+        # idx is for demonstration, get images associated with this demonstration
+        start, end = self.get_indices_for_demonstration(idx)
+        demonstration_data = [super(BaselineRNNDataset, self).__getitem__(i) for i in range(start, end + 1)]
+        demonstration_targets = [
+            np.concatenate((dem_data["tip_velocities"], dem_data["rotations"])) for dem_data in demonstration_data
+        ]
+        demonstration_rels = [
+            np.concatenate((dem_data["relative_target_position"], dem_data["relative_target_orientation"])) for
+            dem_data in demonstration_data
+        ]
+
+        return dict(
+            demonstration=demonstration_rels,
+            demonstration_targets=demonstration_targets,
+        )
 
 
 class SoftRNNDataset(ImageTipVelocitiesDataset):
-    def __init__(self, velocities_csv, metadata, root_dir, rotations_csv, cache, transform, is_coord):
+    def __init__(self, velocities_csv, metadata, root_dir, rotations_csv, cache, transform, is_coord,
+                 pixel_cropper=None):
         super().__init__(
             velocities_csv=velocities_csv,
             metadata=metadata,
             root_dir=root_dir,
             rotations_csv=rotations_csv,
-            transform=transform
+            transform=transform,
+            # for recurrent coord conv
+            initial_pixel_cropper=pixel_cropper,
+            ignore_cache_if_cropper=True
         )
         self.is_coord = is_coord
         self.cache = cache
@@ -62,9 +97,11 @@ class SoftRNNDataset(ImageTipVelocitiesDataset):
             np.concatenate((dem_data["tip_velocities"], dem_data["rotations"])) for dem_data in demonstration_data
         ]
 
-        if self.is_coord:
+        c, h, w = demonstration_images[0].size()
+        # otherwise coordinates have been added and normalised already
+        if c != 5 and self.is_coord:
             result = []
-            c, h, w = demonstration_images[0].size()
+
             image_x, image_y = CoordinateUtils.get_image_coordinates(h, w, normalise=True)
             image_coordinates = torch.cat((image_x.unsqueeze(-1), image_y.unsqueeze(-1)), dim=-1)
             image_coordinates = image_coordinates.permute(2, 0, 1)
@@ -74,6 +111,7 @@ class SoftRNNDataset(ImageTipVelocitiesDataset):
                 assert res.size() == (5, h, w)
                 result.append(res)
             demonstration_images = result
+
         return dict(
             demonstration=demonstration_images,
             demonstration_targets=demonstration_targets,

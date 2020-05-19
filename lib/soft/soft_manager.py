@@ -3,23 +3,42 @@ from torch import nn, distributions
 
 from lib.common.early_stopper import EarlyStopper
 from lib.common.saveable import BestSaveable
-from lib.soft.soft import SoftCNNLSTMNetwork
-from lib.soft.rnn_tvec_adapter import RNNTipVelocityControllerAdapter
 from lib.common.utils import save_image
+from lib.soft.rnn_tvec_adapter import RNNTipVelocityControllerAdapter
+from lib.soft.soft import SoftCNNLSTMNetwork, RecurrentFullImage, RecurrentCoordConv_32, RecurrentBaseline
 
 
 class SoftManager(BestSaveable):
 
-    def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, keep_mask, separate_prediction, entropy_lambda=1.0):
+    def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, keep_mask, separate_prediction,
+                 version, entropy_lambda=1.0):
         super().__init__()
         self.name = name
-        self.model = SoftCNNLSTMNetwork(
-            hidden_size=hidden_size,
-            is_coord=is_coord,
-            projection_scale=projection_scale,
-            separate_prediction=separate_prediction,
-            keep_masked=keep_mask
-        )
+        if version == "soft":
+            self.model = SoftCNNLSTMNetwork(
+                hidden_size=hidden_size,
+                is_coord=is_coord,
+                projection_scale=projection_scale,
+                separate_prediction=separate_prediction,
+                keep_masked=keep_mask
+            )
+        elif version == "full":
+            self.model = RecurrentFullImage(
+                hidden_size=hidden_size,
+                is_coord=is_coord
+            )
+        elif version == "coordconv":
+            self.model = RecurrentCoordConv_32(
+                hidden_size=hidden_size
+            )
+        elif version == "baseline":
+            self.model = RecurrentBaseline(
+                hidden_size=hidden_size
+            )
+        else:
+            raise ValueError("Unknown version for model!")
+
+        self.version = version
         self.is_coord = is_coord
         self.projection_scale = projection_scale
         self.keep_mask = keep_mask
@@ -115,11 +134,13 @@ class SoftManager(BestSaveable):
         mask = (torch.arange(0, max_len) * ones).to(self.device) < lengths.unsqueeze(-1)
         mask = mask.float()
         # mask (b, dem_len)
-        # importance_stack (b, dem_len, 1, H'xW')
-        importance_stack = torch.stack(importances).transpose(0, 1)
-        entropies = distributions.Categorical(probs=importance_stack).entropy()
-        # entropies (b, dem_len, 1)
-        entropy_contribution = torch.sum(entropies * mask.unsqueeze(-1))
+        entropy_contribution = 0
+        if importances is not None:
+            # importance_stack (b, dem_len, 1, H'xW')
+            importance_stack = torch.stack(importances).transpose(0, 1)
+            entropies = distributions.Categorical(probs=importance_stack).entropy()
+            # entropies (b, dem_len, 1)
+            entropy_contribution = torch.sum(entropies * mask.unsqueeze(-1))
         loss = self.loss(predicted_targets, targets)
         target_contribution = torch.sum(loss * mask.unsqueeze(-1))
         mask_total = torch.sum(mask)
@@ -139,5 +160,6 @@ class SoftManager(BestSaveable):
             is_coord=self.is_coord,
             projection_scale=self.projection_scale,
             keep_mask=self.keep_mask,
-            separate_prediction=self.separate_prediction
+            separate_prediction=self.separate_prediction,
+            version=self.version
         )

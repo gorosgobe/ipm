@@ -54,9 +54,9 @@ class MLP(nn.Module):
 
 
 class SoftAttention(nn.Module):
-    def __init__(self, hidden_size, projection_scale=1):
+    def __init__(self, hidden_size, is_mask=False, projection_scale=1):
         super().__init__()
-        self.softmax = nn.Softmax(dim=-1)
+        self.prob_activ = nn.Softmax(dim=-1) if not is_mask else nn.Sigmoid()
         self.fc_combine = nn.Linear(in_features=hidden_size // projection_scale, out_features=1)
         self.fc_v_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // projection_scale)
         self.fc_h_t = nn.Linear(in_features=hidden_size, out_features=hidden_size // projection_scale)
@@ -95,8 +95,11 @@ class SoftCNNLSTMNetwork(nn.Module):
         super().__init__()
         self.keep_masked = keep_masked
         self.cnn = CNN(hidden_size=hidden_size, is_coord=is_coord)
-        self.attention = SoftAttention(hidden_size=hidden_size,
-                                       projection_scale=projection_scale)
+        self.attention = SoftAttention(
+            hidden_size=hidden_size,
+            is_mask=keep_masked,
+            projection_scale=projection_scale
+        )
         if self.keep_masked:
             v_input_size = int(product(self.cnn.get_input_size_for((96, 128))))
             # takes full size of image features
@@ -173,13 +176,14 @@ class RecurrentBaseline(nn.Module):
         out_fc1 = F.relu(self.fc1.forward(out_lstm.transpose(0, 1)))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
-        return out_fc3
+        return out_fc3, None, None
 
 
 class RecurrentFullImage(nn.Module):
-    def __init__(self, hidden_size, **kwargs):
+    def __init__(self, hidden_size, is_coord, **kwargs):
         super().__init__()
-        self.conv1 = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=5, stride=2, padding=1)
+        self.hidden_size = hidden_size
+        self.conv1 = torch.nn.Conv2d(in_channels=3 if not is_coord else 5, out_channels=64, kernel_size=5, stride=2, padding=1)
         self.batch_norm1 = torch.nn.BatchNorm2d(64)
         self.conv2 = torch.nn.Conv2d(in_channels=64, out_channels=32, kernel_size=7, stride=2, padding=1)
         self.batch_norm2 = torch.nn.BatchNorm2d(32)
@@ -201,12 +205,12 @@ class RecurrentFullImage(nn.Module):
         # out_conv3 (d_len, b, c * h * w)
         out_lstm, hidden_state = self.lstm(out_conv3)
         # out_lstm (d_len, b, hidden)
-        out_lstm = out_lstm.transpose(0, 1).view(b * d_len, -1)
+        out_lstm = out_lstm.transpose(0, 1).reshape((b * d_len, self.hidden_size))
         out_fc1 = F.relu(self.fc1.forward(out_lstm))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
         # out is (b, seq_len, 6)
-        return out_fc3.view(b, d_len, 6)
+        return out_fc3.view(b, d_len, 6), None, None
 
 
 class RecurrentCoordConv_32(nn.Module):
@@ -235,9 +239,9 @@ class RecurrentCoordConv_32(nn.Module):
         # out_conv3 (d_len, b, c * h * w)
         out_lstm, hidden_state = self.lstm(out_conv3)
         # out_lstm (d_len, b, hidden)
-        out_lstm = out_lstm.transpose(0, 1).view(b * d_len, -1)
+        out_lstm = out_lstm.transpose(0, 1).reshape((b * d_len, -1))
         out_fc1 = F.relu(self.fc1.forward(out_lstm))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
         # out is (b, seq_len, 6)
-        return out_fc3.view(b, d_len, 6)
+        return out_fc3.view(b, d_len, 6), None, None

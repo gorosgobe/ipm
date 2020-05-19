@@ -1,13 +1,13 @@
 import argparse
 import os
 
-import torch
 from ax import optimize
 from torch.utils.data import DataLoader
 
 from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
+from lib.cv.controller import TrainingPixelROI
 from lib.soft.soft_manager import SoftManager
-from lib.soft.soft_rnn_dataset import SoftRNNDataset
+from lib.soft.soft_rnn_dataset import SoftRNNDataset, BaselineRNNDataset
 
 
 def evaluation_function(parameterization, dataset, config, train_data_loader, validation_data_loader):
@@ -23,7 +23,8 @@ def evaluation_function(parameterization, dataset, config, train_data_loader, va
         projection_scale=projection_scale,
         entropy_lambda=entropy_lambda,
         separate_prediction=config["separate_prediction"],
-        keep_mask=config["keep_mask"]
+        keep_mask=config["keep_mask"],
+        version=config["version"]
     )
 
     manager.train(
@@ -50,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--projection_scale", type=int, default=1)
     parser.add_argument("--separate_prediction", default="no")
     parser.add_argument("--keep_mask", default="no")
+    parser.add_argument("--version", default="soft")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -76,23 +78,41 @@ if __name__ == "__main__":
         hidden_size=parse_result.hidden_size,
         projection_scale=parse_result.projection_scale,
         separate_prediction=parse_result.separate_prediction == "yes",
-        keep_mask=parse_result.keep_mask == "yes"
+        keep_mask=parse_result.keep_mask == "yes",
+        version=parse_result.version
     )
 
     print("Name:", config["name"])
     device = set_up_cuda(config["seed"])
     config["device"] = device
-    preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"])
+    if config["version"] == "coordconv":
+        preprocessing_transforms, transforms = get_preprocessing_transforms((32, 24), is_coord=True)
+    else:
+        preprocessing_transforms, transforms = get_preprocessing_transforms(config["size"])
 
-    dataset = SoftRNNDataset(
-        velocities_csv=config["velocities_csv"],
-        metadata=config["metadata"],
-        rotations_csv=config["rotations_csv"],
-        root_dir=config["root_dir"],
-        cache=True,
-        transform=preprocessing_transforms,
-        is_coord=config["is_coord"]
-    )
+    if config["version"] == "baseline":
+        dataset = BaselineRNNDataset(
+            velocities_csv=config["velocities_csv"],
+            metadata=config["metadata"],
+            rotations_csv=config["rotations_csv"],
+            root_dir=config["root_dir"],
+        )
+    else:
+        pixel_cropper = None
+        if config["version"] == "coordconv":
+            pixel_cropper = TrainingPixelROI(
+                480 // 4, 640 // 4, add_spatial_maps=True
+            )
+        dataset = SoftRNNDataset(
+            velocities_csv=config["velocities_csv"],
+            metadata=config["metadata"],
+            rotations_csv=config["rotations_csv"],
+            root_dir=config["root_dir"],
+            cache=True,
+            transform=preprocessing_transforms,
+            is_coord=config["is_coord"],
+            pixel_cropper=pixel_cropper
+        )
 
     limit_training_coefficient = parse_result.training or 0.8  # all training data
     print("Training coeff limit:", limit_training_coefficient)
@@ -141,7 +161,8 @@ if __name__ == "__main__":
             entropy_lambda=config["entropy_lambda"],
             projection_scale=config["projection_scale"],
             separate_prediction=config["separate_prediction"],
-            keep_mask=config["keep_mask"]
+            keep_mask=config["keep_mask"],
+            version=config["version"]
         )
 
         manager.train(
@@ -150,9 +171,10 @@ if __name__ == "__main__":
             val_dataloader=validation_data_loader
         )
 
-        manager.plot_attention_on(train_data_loader, f"{config['name']}-train", 0)
-        manager.plot_attention_on(train_data_loader, f"{config['name']}-train", 1)
-        manager.plot_attention_on(validation_data_loader, f"{config['name']}-val", 0)
-        manager.plot_attention_on(validation_data_loader, f"{config['name']}-val", 1)
+        if config["version"] == "soft":
+            manager.plot_attention_on(train_data_loader, f"{config['name']}-train", 0)
+            manager.plot_attention_on(train_data_loader, f"{config['name']}-train", 1)
+            manager.plot_attention_on(validation_data_loader, f"{config['name']}-val", 0)
+            manager.plot_attention_on(validation_data_loader, f"{config['name']}-val", 1)
 
         manager.save_best_model(os.path.join(config["save_to_location"], "soft_lstm"))
