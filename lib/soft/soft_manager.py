@@ -22,6 +22,7 @@ class SoftManager(BestSaveable):
         )
         self.is_coord = is_coord
         self.projection_scale = projection_scale
+        self.keep_mask = keep_mask
         self.dataset = dataset
         self.device = device
         self.optimiser = torch.optim.Adam(self.model.parameters(), lr=0.0001)
@@ -136,5 +137,7 @@ class SoftManager(BestSaveable):
             state_dict=self.model.state_dict(),
             hidden_size=self.hidden_size,
             is_coord=self.is_coord,
-            projection_scale=self.projection_scale
+            projection_scale=self.projection_scale,
+            keep_mask=self.keep_mask,
+            separate_prediction=self.separate_prediction
         )

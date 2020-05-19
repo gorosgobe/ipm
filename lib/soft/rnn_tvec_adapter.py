@@ -8,8 +8,14 @@ from lib.common.utils import ResizeTransform
 
 
 class RNNTipVelocityControllerAdapter(object):
-    def __init__(self, parameters, hidden_size, projection_scale, is_coord=False, size=(128, 96)):
-        self.model = SoftCNNLSTMNetwork(hidden_size=hidden_size, is_coord=is_coord, projection_scale=projection_scale)
+    def __init__(self, parameters, hidden_size, projection_scale, separate_prediction, keep_mask, is_coord=False, size=(128, 96)):
+        self.model = SoftCNNLSTMNetwork(
+            hidden_size=hidden_size,
+            is_coord=is_coord,
+            projection_scale=projection_scale,
+            separate_prediction=separate_prediction,
+            keep_masked=keep_mask
+        )
         self.model.load_state_dict(parameters)
         self.is_coord = is_coord
 
@@ -73,5 +79,7 @@ class RNNTipVelocityControllerAdapter(object):
             parameters=info["state_dict"],
             hidden_size=info["hidden_size"],
             projection_scale=info["projection_scale"],
-            is_coord=info["is_coord"] if "is_coord" in info else False
+            is_coord=info["is_coord"] if "is_coord" in info else False,
+            separate_prediction=info["separate_prediction"] if "separate_prediction" in info else True,
+            keep_mask=info["keep_mask"] if "keep_mask" in info else False
         )

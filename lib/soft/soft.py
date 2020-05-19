@@ -97,7 +97,7 @@ class SoftCNNLSTMNetwork(nn.Module):
         self.attention = SoftAttention(hidden_size=hidden_size,
                                        projection_scale=projection_scale)
         if self.keep_masked:
-            v_input_size = product(self.cnn.get_input_size_for((96, 128)))
+            v_input_size = int(product(self.cnn.get_input_size_for((96, 128))))
             # takes full size of image features
             self.lstm = nn.LSTM(input_size=v_input_size, hidden_size=hidden_size)
             self.mlp = MLP(input_size=v_input_size)
@@ -142,7 +142,7 @@ class SoftCNNLSTMNetwork(nn.Module):
             # context variable (batch, hidden_size)
             if self.keep_masked:
                 z_t = importance * batch
-                assert z_t.size() == (b, c_p, h_p * w_p)
+                z_t = z_t.view(b, c_p * h_p * w_p)
             else:
                 z_t = torch.sum(importance * batch, dim=-1)
                 assert z_t.size() == (b, c_p)
