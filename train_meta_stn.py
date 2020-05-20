@@ -24,7 +24,6 @@ if __name__ == "__main__":
     parser.add_argument("--val", type=float, default=0.1)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
-    parser.add_argument("--spatial", default="no")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -43,8 +42,7 @@ if __name__ == "__main__":
 
     localisation_param_regressor = LocalisationParamRegressor(
         add_coord=True,
-        scale=parse_result.scale,
-        spatial=parse_result.spatial == "yes"
+        scale=parse_result.scale
     )
     model = MetaAttentionNetworkCoord.create(*size)(track=True)
     add_spatial_maps = True

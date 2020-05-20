@@ -58,7 +58,7 @@ def visualise(name, model, dataloader):
     model.eval()
     with torch.no_grad():
         iterator = iter(dataloader)
-        for i in range(7):
+        for i in range(8):
             # better test trajectory to visualise it on
             image_batch = next(iterator)["image"].cpu()
         _ = model(image_batch)

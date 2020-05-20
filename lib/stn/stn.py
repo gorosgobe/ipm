@@ -5,7 +5,6 @@ from torch import nn
 from torch.nn import Sequential
 from torchmeta.modules import MetaModule
 
-from lib.dsae.dsae import SpatialSoftArgmax
 from lib.stn.linearized_multisampling_release.warp.linearized import LinearizedMutilSampler
 
 
@@ -14,60 +13,8 @@ class STN_SamplingType(enum.Enum):
     LINEARISED = 1
 
 
-class SpatialLocalisation(nn.Module):
-    # TODO: implement, uses normal CNN but transforms them into spatial features
-    pass
-
-
-# TODO: remove
-class FPN(nn.Module):
-    def __init__(self, add_coord=True):
-        super().__init__()
-        self.conv1 = nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=2, padding=3)
-        self.batch_norm1 = nn.BatchNorm2d(64)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=5, stride=2, padding=2)
-        self.batch_norm2 = nn.BatchNorm2d(128)
-        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=5, stride=2, padding=2)
-        self.batch_norm3 = nn.BatchNorm2d(256)
-        self.activ = nn.ReLU()
-        self.upsample = nn.Upsample(scale_factor=2, mode="bilinear")
-        self.conv3_1x1 = nn.Conv2d(in_channels=256, out_channels=64, kernel_size=1)
-        self.conv2_1x1 = nn.Conv2d(in_channels=128, out_channels=64, kernel_size=1)
-        self.conv1_1x1 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=1)
-
-        self.batch_norm1_reduced = nn.BatchNorm2d(64)
-        self.batch_norm2_reduced = nn.BatchNorm2d(64)
-        self.batch_norm3_reduced = nn.BatchNorm2d(64)
-
-        self.batch_norm_final1 = nn.BatchNorm2d(16)
-        self.final1 = nn.Conv2d(in_channels=64, out_channels=16, kernel_size=3, stride=2)
-        self.batch_norm_final2 = nn.BatchNorm2d(16)
-        self.final2 = nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, stride=2)
-        self.flatten = nn.Flatten()
-
-    def forward(self, x):
-        out_conv1 = self.activ(self.batch_norm1(self.conv1(x)))
-        out_conv2 = self.activ(self.batch_norm2(self.conv2(out_conv1)))
-        out_conv3 = self.activ(self.batch_norm3(self.conv3(out_conv2)))
-
-        out_conv3_reduced = self.activ(self.batch_norm3_reduced(self.conv3_1x1(out_conv3)))
-        out_conv3_up = self.upsample(out_conv3_reduced)
-        out_conv2_reduced = self.activ(self.batch_norm2_reduced(self.conv2_1x1(out_conv2)))
-        out_3_to_2 = out_conv2_reduced + out_conv3_up
-
-        out_3_to_2_up = self.upsample(out_3_to_2)
-        out_conv1_reduced = self.activ(self.batch_norm1_reduced(self.conv1_1x1(out_conv1)))
-        out_2_to_1 = out_conv1_reduced + out_3_to_2_up
-
-        out = self.activ(self.batch_norm_final1(self.final1(out_2_to_1)))
-        out = self.activ(self.batch_norm_final2(self.final2(out)))
-
-        out_flattened = self.flatten(out)
-        return out_flattened
-
-
 class LocalisationParamRegressor(nn.Module):
-    def __init__(self, add_coord=True, scale=None, spatial=False):
+    def __init__(self, add_coord=True, scale=None):
         # if scale is None, learn it. Otherwise it must be a float value for the scale
         super().__init__()
         self.scale = scale
@@ -75,31 +22,29 @@ class LocalisationParamRegressor(nn.Module):
             nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=5, stride=2),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=5, stride=2),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=5, stride=2),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
         )
-        if spatial:
-            self.fc_model = Sequential(
-                SpatialSoftArgmax(normalise=True),  # outputs (N, C, 2)
-                nn.Flatten(),
-                nn.Linear(in_features=256, out_features=64),
-                nn.ReLU(inplace=True),
-                nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
-            )
+
+        self.fc_model = Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=960, out_features=64),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
+        )
+
+        self.fc_model[-1].weight.data.zero_()
+        if scale is None:
+            self.fc_model[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
         else:
-            self.fc_model = Sequential(
-                nn.Flatten(),
-                nn.Linear(in_features=1920, out_features=64),
-                nn.ReLU(inplace=True),
-                nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
-            )
+            self.fc_model[-1].bias.data.copy_(torch.tensor([scale, 0, 0, 0, scale, 0], dtype=torch.float))
 
     def forward(self, x):
         """
@@ -124,8 +69,7 @@ class LocalisationParamRegressor(nn.Module):
             t_y = res[:, 1].unsqueeze(-1)
             out = self.scale * scale_position + t_x * t_x_position + t_y * t_y_position
         # out (B, 6)
-        # learn offset
-        return out + torch.tensor([[1, 0, 0, 0, 1, 0]], dtype=torch.float32).to(x.device)
+        return out
 
 
 class SpatialTransformerNetwork(MetaModule):
