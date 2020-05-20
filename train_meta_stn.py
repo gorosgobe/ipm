@@ -22,6 +22,8 @@ if __name__ == "__main__":
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--epochs", type=int, default=250)
     parser.add_argument("--val", type=float, default=0.1)
+    parser.add_argument("--loc_lr", type=float, default=1e-4)
+    parser.add_argument("--model_lr", type=float, default=1e-2)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
     parse_result = parser.parse_args()
@@ -111,7 +113,9 @@ if __name__ == "__main__":
     manager = STNManager(
         name=config["name"],
         stn=stn,
-        device=device
+        device=device,
+        loc_lr=parse_result.loc_lr,
+        model_lr=parse_result.model_lr
     )
 
     manager.train(num_epochs=config["max_epochs"], train_dataloader=train_data_loader,
@@ -119,11 +123,11 @@ if __name__ == "__main__":
 
     # save_best_model
     if config["max_epochs"] > 0:
-        manager.save(os.path.join(config["save_to_location"], config["name"]))
+        manager.save_best_model(config["save_to_location"])
 
     # visualise test images and their transformations
     if config["max_epochs"] > 0:
-        stn.load_state_dict(manager.get_info()["stn_state_dict"])
+        stn.load_state_dict(manager.get_best_info()["stn_state_dict"])
 
     visualise(name=f"{config['name']}_train", model=stn, dataloader=train_data_loader)
     if config["split"][1] == 0.2:

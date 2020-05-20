@@ -53,14 +53,18 @@ def draw_transformation(image_batch, tl, tr, bl, br, same_colour=True):
     return out
 
 
-def visualise(name, model, dataloader):
+def visualise(name, model, dataloader=None, image_batch=None, return_drawn_image=False):
+    if dataloader is None and image_batch is None:
+        raise ValueError("Dataloader or image batch")
     model.to(torch.device("cpu"))
     model.eval()
     with torch.no_grad():
-        iterator = iter(dataloader)
-        for i in range(8):
-            # better test trajectory to visualise it on
-            image_batch = next(iterator)["image"].cpu()
+        if dataloader is not None:
+            iterator = iter(dataloader)
+            for i in range(8):
+                # better test trajectory to visualise it on
+                image_batch = next(iterator)["image"].cpu()
+
         _ = model(image_batch)
         transformation_params = model.transformation_params
         transformed_images = model.transformed_image
@@ -69,6 +73,8 @@ def visualise(name, model, dataloader):
         bl = (transformation_params @ torch.tensor([[-1.0], [1.0], [1.0]]) + 1) / 2
         br = (transformation_params @ torch.tensor([[1.0], [1.0], [1.0]]) + 1) / 2
         image_batch = draw_transformation(image_batch, tl, tr, bl, br)
+        if return_drawn_image:
+            return image_batch
         input_grid = to_np(torchvision.utils.make_grid(image_batch, padding=8))
         output_grid = to_np(torchvision.utils.make_grid(transformed_images, padding=8))
         f, axarr = plt.subplots(2, 1, figsize=(15, 15))

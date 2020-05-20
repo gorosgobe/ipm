@@ -4,23 +4,26 @@ import torch
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
 
-from lib.common.saveable import Saveable
+from early_stopper import EarlyStopper
+from lib.common.saveable import BestSaveable
 
 
-class STNManager(Saveable):
-    def __init__(self, name, stn, device, loc_lr=1e-3, model_lr=1e-2):
+class STNManager(BestSaveable):
+    def __init__(self, name, stn, device, loc_lr=1e-4, model_lr=1e-2):
         super().__init__()
         self.name = name
         self.stn = stn
         self.best_info = None
         self.device = device
         self.loss = nn.MSELoss()
-        self.stn_optimiser = torch.optim.SGD(self.stn.localisation_param_regressor.parameters(), lr=loc_lr, momentum=0.9)
-        self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr, momentum=0.9)
+        self.stn_optimiser = torch.optim.SGD(self.stn.localisation_param_regressor.parameters(), lr=loc_lr,
+                                             momentum=0.9)
+        self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
         self.stn_scheduler = StepLR(self.stn_optimiser, step_size=20, gamma=0.5)
         self.model_scheduler = StepLR(self.model_optimiser, step_size=20, gamma=0.5)
+        self.early_stopper = EarlyStopper(patience=15, saveable=self)
 
     def get_loss(self, batch, params=None):
         images = batch["image"].to(self.device)
@@ -61,7 +64,6 @@ class STNManager(Saveable):
                     self.pseudo_infinite_sampling(val_dataloader, len(train_dataloader))
             ):
                 # we now have training and validation batches
-                # usually fewer validation batches than training, so reiterate over val loader
                 self.stn_optimiser.zero_grad()
                 self.model_optimiser.zero_grad()
                 train_loss = self.get_loss(train_batch)
@@ -95,11 +97,18 @@ class STNManager(Saveable):
                 for _, test_eval_batch in enumerate(test_dataloader):
                     test_eval_loss = self.get_loss(test_eval_batch)
                     test_eval_loss_epoch += test_eval_loss.item()
-                print("Test EVAL:", test_eval_loss_epoch / len(test_dataloader.dataset))
-                # TODO: early stopping on test loss, then evaluate on trajectories
+                avg_test_eval_loss_epoch = test_eval_loss_epoch / len(test_dataloader.dataset)
+                self.early_stopper.register_loss(avg_test_eval_loss_epoch)
+                print("Test EVAL:", avg_test_eval_loss_epoch)
+                if self.early_stopper.should_stop():
+                    print("Patience reached, stopping...")
+                    break
 
     def get_info(self):
         return dict(
             name=self.name,
             stn_state_dict=self.stn.state_dict()
         )
+
+    def get_best_info(self):
+        return self.best_info

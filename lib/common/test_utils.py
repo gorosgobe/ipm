@@ -45,6 +45,7 @@ class TestConfig(enum.Enum):
     DSAE = 8
     RECURRENT_FULL = 9
     DSAE_CHOOSE = 10
+    STN = 11
 
 
 def get_testing_configs(camera_robot, target_cube):
@@ -57,6 +58,11 @@ def get_testing_configs(camera_robot, target_cube):
         TestConfig.RECURRENT_FULL:
             {
                 "cropper": IdentityCropper(),
+                "c_type": ControllerType.DEFAULT
+            },
+        TestConfig.STN:
+            {
+                "cropper": TruePixelROI(480, 640, camera_robot.get_movable_camera(), target_cube, add_spatial_maps=True),
                 "c_type": ControllerType.DEFAULT
             },
         TestConfig.DSAE_CHOOSE:

@@ -102,4 +102,4 @@ class SpatialTransformerNetwork(MetaModule):
         self.transformation_params = transformation_params
         # so we can access it, to plot
         self.transformed_image = image_batch
-        return self.model(image_batch, params=params)
+        return self.model(image_batch.contiguous(), params=params)
