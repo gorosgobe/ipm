@@ -125,7 +125,9 @@ if __name__ == "__main__":
     if config["max_epochs"] > 0:
         stn.load_state_dict(manager.get_info()["stn_state_dict"])
 
+    visualise(name=f"{config['name']}_train", model=stn, dataloader=train_data_loader)
     if config["split"][1] == 0.2:
         visualise(name=f"{config['name']}_val", model=stn, dataloader=validation_data_loader)
     else:
+        visualise(name=f"{config['name']}_val", model=stn, dataloader=validation_data_loader)
         visualise(name=config["name"], model=stn, dataloader=test_data_loader)
