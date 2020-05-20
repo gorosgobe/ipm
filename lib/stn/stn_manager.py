@@ -19,8 +19,8 @@ class STNManager(Saveable):
         self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
-        self.stn_scheduler = StepLR(self.stn_optimiser, step_size=30, gamma=0.1)
-        self.model_scheduler = StepLR(self.model_optimiser, step_size=30, gamma=0.1)
+        self.stn_scheduler = StepLR(self.stn_optimiser, step_size=20, gamma=0.1)
+        self.model_scheduler = StepLR(self.model_optimiser, step_size=20, gamma=0.1)
 
     def get_loss(self, batch, params=None):
         images = batch["image"].to(self.device)

@@ -5,7 +5,7 @@ from torch import nn
 from torch.nn import Sequential
 from torchmeta.modules import MetaModule
 
-from dsae.dsae import SpatialSoftArgmax
+from lib.dsae.dsae import SpatialSoftArgmax
 from lib.stn.linearized_multisampling_release.warp.linearized import LinearizedMutilSampler
 
 
@@ -72,28 +72,31 @@ class LocalisationParamRegressor(nn.Module):
         super().__init__()
         self.scale = scale
         self.cnn_model = Sequential(
-            nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=4),
+            nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=5, stride=2),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=5, stride=2),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=5, stride=2),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
         )
-        self.flatten = nn.Flatten()
-        if self.spatial:
+        if spatial:
             self.fc_model = Sequential(
                 SpatialSoftArgmax(normalise=True),  # outputs (N, C, 2)
                 nn.Flatten(),
-                nn.Linear(in_features=128, out_features=64),
+                nn.Linear(in_features=256, out_features=64),
                 nn.ReLU(inplace=True),
                 nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
             )
         else:
             self.fc_model = Sequential(
-                nn.Linear(in_features=480, out_features=64),
+                nn.Flatten(),
+                nn.Linear(in_features=1920, out_features=64),
                 nn.ReLU(inplace=True),
                 nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
             )
@@ -106,7 +109,7 @@ class LocalisationParamRegressor(nn.Module):
         """
         # TODO: abstract this into a separate part, so we can plug a different one
         out_cnn_model = self.cnn_model(x)
-        res = self.fc_model(self.flatten(out_cnn_model))
+        res = self.fc_model(out_cnn_model)
         # res (B, 3)
         scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
         t_x_position = torch.tensor([[0, 0, 1, 0, 0, 0]]).to(x.device)
