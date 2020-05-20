@@ -3,8 +3,7 @@ import enum
 import torch
 from torch import nn
 from torch.nn import Sequential
-from torchmeta.modules import MetaModule, MetaSequential
-from torchmeta.modules.utils import get_subdict
+from torchmeta.modules import MetaModule
 
 from lib.stn.linearized_multisampling_release.warp.linearized import LinearizedMutilSampler
 
@@ -12,6 +11,12 @@ from lib.stn.linearized_multisampling_release.warp.linearized import LinearizedM
 class STN_SamplingType(enum.Enum):
     DEFAULT_BILINEAR = 0
     LINEARISED = 1
+
+
+class SpatialLocalisation(nn.Module):
+    # TODO: implement, uses normal CNN but transforms them into spatial features
+    pass
+
 
 # TODO: remove
 class FPN(nn.Module):
@@ -89,6 +94,7 @@ class LocalisationParamRegressor(nn.Module):
         [ s 0 t_x]
         [ 0 s t_y]
         """
+        # TODO: abstract this into a separate part, so we can plug a different one
         out_cnn_model = self.cnn_model(x)
         res = self.fc_model(out_cnn_model)
         # res (B, 3)

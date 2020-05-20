@@ -57,7 +57,9 @@ def visualise(name, model, dataloader):
     model.to(torch.device("cpu"))
     model.eval()
     with torch.no_grad():
-        image_batch = next(iter(dataloader))["image"].cpu()
+        for i in range(7):
+            # better test trajectory to visualise it on
+            image_batch = next(iter(dataloader))["image"].cpu()
         _ = model(image_batch)
         transformation_params = model.transformation_params
         transformed_images = model.transformed_image
