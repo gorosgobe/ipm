@@ -42,9 +42,9 @@ class LocalisationParamRegressor(nn.Module):
 
         self.fc_model[-1].weight.data.zero_()
         if scale is None:
-            self.fc_model[-1].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
+            self.fc_model[-1].bias.data.copy_(torch.tensor([1, 0, 0], dtype=torch.float))
         else:
-            self.fc_model[-1].bias.data.copy_(torch.tensor([scale, 0, 0, 0, scale, 0], dtype=torch.float))
+            self.fc_model[-1].bias.data.copy_(torch.tensor([0, 0], dtype=torch.float))
 
     def forward(self, x):
         """
