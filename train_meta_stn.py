@@ -51,7 +51,7 @@ if __name__ == "__main__":
         localisation_param_regressor=localisation_param_regressor,
         model=model,
         output_size=size,
-        sampling_type=STN_SamplingType.DEFAULT_BILINEAR
+        sampling_type=STN_SamplingType.LINEARISED
     )
 
     # size is 128, 96 for images, CoordConv takes downsampled version

@@ -15,12 +15,12 @@ class STNManager(Saveable):
         self.best_info = None
         self.device = device
         self.loss = nn.MSELoss()
-        self.stn_optimiser = torch.optim.SGD(self.stn.localisation_param_regressor.parameters(), lr=loc_lr)
-        self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
+        self.stn_optimiser = torch.optim.SGD(self.stn.localisation_param_regressor.parameters(), lr=loc_lr, momentum=0.9)
+        self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr, momentum=0.9)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
-        self.stn_scheduler = StepLR(self.stn_optimiser, step_size=20, gamma=0.1)
-        self.model_scheduler = StepLR(self.model_optimiser, step_size=20, gamma=0.1)
+        self.stn_scheduler = StepLR(self.stn_optimiser, step_size=20, gamma=0.5)
+        self.model_scheduler = StepLR(self.model_optimiser, step_size=20, gamma=0.5)
 
     def get_loss(self, batch, params=None):
         images = batch["image"].to(self.device)
