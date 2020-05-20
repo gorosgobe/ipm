@@ -5,6 +5,7 @@ from torch import nn
 from torch.nn import Sequential
 from torchmeta.modules import MetaModule
 
+from dsae.dsae import SpatialSoftArgmax
 from lib.stn.linearized_multisampling_release.warp.linearized import LinearizedMutilSampler
 
 
@@ -66,7 +67,7 @@ class FPN(nn.Module):
 
 
 class LocalisationParamRegressor(nn.Module):
-    def __init__(self, add_coord=True, scale=None):
+    def __init__(self, add_coord=True, scale=None, spatial=False):
         # if scale is None, learn it. Otherwise it must be a float value for the scale
         super().__init__()
         self.scale = scale
@@ -77,16 +78,25 @@ class LocalisationParamRegressor(nn.Module):
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=32, kernel_size=5, stride=2),
-            nn.BatchNorm2d(32),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
+            nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.Flatten()
         )
-        self.fc_model = Sequential(
-            nn.Linear(in_features=480, out_features=64),
-            nn.ReLU(inplace=True),
-            nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
-        )
+        self.flatten = nn.Flatten()
+        if self.spatial:
+            self.fc_model = Sequential(
+                SpatialSoftArgmax(normalise=True),  # outputs (N, C, 2)
+                nn.Flatten(),
+                nn.Linear(in_features=128, out_features=64),
+                nn.ReLU(inplace=True),
+                nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
+            )
+        else:
+            self.fc_model = Sequential(
+                nn.Linear(in_features=480, out_features=64),
+                nn.ReLU(inplace=True),
+                nn.Linear(in_features=64, out_features=3) if scale is None else nn.Linear(in_features=64, out_features=2)
+            )
 
     def forward(self, x):
         """
@@ -96,7 +106,7 @@ class LocalisationParamRegressor(nn.Module):
         """
         # TODO: abstract this into a separate part, so we can plug a different one
         out_cnn_model = self.cnn_model(x)
-        res = self.fc_model(out_cnn_model)
+        res = self.fc_model(self.flatten(out_cnn_model))
         # res (B, 3)
         scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
         t_x_position = torch.tensor([[0, 0, 1, 0, 0, 0]]).to(x.device)

@@ -3,17 +3,14 @@ import os
 
 from torch.utils.data import DataLoader
 
-from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_loss, get_seed, \
-    get_network_param_if_init_from
-from lib.cv.controller import TrainingPixelROI, CropDeviationSampler
+from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
+from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import ImageTipVelocitiesDataset
-from lib.cv.tip_velocity_estimator import TipVelocityEstimator
-from lib.meta.mil import MetaImitationLearning
+from lib.meta.meta_networks import MetaAttentionNetworkCoord
 from lib.networks import *
 from lib.stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, STN_SamplingType
+from lib.stn.stn_manager import STNManager
 from lib.stn.stn_visualise import visualise
-from lib.meta.meta_networks import MetaAttentionNetworkCoord
-from lib.stn.STNManager import STNManager
 
 if __name__ == "__main__":
 
@@ -26,6 +23,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=250)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
+    parser.add_argument("--spatial", default="no")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -37,7 +35,6 @@ if __name__ == "__main__":
         size = (64, 48)
     elif parse_result.size == 128:
         size = (128, 96)
-        divisor = 1
     else:
         raise ValueError("Invalid size!")
 
@@ -45,7 +42,8 @@ if __name__ == "__main__":
 
     localisation_param_regressor = LocalisationParamRegressor(
         add_coord=True,
-        scale=parse_result.scale
+        scale=parse_result.scale,
+        spatial=parse_result.spatial == "yes"
     )
     model = MetaAttentionNetworkCoord.create(*size)(track=True)
     add_spatial_maps = True

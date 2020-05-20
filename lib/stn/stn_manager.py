@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 import torch
 from torch import nn
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import StepLR
 
 from lib.common.saveable import Saveable
 
@@ -19,8 +19,8 @@ class STNManager(Saveable):
         self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
-        self.stn_scheduler = MultiStepLR(self.stn_optimiser, milestones=[20, 50], gamma=0.1)
-        self.model_scheduler = MultiStepLR(self.model_optimiser, milestones=[20, 50], gamma=0.1)
+        self.stn_scheduler = StepLR(self.stn_optimiser, step_size=30, gamma=0.1)
+        self.model_scheduler = StepLR(self.model_optimiser, step_size=30, gamma=0.1)
 
     def get_loss(self, batch, params=None):
         images = batch["image"].to(self.device)
@@ -68,7 +68,7 @@ class STNManager(Saveable):
 
                 # theta
                 fast_weights = OrderedDict((name, param) for (name, param) in self.stn.model.named_parameters())
-                # gradient with respect to regression network
+                # gradient with respect to regression network, retain it in the graph
                 grads = torch.autograd.grad(train_loss, self.stn.model.parameters(), create_graph=True)
                 # theta prime
                 fast_weights = OrderedDict(
