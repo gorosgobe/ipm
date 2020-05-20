@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--training", type=float)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--epochs", type=int, default=250)
+    parser.add_argument("--val", type=float, default=0.1)
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
     parser.add_argument("--spatial", default="no")
@@ -75,7 +76,7 @@ if __name__ == "__main__":
             480, 640, add_spatial_maps=add_spatial_maps,
         ),
         batch_size=32,
-        split=[0.8, 0.1, 0.1],
+        split=[0.8, parse_result.val, 0.2 - parse_result.val],
         name=parse_result.name,
         max_epochs=parse_result.epochs,
         validate_epochs=1,
@@ -125,4 +126,8 @@ if __name__ == "__main__":
     # visualise test images and their transformations
     if config["max_epochs"] > 0:
         stn.load_state_dict(manager.get_info()["stn_state_dict"])
-    visualise(name=config["name"], model=stn, dataloader=test_data_loader)
+
+    if config["split"][1] == 0.2:
+        visualise(name=f"{config['name']}_val", model=stn, dataloader=validation_data_loader)
+    else:
+        visualise(name=config["name"], model=stn, dataloader=test_data_loader)
