@@ -26,6 +26,12 @@ class SpatialLocalisationRegressor(nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=64, out_features=3 if scale is None else 2)
         )
+        
+        self.fc_model[-1].weight.data.zero_()
+        if scale is None:
+            self.fc_model[-1].bias.data.copy_(torch.tensor([1, 0, 0], dtype=torch.float))
+        else:
+            self.fc_model[-1].bias.data.copy_(torch.tensor([0, 0], dtype=torch.float))
 
     def forward(self, x):
         spatial_features = self.dsae(x[:, :3])
