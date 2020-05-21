@@ -4,13 +4,13 @@ import os
 import torchvision
 from torch.utils.data import DataLoader
 
+from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
+from lib.cv.controller import TrainingPixelROI
+from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.dsae.dsae_plot import plot_reconstruction_images
-from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
-from lib.cv.controller import TrainingPixelROI
-from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.meta.meta_networks import MetaAttentionNetworkCoord
 from lib.networks import *
 from lib.stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, STN_SamplingType, \
@@ -25,12 +25,12 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--size", type=int, required=True)
     parser.add_argument("--patience", type=int, default=10)
-    parser.add_argument("--retraining", type=float, default=-1)
     parser.add_argument("--epochs", type=int, default=250)
     parser.add_argument("--split", type=float, nargs=3, default=[0.8, 0.1, 0.1])
     parser.add_argument("--limit", type=float, default=-1)
     parser.add_argument("--loc_lr", type=float, default=1e-4)
     parser.add_argument("--model_lr", type=float, default=1e-2)
+    parser.add_argument("--retraining", type=float, default=-1)
     parser.add_argument("--pretrain", default="yes")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
@@ -89,7 +89,6 @@ if __name__ == "__main__":
         sampling_type=STN_SamplingType.LINEARISED
     )
 
-
     dataset = parse_result.dataset
     print("Dataset: ", dataset)
 
@@ -114,7 +113,7 @@ if __name__ == "__main__":
         pretrain=parse_result.pretrain == "yes",
         dsae_path=parse_result.dsae_path,
         device=device,
-        retraining=parse_result.retraining
+        retraining=parse_result.retraining,
     )
 
     print("Name:", config["name"])
@@ -151,7 +150,8 @@ if __name__ == "__main__":
     )
 
     manager.train(num_epochs=config["max_epochs"], train_dataloader=train_data_loader,
-                  val_dataloader=validation_data_loader, test_dataloader=test_data_loader, pre_training=config["pretrain"])
+                  val_dataloader=validation_data_loader, test_dataloader=test_data_loader,
+                  pre_training=config["pretrain"])
 
     # save_best_model
     if config["max_epochs"] > 0:
@@ -205,6 +205,8 @@ if __name__ == "__main__":
     # reinit coord conv
     model = MetaAttentionNetworkCoord.create(*size)(track=True)
     stn.model = model
+    # resend to GPU, as model was created on CPU
+    stn = stn.to(config["device"])
     # train with all the data and localisation param regressor in eval mode
     manager.name = manager.name + "_retrain"
     manager.retrain(
