@@ -38,6 +38,8 @@ class SoftManager(BestSaveable):
         else:
             raise ValueError("Unknown version for model!")
 
+        # print number of model parameters
+        print("Parameters:", sum([p.numel() for p in self.model.parameters()]))
         self.version = version
         self.is_coord = is_coord
         self.projection_scale = projection_scale
