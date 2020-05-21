@@ -114,6 +114,47 @@ class STNManager(BestSaveable):
                     print("Patience reached, stopping...")
                     break
 
+    def retrain(self, num_epochs, train_dataloader, val_dataloader, test_dataloader):
+        # clear best info, restart early stopper
+        self.best_info = None
+        self.early_stopper = EarlyStopper(patience=10, saveable=self)
+        optimiser = torch.optim.Adam(self.stn.model.parameters(), lr=0.0001)
+
+        for epoch in range(num_epochs):
+            print("Retraining epoch", epoch + 1)
+            self.stn.model.train()
+            self.stn.localisation_param_regressor.eval()
+            train_loss_epoch = 0
+            for batch_idx, batch in enumerate(train_dataloader):
+                optimiser.zero_grad()
+                loss = self.get_loss(batch)
+                train_loss_epoch += loss.item()
+                loss.backward()
+                optimiser.step()
+            train_loss_epoch /= len(train_dataloader.dataset)
+            print("Training loss", train_loss_epoch)
+
+            self.stn.eval()
+            val_loss_epoch = 0
+            for val_batch_idx, val_batch in enumerate(val_dataloader):
+                optimiser.zero_grad()
+                val_loss = self.get_loss(val_batch)
+                val_loss_epoch += val_loss.item()
+            val_loss_epoch /= len(val_dataloader.dataset)
+            print("Validation loss", val_loss_epoch)
+
+            test_loss_epoch = 0
+            for test_batch_idx, test_batch in enumerate(test_dataloader):
+                optimiser.zero_grad()
+                test_loss = self.get_loss(test_batch)
+                test_loss_epoch += test_loss.item()
+            test_loss_epoch /= len(test_dataloader.dataset)
+            print("Test loss", test_loss_epoch)
+
+            self.early_stopper.register_loss(val_loss_epoch)
+            if self.early_stopper.should_stop():
+                break
+
     def get_info(self):
         return dict(
             name=self.name,

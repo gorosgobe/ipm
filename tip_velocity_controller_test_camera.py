@@ -1,10 +1,13 @@
 import json
 import os
+from collections import OrderedDict
 
 import numpy as np
 import torch
 from stable_baselines import SAC, PPO2
 
+from bop.crop_size_feature_search import CropSizeFeatureSearch
+from lib.dsae.dsae_choose_feature import DSAE_ChooserROI, DSAE_ValFeatureChooser
 from lib.common.test_utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
 from lib.cv.controller import TipVelocityController
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
@@ -15,7 +18,13 @@ from lib.dsae.dsae_feature_provider import FeatureProvider, FilterSpatialRLFeatu
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.simulation.camera_robot import CameraRobot
+from meta_networks import MetaAttentionNetworkCoord
 from soft.rnn_tvec_adapter import RNNTipVelocityControllerAdapter
+from lib.common.utils import save_image
+from stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, STN_SamplingType, \
+    SpatialLocalisationRegressor
+from stn.stn_manager import STNManager
+from stn.stn_tvec_adapter import STNControllerAdapter
 
 
 def get_full_image_networks(scene_trained, training_list, prefix=""):
@@ -78,11 +87,7 @@ def get_coord_attention_networks(size, scene_trained, training_list, prefix=""):
     return models_res, config
 
 
-def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, image_output_size=(24, 32), rl_path=None,
-                       is_sac=None):
-    if (rl_path is None) + (is_sac is None) == 1:
-        raise ValueError("rl_path and is_sac should be both None or both contain information about the RL model")
-
+def get_target_feature_provider_model(dsae_path, latent_dimension, image_output_size=(24, 32)):
     state_dict = DSAEManager.load_state_dict(os.path.join("models/dsae", dsae_path))
     model = CustomDeepSpatialAutoencoder(
         encoder=DSAE_Encoder(
@@ -98,6 +103,16 @@ def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, im
         )
     )
     model.load_state_dict(state_dict)
+    return model
+
+
+def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, image_output_size=(24, 32), rl_path=None,
+                       is_sac=None):
+    if (rl_path is None) + (is_sac is None) == 1:
+        raise ValueError("rl_path and is_sac should be both None or both contain information about the RL model")
+
+    model = get_target_feature_provider_model(dsae_path=dsae_path, latent_dimension=latent_dimension,
+                                              image_output_size=image_output_size)
     device = torch.device("cpu")
 
     if rl_path is None:
@@ -129,6 +144,65 @@ def get_default_tve_model(tve_prefix, tve_model_name):
 
 def get_recurrent_tve_model(tve_prefix, tve_model_name):
     return RNNTipVelocityControllerAdapter.load(os.path.join("models", tve_prefix, tve_model_name))
+
+
+def get_dsae_chooser_tve_model(tve_prefix, tve_model_name, dsae_path, latent_dimension, is_bop=False, index_path=None):
+    model = get_target_feature_provider_model(dsae_path=dsae_path, latent_dimension=latent_dimension)
+    feature_provider = FeatureProvider(model=model, device=torch.device("cpu"))
+    if is_bop:
+        info = CropSizeFeatureSearch.load_info(f"models/{tve_prefix}{tve_model_name}")
+        best_parameters = info["best_parameters"]
+        if "feature" not in best_parameters:
+            info = DSAE_ValFeatureChooser.load_info(f"models/{index_path}")
+            chooser_index = info["index"]
+        else:
+            chooser_index = best_parameters["feature"]
+        # TODO: change this with min/max info
+        chooser_crop_size = (
+            24 + round((128 - 24) * best_parameters["width"]), 24 + round((96 - 24) * best_parameters["height"])
+        )
+    else:
+        info = DSAE_ValFeatureChooser.load_info(f"models/{tve_prefix}{tve_model_name}")
+        chooser_index = info["index"]
+        chooser_crop_size = (32, 24)
+
+    roi_cropper = DSAE_ChooserROI(
+        chooser_index=chooser_index,
+        chooser_crop_size=chooser_crop_size,
+        feature_provider=feature_provider
+    )
+    tve = TipVelocityEstimator.load(f"models/{tve_prefix}{tve_model_name}_model.pt")
+    return tve, roi_cropper
+
+
+def get_stn_tve_model(tve_prefix, tve_model_name, scale, size, sampling_type, dsae=None):
+    if dsae is None:
+        localisation_param_regressor = LocalisationParamRegressor(
+            add_coord=True,
+            scale=scale
+        )
+    else:
+        dsae = get_target_feature_provider_model(dsae_path=dsae, latent_dimension=128)
+        localisation_param_regressor = SpatialLocalisationRegressor(
+            dsae=dsae.encoder,
+            latent_dimension=128,
+            scale=scale
+        )
+    model = MetaAttentionNetworkCoord.create(*size)(track=True)
+
+    stn = SpatialTransformerNetwork(
+        localisation_param_regressor=localisation_param_regressor,
+        model=model,
+        output_size=size,
+        sampling_type=sampling_type
+    )
+
+    info = torch.load(os.path.join("models", tve_prefix, tve_model_name), map_location=torch.device('cpu'))
+    state = info["stn_state_dict"]
+    # state = OrderedDict((name.replace("dsae", ""), param) for (name, param) in state)
+    stn.load_state_dict(state)
+
+    return STNControllerAdapter(stn=stn)
 
 
 if __name__ == "__main__":
@@ -178,21 +252,37 @@ if __name__ == "__main__":
     #     "AttentionNetworkcoordRot_scene1scene1_32_005",
     #
     # ]
-    # testing_config_name = TestConfig.ATTENTION_COORD_32
-    # prefix = "fixed_steps_datasets/"
-    # models = ["FullImageNetworkSoft_scene1scene1_08_v1", "FullImageNetworkSoft_scene1scene1_08_v2", "FullImageNetworkSoft_scene1scene1_08_v3"]
+    testing_config_name = TestConfig.STN
+    prefix = "meta_stn/"
+    models = ["meta_stn_dsae_pre_06-03-01_sc05_60_scene1scene1.pt", "meta_stn_dsae_pre_06-03-01_sc05_80_scene1scene1.pt"]
+    scale = 0.5
+    size = (64, 48)
+    sampling_type = STN_SamplingType.LINEARISED,
+    dsae = "target_64_0_1_1_08_scene1scene1_v1.pt"
 
-    testing_config_name = TestConfig.DSAE
-    # # define if network is dsae type
-    dsae_path = "target_64_0001_1_1_08_scene1scene1_v1.pt"
-    models = ["act_ppo_dense_k3_64_0001_08_scene1scene1.pt"]
-    latent_dimension = 128
-    k = 3
-    # # for RL based versions
-    # rl_path = "ppo_test_v2"
-    rl_path = "ppo_dense_k3"
-    is_sac = False
+    # testing_config_name = TestConfig.RECURRENT_BASELINE
+    # prefix = "soft_lstm/"
+    # models = ["lstm_baseline64_scene1scene1_08_v1.pt"]
+
+    # testing_config_name = TestConfig.DSAE_CHOOSE
+    # prefix = "bop_chooser/v3/"
+    # dsae_path = "target_64_0001_1_1_08_scene1scene1_v1.pt"
+    # models = ["bop64_0001_1_1_08_scene1scene1"]
+    # latent_dimension = 128
+    # is_bop = True
+    # index_path = "dsae_chooser/v3/choose_0001_1_1_08_scene1scene1"
+
+    # testing_config_name = TestConfig.DSAE
+    # # # define if network is dsae type
+    # dsae_path = "target_64_0001_1_1_08_scene1scene1_v1.pt"
+    # models = ["act_ppo_dense_k3_64_0001_08_scene1scene1.pt"]
+    # latent_dimension = 128
+    # k = 3
+    # # # for RL based versions
+    # # rl_path = "ppo_test_v2"
+    # rl_path = "ppo_dense_k3"
     # is_sac = False
+    # # is_sac = False
 
     for model_name in models:
         s, test = get_scene_and_test_scene_configuration(model_name=model_name)
@@ -216,9 +306,29 @@ if __name__ == "__main__":
                     rl_path=rl_path,
                     is_sac=is_sac
                 )
-            elif testing_config_name == TestConfig.RECURRENT_FULL:
+            elif testing_config_name in [TestConfig.RECURRENT_FULL, TestConfig.RECURRENT_ATTENTION_COORD_32,
+                                         TestConfig.RECURRENT_BASELINE]:
                 print("Recurrent policy!")
                 tve_model = get_recurrent_tve_model(prefix, model_name)
+            elif testing_config_name == TestConfig.DSAE_CHOOSE:
+                # override cropper to be the DSAE chooser ROI estimator
+                tve_model, cropper = get_dsae_chooser_tve_model(
+                    tve_prefix=prefix,
+                    tve_model_name=model_name,
+                    dsae_path=dsae_path,
+                    latent_dimension=latent_dimension,
+                    is_bop=is_bop,
+                    index_path=index_path
+                )
+            elif testing_config_name == TestConfig.STN:
+                tve_model = get_stn_tve_model(
+                    tve_prefix=prefix,
+                    tve_model_name=model_name,
+                    scale=scale,
+                    size=size,
+                    sampling_type=sampling_type,
+                    dsae=dsae
+                )
             else:
                 print("Default type policy!")
                 tve_model = get_default_tve_model(prefix, model_name)
@@ -265,7 +375,13 @@ if __name__ == "__main__":
                 )
                 count += 1
                 # for index, i in enumerate(result["images"]):
-                #     save_image(i, "/home/pablo/Desktop/rl-{}image{}.png".format(count, index))
+                #     save_image(i, "/home/pablo/Desktop/rnn-{}image{}.png".format(count, index))
+                # if testing_config_name == TestConfig.RECURRENT_FULL:
+                #     for index, i in enumerate(controller.get_model().get_np_attention_mapped_images()):
+                # #         save_image(i, "/home/pablo/Desktop/{}_attention-{}image{}.png".format(model_name, count, index))
+                # if testing_config_name == TestConfig.STN:
+                #     for index, i in enumerate(controller.get_model().get_images()):
+                #         save_image(i, "/home/pablo/Desktop/meta_stn/{}_stn-{}image{}.png".format(model_name, count, index))
                 result_json["min_distances"][str(idx)] = result["min_distance"]
                 result_json["fixed_steps_distances"][str(idx)] = result["fixed_steps_distance"]
                 result_json["errors"][str(idx)] = dict(

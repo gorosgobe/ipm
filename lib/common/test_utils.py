@@ -46,11 +46,18 @@ class TestConfig(enum.Enum):
     RECURRENT_FULL = 9
     DSAE_CHOOSE = 10
     STN = 11
+    RECURRENT_ATTENTION_COORD_32 = 12
+    RECURRENT_BASELINE = 13
 
 
 def get_testing_configs(camera_robot, target_cube):
     return {
         TestConfig.BASELINE:
+            {
+                "cropper": IdentityCropper(),
+                "c_type": ControllerType.RELATIVE_POSITION_AND_ORIENTATION
+            },
+        TestConfig.RECURRENT_BASELINE:
             {
                 "cropper": IdentityCropper(),
                 "c_type": ControllerType.RELATIVE_POSITION_AND_ORIENTATION
@@ -96,6 +103,12 @@ def get_testing_configs(camera_robot, target_cube):
                 "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
                                         add_spatial_maps=True),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
+            },
+        TestConfig.RECURRENT_ATTENTION_COORD_32:
+            {
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                                        add_spatial_maps=True),
+                "c_type": ControllerType.DEFAULT
             },
         TestConfig.ATTENTION_COORD_ROT_32:
             {

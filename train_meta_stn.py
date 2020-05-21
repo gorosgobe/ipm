@@ -24,8 +24,8 @@ if __name__ == "__main__":
     parser.add_argument("--name", required=True)
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--size", type=int, required=True)
-    parser.add_argument("--training", type=float)
     parser.add_argument("--patience", type=int, default=10)
+    parser.add_argument("--retraining", type=float, default=-1)
     parser.add_argument("--epochs", type=int, default=250)
     parser.add_argument("--split", type=float, nargs=3, default=[0.8, 0.1, 0.1])
     parser.add_argument("--limit", type=float, default=-1)
@@ -89,18 +89,14 @@ if __name__ == "__main__":
         sampling_type=STN_SamplingType.LINEARISED
     )
 
-    # size is 128, 96 for images, CoordConv takes downsampled version
-    size = (128, 96)
 
     dataset = parse_result.dataset
     print("Dataset: ", dataset)
 
     config = dict(
         seed=seed,
-        # if pixel cropper is used to decrease size by two in both directions, size has to be decreased accordingly
-        # otherwise we would be feeding a higher resolution cropped image
-        # we want to supply a cropped image, corresponding exactly to the resolution of that area in the full image
-        size=size,
+        # size is 128, 96 for images, CoordConv takes downsampled version
+        size=(128, 96),
         velocities_csv=f"{dataset}/velocities.csv",
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
@@ -117,7 +113,8 @@ if __name__ == "__main__":
         patience=parse_result.patience,
         pretrain=parse_result.pretrain == "yes",
         dsae_path=parse_result.dsae_path,
-        device=device
+        device=device,
+        retraining=parse_result.retraining
     )
 
     print("Name:", config["name"])
@@ -197,3 +194,23 @@ if __name__ == "__main__":
                 attender=None, upsample_transform=upsample_transform,
                 grayscale=grayscale, device=config["device"]
             )
+
+    print("Retraining...")
+    training_demonstrations, val_demonstrations, test_demonstrations = get_demonstrations(dataset, [0.8, 0.1, 0.1],
+                                                                                          config["retraining"])
+    train_data_loader = DataLoader(training_demonstrations, batch_size=config["batch_size"], num_workers=8,
+                                   shuffle=True)
+    validation_data_loader = DataLoader(val_demonstrations, batch_size=32, num_workers=8, shuffle=True)
+    test_data_loader = DataLoader(test_demonstrations, batch_size=32, num_workers=8, shuffle=False)
+    # reinit coord conv
+    model = MetaAttentionNetworkCoord.create(*size)(track=True)
+    stn.model = model
+    # train with all the data and localisation param regressor in eval mode
+    manager.name = manager.name + "_retrain"
+    manager.retrain(
+        num_epochs=1,
+        train_dataloader=train_data_loader,
+        val_dataloader=validation_data_loader,
+        test_dataloader=test_data_loader
+    )
+    manager.save_best_model(config["save_to_location"])
