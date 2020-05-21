@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.optim.lr_scheduler import StepLR
 
-from early_stopper import EarlyStopper
+from lib.common.early_stopper import EarlyStopper
 from lib.common.saveable import BestSaveable
 
 
@@ -17,7 +17,7 @@ class STNManager(BestSaveable):
         self.device = device
         self.loss = nn.MSELoss()
         self.stn_optimiser = torch.optim.SGD(self.stn.localisation_param_regressor.parameters(), lr=loc_lr,
-                                             momentum=0.9)
+                                             momentum=0.9, weight_decay=1e-4)
         self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
@@ -41,23 +41,25 @@ class STNManager(BestSaveable):
                 yield batch
                 count += 1
 
-    def train(self, num_epochs, train_dataloader, val_dataloader, test_dataloader):
+    def train(self, num_epochs, train_dataloader, val_dataloader, test_dataloader, pre_training=True):
         self.stn.to(self.device)
         for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1}")
             self.stn.localisation_param_regressor.train()
             self.stn.model.train()
             # one epoch of training for regression model with default transformation (set to identity at the beginning)
-            train_loss_epoch = 0
-            for batch_idx, batch in enumerate(train_dataloader):
-                self.stn_optimiser.zero_grad()
-                self.model_optimiser.zero_grad()
-                loss = self.get_loss(batch)
-                train_loss_epoch += loss.item()
-                loss.backward()
-                self.model_optimiser.step()
-            print("Train loss", train_loss_epoch / len(train_dataloader.dataset))
+            if pre_training:
+                train_loss_epoch = 0
+                for batch_idx, batch in enumerate(train_dataloader):
+                    self.stn_optimiser.zero_grad()
+                    self.model_optimiser.zero_grad()
+                    loss = self.get_loss(batch)
+                    train_loss_epoch += loss.item()
+                    loss.backward()
+                    self.model_optimiser.step()
+                print("Train loss", train_loss_epoch / len(train_dataloader.dataset))
 
+            train_val_train_loss_epoch = 0
             # find parameters theta prime from training data
             for train_batch, val_batch in zip(
                     self.pseudo_infinite_sampling(train_dataloader, len(train_dataloader)),
@@ -67,6 +69,7 @@ class STNManager(BestSaveable):
                 self.stn_optimiser.zero_grad()
                 self.model_optimiser.zero_grad()
                 train_loss = self.get_loss(train_batch)
+                train_val_train_loss_epoch += train_loss.item()
 
                 # theta
                 fast_weights = OrderedDict((name, param) for (name, param) in self.stn.model.named_parameters())
@@ -80,6 +83,13 @@ class STNManager(BestSaveable):
                 val_loss = self.get_loss(val_batch, params=fast_weights)
                 val_loss.backward()
                 self.stn_optimiser.step()
+
+                if not pre_training:
+                    # update theta prime
+                    self.model_optimiser.step()
+
+            train_val_train_loss_epoch /= len(train_dataloader.dataset)
+            print("Train val loss", train_val_train_loss_epoch)
 
             self.stn_scheduler.step()
             self.model_scheduler.step()

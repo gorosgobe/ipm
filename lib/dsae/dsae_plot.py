@@ -9,15 +9,22 @@ from lib.dsae.dsae_networks import TargetDecoder, SoftTarget
 def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_transform, grayscale, device, attender_discriminator=False):
     f, axarr = plt.subplots(5, 2, figsize=(10, 15), dpi=100)
     plt.tight_layout()
+    if attender is not None:
+        attender.eval()
+        attender.cpu()
     model.eval()
-    attender.eval()
     model.cpu()
-    attender.cpu()
     with torch.no_grad():
         for i in range(5):
             sample = dataset[34 + i * 4]
             # get image and reconstruction in [0, 1] range
-            image = sample["images"][1].cpu()
+            try:
+                image = sample["images"][1].cpu()
+            except:
+                try:
+                    image = sample["image"][:3].cpu()
+                except:
+                    raise ValueError
             if isinstance(model.decoder, TargetDecoder):
                 out_image, _ = model(image.unsqueeze(0))
             else:
@@ -61,10 +68,11 @@ def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_t
 
     plt.savefig(f"{name}_{epoch}.png")
     plt.close()
+    if attender is not None:
+        attender.train()
+        attender.to(device)
     model.train()
-    attender.train()
     model.to(device)
-    attender.to(device)
 
 
 def plot_full_demonstration(epoch, name, dataset, model, grayscale, latent_dim, device, rows=4):

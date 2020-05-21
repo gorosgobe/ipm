@@ -13,22 +13,52 @@ class STN_SamplingType(enum.Enum):
     LINEARISED = 1
 
 
+class SpatialLocalisationRegressor(nn.Module):
+    def __init__(self, dsae, latent_dimension, scale=None):
+        super().__init__()
+        self.dsae = dsae
+        self.scale = scale
+        self.fc_model = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=latent_dimension, out_features=64),
+            nn.ReLU(),
+            nn.Linear(in_features=64, out_features=64),
+            nn.ReLU(),
+            nn.Linear(in_features=64, out_features=3 if scale is None else 2)
+        )
+
+    def forward(self, x):
+        spatial_features = self.dsae(x[:, :3])
+        res = self.fc_model(spatial_features)
+        scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
+        t_x_position = torch.tensor([[0, 0, 1, 0, 0, 0]]).to(x.device)
+        t_y_position = torch.tensor([[0, 0, 0, 0, 0, 1]]).to(x.device)
+        if self.scale is None:
+            s = res[:, 0].unsqueeze(-1)
+            t_x = res[:, 1].unsqueeze(-1)
+            t_y = res[:, 2].unsqueeze(-1)
+            out = s * scale_position + t_x * t_x_position + t_y * t_y_position
+        else:
+            t_x = res[:, 0].unsqueeze(-1)
+            t_y = res[:, 1].unsqueeze(-1)
+            out = self.scale * scale_position + t_x * t_x_position + t_y * t_y_position
+        # out (B, 6)
+        return out
+
+
 class LocalisationParamRegressor(nn.Module):
     def __init__(self, add_coord=True, scale=None):
         # if scale is None, learn it. Otherwise it must be a float value for the scale
         super().__init__()
         self.scale = scale
         self.cnn_model = Sequential(
-            nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=64, kernel_size=7, stride=2),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(in_channels=5 if add_coord else 3, out_channels=16, kernel_size=5, stride=4),
+            nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=2),
+            nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5, stride=2),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
         )
@@ -52,7 +82,6 @@ class LocalisationParamRegressor(nn.Module):
         [ s 0 t_x]
         [ 0 s t_y]
         """
-        # TODO: abstract this into a separate part, so we can plug a different one
         out_cnn_model = self.cnn_model(x)
         res = self.fc_model(out_cnn_model)
         # res (B, 3)
