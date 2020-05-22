@@ -35,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--double_meta_loss", default="no")
     parser.add_argument("--linearised", default="yes")
+    parser.add_argument("--linearised_samples", type=int, default=8)
     parser.add_argument("--pretrain", default="yes")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
@@ -93,7 +94,8 @@ if __name__ == "__main__":
         localisation_param_regressor=localisation_param_regressor,
         model=model,
         output_size=size,
-        sampling_type=STN_SamplingType.LINEARISED if parse_result.linearised == "yes" else STN_SamplingType.DEFAULT_BILINEAR
+        sampling_type=STN_SamplingType.LINEARISED if parse_result.linearised == "yes" else STN_SamplingType.DEFAULT_BILINEAR,
+        linearised_samples=parse_result.linearised_samples
     )
 
     dataset = parse_result.dataset
@@ -225,7 +227,7 @@ if __name__ == "__main__":
     stn.model = model
     # resend to GPU, as model was created on CPU
     stn = stn.to(config["device"])
-    # train with all the data and localisation param regressor in eval mode
+    # train with all the data and localisation param regressor
     manager.name = manager.name + "_retrain"
     manager.retrain(
         num_epochs=150,

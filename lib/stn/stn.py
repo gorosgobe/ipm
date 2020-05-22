@@ -109,7 +109,7 @@ class LocalisationParamRegressor(nn.Module):
 
 class SpatialTransformerNetwork(MetaModule):
     def __init__(self, localisation_param_regressor, model, output_size,
-                 sampling_type=STN_SamplingType.DEFAULT_BILINEAR):
+                 sampling_type=STN_SamplingType.DEFAULT_BILINEAR, linearised_samples=8):
         super().__init__()
         self.localisation_param_regressor = localisation_param_regressor
         self.model = model
@@ -118,6 +118,10 @@ class SpatialTransformerNetwork(MetaModule):
         self.sampling_type = sampling_type
         self.transformed_image = None
         self.transformation_params = None
+        if sampling_type == STN_SamplingType.LINEARISED:
+            # number of samples to take
+            # the higher the number, the better the performance/gradients, but computationally more expensive
+            LinearizedMutilSampler.num_grid = linearised_samples
 
     def forward(self, x, params=None):
         if isinstance(x, tuple):
