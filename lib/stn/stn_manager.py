@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 import torch
 from torch import nn
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from lib.common.early_stopper import EarlyStopper
 from lib.common.saveable import BestSaveable
@@ -21,8 +21,8 @@ class STNManager(BestSaveable):
         self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
-        self.stn_scheduler = StepLR(self.stn_optimiser, step_size=20, gamma=0.5)
-        self.model_scheduler = StepLR(self.model_optimiser, step_size=20, gamma=0.5)
+        self.stn_scheduler = ReduceLROnPlateau(self.stn_optimiser, factor=0.5, patience=5, threshold=1e-5)
+        self.model_scheduler = ReduceLROnPlateau(self.model_optimiser, factor=0.5, patience=5, threshold=1e-5)
         self.early_stopper = EarlyStopper(patience=15, saveable=self)
 
     def get_loss(self, batch, params=None):
@@ -91,8 +91,6 @@ class STNManager(BestSaveable):
             train_val_train_loss_epoch /= len(train_dataloader.dataset)
             print("Train val loss", train_val_train_loss_epoch)
 
-            self.stn_scheduler.step()
-            self.model_scheduler.step()
             # evaluate on val and test
             self.stn.model.eval()
             self.stn.localisation_param_regressor.eval()
@@ -108,6 +106,10 @@ class STNManager(BestSaveable):
                     test_eval_loss = self.get_loss(test_eval_batch)
                     test_eval_loss_epoch += test_eval_loss.item()
                 avg_test_eval_loss_epoch = test_eval_loss_epoch / len(test_dataloader.dataset)
+
+                self.stn_scheduler.step(avg_test_eval_loss_epoch)
+                self.model_scheduler.step(avg_test_eval_loss_epoch)
+
                 self.early_stopper.register_loss(avg_test_eval_loss_epoch)
                 print("Test EVAL:", avg_test_eval_loss_epoch)
                 if self.early_stopper.should_stop():
