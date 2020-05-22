@@ -44,10 +44,12 @@ class STNManager(BestSaveable):
             # (B, 2)
             target_indexed_spatial_feature = spatial_features[:, dsae_init_index]
 
-        # (s, t_x, t_y) : (B, 3)
+        # (s, t_x, t_y) : (B, 3) if scale is not None, (B, 2) otherwise
         regression_transform_params = self.stn.localisation_param_regressor.fc_model(spatial_features)
+        b, transform_size = regression_transform_params.size()
         # use only t_x, and t_y
-        return self.loss(regression_transform_params[:, 1:], target_indexed_spatial_feature)
+        only_translation_idx = 1 if transform_size == 3 else 0
+        return self.loss(regression_transform_params[:, only_translation_idx:], target_indexed_spatial_feature)
 
 
     @staticmethod

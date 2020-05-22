@@ -4,11 +4,11 @@ import os
 import torchvision
 from torch.utils.data import DataLoader
 
-from dsae.dsae_choose_feature import DSAE_ValFeatureChooser
 from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
 from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
+from lib.dsae.dsae_choose_feature import DSAE_ValFeatureChooser
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.dsae.dsae_plot import plot_reconstruction_images
@@ -34,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument("--retraining", type=float, default=-1)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--double_meta_loss", default="no")
+    parser.add_argument("--linearised", default="yes")
     parser.add_argument("--pretrain", default="yes")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
@@ -92,7 +93,7 @@ if __name__ == "__main__":
         localisation_param_regressor=localisation_param_regressor,
         model=model,
         output_size=size,
-        sampling_type=STN_SamplingType.LINEARISED
+        sampling_type=STN_SamplingType.LINEARISED if parse_result.linearised == "yes" else STN_SamplingType.DEFAULT_BILINEAR
     )
 
     dataset = parse_result.dataset
