@@ -31,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument("--loc_lr", type=float, default=1e-4)
     parser.add_argument("--model_lr", type=float, default=1e-2)
     parser.add_argument("--retraining", type=float, default=-1)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--pretrain", default="yes")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
@@ -103,7 +104,7 @@ if __name__ == "__main__":
         initial_pixel_cropper=TrainingPixelROI(
             480, 640, add_spatial_maps=add_spatial_maps,
         ),
-        batch_size=32,
+        batch_size=parse_result.batch_size,
         split=parse_result.split,
         name=parse_result.name,
         max_epochs=parse_result.epochs,
