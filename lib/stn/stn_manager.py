@@ -41,7 +41,7 @@ class STNManager(BestSaveable):
                 yield batch
                 count += 1
 
-    def train(self, num_epochs, train_dataloader, val_dataloader, test_dataloader, pre_training=True):
+    def train(self, num_epochs, train_dataloader, val_dataloader, test_dataloader, pre_training=True, double_meta_loss=False):
         self.stn.to(self.device)
         for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1}")
@@ -81,6 +81,8 @@ class STNManager(BestSaveable):
 
                 # compute val loss using theta prime
                 val_loss = self.get_loss(val_batch, params=fast_weights)
+                if double_meta_loss:
+                    val_loss += self.get_loss(train_batch, params=fast_weights)
                 val_loss.backward()
                 self.stn_optimiser.step()
 

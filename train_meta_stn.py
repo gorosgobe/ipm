@@ -32,6 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_lr", type=float, default=1e-2)
     parser.add_argument("--retraining", type=float, default=-1)
     parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--double_meta_loss", default="no")
     parser.add_argument("--pretrain", default="yes")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
@@ -115,6 +116,7 @@ if __name__ == "__main__":
         dsae_path=parse_result.dsae_path,
         device=device,
         retraining=parse_result.retraining,
+        double_meta_loss=parse_result.double_meta_loss == "yes"
     )
 
     print("Name:", config["name"])
@@ -152,7 +154,7 @@ if __name__ == "__main__":
 
     manager.train(num_epochs=config["max_epochs"], train_dataloader=train_data_loader,
                   val_dataloader=validation_data_loader, test_dataloader=test_data_loader,
-                  pre_training=config["pretrain"])
+                  pre_training=config["pretrain"], double_meta_loss=config["double_meta_loss"])
 
     # save_best_model
     if config["max_epochs"] > 0:
