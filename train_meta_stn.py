@@ -4,6 +4,7 @@ import os
 import torchvision
 from torch.utils.data import DataLoader
 
+from dsae.dsae_choose_feature import DSAE_ValFeatureChooser
 from lib.common.utils import get_preprocessing_transforms, set_up_cuda, get_demonstrations, get_seed
 from lib.cv.controller import TrainingPixelROI
 from lib.cv.dataset import ImageTipVelocitiesDataset
@@ -36,6 +37,9 @@ if __name__ == "__main__":
     parser.add_argument("--pretrain", default="yes")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
+    # load index of spatial feature for pretraining
+    parser.add_argument("--dsae_load_index_from")
+    # load dsae
     parser.add_argument("--dsae_path")
     parse_result = parser.parse_args()
 
@@ -94,6 +98,11 @@ if __name__ == "__main__":
     dataset = parse_result.dataset
     print("Dataset: ", dataset)
 
+    if parse_result.dsae_load_index_from is not None:
+        info = DSAE_ValFeatureChooser.load_info(os.path.join("models/dsae_chooser", parse_result.dsae_load_index_from))
+        dsae_init_index = info["index"]
+
+    # noinspection PyUnboundLocalVariable
     config = dict(
         seed=seed,
         # size is 128, 96 for images, CoordConv takes downsampled version
@@ -116,7 +125,11 @@ if __name__ == "__main__":
         dsae_path=parse_result.dsae_path,
         device=device,
         retraining=parse_result.retraining,
-        double_meta_loss=parse_result.double_meta_loss == "yes"
+        double_meta_loss=parse_result.double_meta_loss == "yes",
+        dsae_guide_init_params=dict(
+            dsae_init_epochs=10,
+            dsae_init_index=dsae_init_index
+        ) if parse_result.dsae_load_index_from is not None else None
     )
 
     print("Name:", config["name"])
@@ -154,7 +167,8 @@ if __name__ == "__main__":
 
     manager.train(num_epochs=config["max_epochs"], train_dataloader=train_data_loader,
                   val_dataloader=validation_data_loader, test_dataloader=test_data_loader,
-                  pre_training=config["pretrain"], double_meta_loss=config["double_meta_loss"])
+                  pre_training=config["pretrain"], double_meta_loss=config["double_meta_loss"],
+                  dsae_guide_init_params=config["dsae_guide_init_params"])
 
     # save_best_model
     if config["max_epochs"] > 0:

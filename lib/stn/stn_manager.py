@@ -33,6 +33,23 @@ class STNManager(BestSaveable):
         predicted_targets = self.stn(images, params=params)
         return self.loss(predicted_targets, targets)
 
+    def get_dsae_guide_init_loss(self, batch, dsae_init_index):
+        images = batch["image"].to(self.device)
+        self.stn.localisation_param_regressor.dsae.eval()  # just to make sure
+        with torch.no_grad():
+            # spatial features (B, C, 2)
+            # dsae does not take coordconv map
+            spatial_features = self.stn.localisation_param_regressor.dsae(images[:, :3])
+            # target translation should be the indexed spatial feature, for initialisation
+            # (B, 2)
+            target_indexed_spatial_feature = spatial_features[:, dsae_init_index]
+
+        # (s, t_x, t_y) : (B, 3)
+        regression_transform_params = self.stn.localisation_param_regressor.fc_model(spatial_features)
+        # use only t_x, and t_y
+        return self.loss(regression_transform_params[:, 1:], target_indexed_spatial_feature)
+
+
     @staticmethod
     def pseudo_infinite_sampling(dataloader, max_count):
         count = 0
@@ -41,8 +58,29 @@ class STNManager(BestSaveable):
                 yield batch
                 count += 1
 
-    def train(self, num_epochs, train_dataloader, val_dataloader, test_dataloader, pre_training=True, double_meta_loss=False):
+    def train(self, num_epochs, train_dataloader, val_dataloader, test_dataloader, pre_training=True,
+              double_meta_loss=False, dsae_guide_init_params=None):
         self.stn.to(self.device)
+        if dsae_guide_init_params is not None:
+            dsae_init_epochs = dsae_guide_init_params["dsae_init_epochs"]
+            dsae_init_index = dsae_guide_init_params["dsae_init_index"]
+            self.stn.eval()
+            # only train param regressor layer, not the DSAE
+            self.stn.localisation_param_regressor.fc_model.train()
+            regressor_optimiser = torch.optim.Adam(self.stn.localisation_param_regressor.fc_model.parameters(), lr=0.001)
+            print("Starting initialisation regression...")
+            for epoch in range(dsae_init_epochs):
+                print("Guide init epoch", epoch + 1)
+                train_dsae_guide_init_epoch = 0
+                for batch_idx, batch in enumerate(train_dataloader):
+                    regressor_optimiser.zero_grad()
+                    loss = self.get_dsae_guide_init_loss(batch, dsae_init_index)
+                    train_dsae_guide_init_epoch += loss.item()
+                    loss.backward()
+                    regressor_optimiser.step()
+                print("Guide init loss", train_dsae_guide_init_epoch / len(train_dataloader.dataset))
+
+        print("Starting meta learning...")
         for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1}")
             self.stn.localisation_param_regressor.train()
@@ -122,12 +160,11 @@ class STNManager(BestSaveable):
         # clear best info, restart early stopper
         self.best_info = None
         self.early_stopper = EarlyStopper(patience=10, saveable=self)
-        optimiser = torch.optim.Adam(self.stn.model.parameters(), lr=0.0001)
+        optimiser = torch.optim.Adam(self.stn.parameters(), lr=0.0001)
 
         for epoch in range(num_epochs):
             print("Retraining epoch", epoch + 1)
-            self.stn.model.train()
-            self.stn.localisation_param_regressor.eval()
+            self.stn.train()
             train_loss_epoch = 0
             for batch_idx, batch in enumerate(train_dataloader):
                 optimiser.zero_grad()
