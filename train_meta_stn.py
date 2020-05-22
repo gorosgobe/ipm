@@ -211,7 +211,7 @@ if __name__ == "__main__":
     # train with all the data and localisation param regressor in eval mode
     manager.name = manager.name + "_retrain"
     manager.retrain(
-        num_epochs=1,
+        num_epochs=150,
         train_dataloader=train_data_loader,
         val_dataloader=validation_data_loader,
         test_dataloader=test_data_loader
