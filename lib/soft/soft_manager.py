@@ -138,7 +138,7 @@ class SoftManager(BestSaveable):
         mask = mask.float()
         # mask (b, dem_len)
         entropy_contribution = 0
-        if importances is not None:
+        if importances is not None and self.gumbel_params is None:
             # importance_stack (b, dem_len, 1, H'xW')
             importance_stack = torch.stack(importances).transpose(0, 1)
             entropies = distributions.Categorical(probs=importance_stack).entropy()
