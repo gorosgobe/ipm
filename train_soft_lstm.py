@@ -22,7 +22,6 @@ def evaluation_function(parameterization, dataset, config, train_data_loader, va
         is_coord=config["is_coord"],
         projection_scale=projection_scale,
         entropy_lambda=entropy_lambda,
-        separate_prediction=config["separate_prediction"],
         keep_mask=config["keep_mask"],
         version=config["version"]
     )
@@ -49,9 +48,12 @@ if __name__ == "__main__":
     parser.add_argument("--is_bop", default="no")
     parser.add_argument("--hidden_size", type=int, default=64)
     parser.add_argument("--projection_scale", type=int, default=1)
-    parser.add_argument("--separate_prediction", default="no")
     parser.add_argument("--keep_mask", default="no")
     parser.add_argument("--version", default="soft")
+    # these two only have an effect when version is soft
+    # they are related to the temperature parameter of the Gumbel-Softmax sampling method
+    parser.add_argument("--annealed")
+    parser.add_argument("--adaptive")
     parse_result = parser.parse_args()
 
     seed = get_seed(parse_result.seed)
@@ -77,9 +79,16 @@ if __name__ == "__main__":
         is_bop=parse_result.is_bop == "yes",
         hidden_size=parse_result.hidden_size,
         projection_scale=parse_result.projection_scale,
-        separate_prediction=parse_result.separate_prediction == "yes",
         keep_mask=parse_result.keep_mask == "yes",
-        version=parse_result.version
+        version=parse_result.version,
+        # if either adaptive or annealed are not None and it is a soft version, declare gumbel params
+        # otherwise, if both are none, we are not using the gumbel method, nor if version is not soft
+        gumbel_params=dict(
+            adaptive_tau=parse_result.adaptive == "yes",
+            annealed_tau=parse_result.annealed == "yes"
+        ) if parse_result.version == "soft" and (
+                    parse_result.adaptive is not None or parse_result.annealed is not None
+        ) else None
     )
 
     print("Name:", config["name"])
@@ -108,7 +117,7 @@ if __name__ == "__main__":
             metadata=config["metadata"],
             rotations_csv=config["rotations_csv"],
             root_dir=config["root_dir"],
-            cache=True,
+            cache=False,
             transform=preprocessing_transforms,
             is_coord=config["is_coord"],
             pixel_cropper=pixel_cropper
@@ -160,9 +169,9 @@ if __name__ == "__main__":
             is_coord=config["is_coord"],
             entropy_lambda=config["entropy_lambda"],
             projection_scale=config["projection_scale"],
-            separate_prediction=config["separate_prediction"],
             keep_mask=config["keep_mask"],
-            version=config["version"]
+            version=config["version"],
+            gumbel_params=config["gumbel_params"]
         )
 
         manager.train(

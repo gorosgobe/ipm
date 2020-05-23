@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
 from torch import nn
 
 
@@ -63,15 +63,13 @@ class SoftmaxProbActiv(nn.Module):
 
 
 class GumbelSigmoidProbActiv(nn.Module):
-    def __init__(self, hidden_size, adaptive_tau=False, annealed_tau=False):
+    def __init__(self, hidden_size, adaptive_tau, annealed_tau):
         super().__init__()
-        # TODO: both cant be
-        if not adaptive_tau and not annealed_tau:
+        if adaptive_tau + annealed_tau != 1:
             raise ValueError("Either annealed tau or learnt tau are required!")
 
         self.adaptive_tau = adaptive_tau
         if self.adaptive_tau:
-            # Adaptive tau mechanism from https://arxiv.org/pdf/1708.07590.pdf
             self.tau_layer = nn.Linear(in_features=hidden_size, out_features=1)
             self.softplus = nn.Softplus()
 
@@ -96,7 +94,10 @@ class GumbelSigmoidProbActiv(nn.Module):
             self.tau = max(self.min_tau, self.max_tau * np.exp(-self.annealing_rate * self.iter))
         else:
             # adaptive, learnt tau
+            # adaptive tau mechanism from https://arxiv.org/abs/1701.08718 and https://arxiv.org/pdf/1708.07590.pdf
             self.tau = 1 / (1 + self.softplus(self.tau_layer(hidden_state)))
+            b, _ = hidden_state.size()
+            self.tau = self.tau.view(b, 1, 1, 1)
 
         sigmoid_x = self.activ(x.unsqueeze(-1))
         # sigmoid_x (batch, 1, H'xW', 1)
@@ -106,14 +107,13 @@ class GumbelSigmoidProbActiv(nn.Module):
         # sigmoid_both_log_probs (batch, 1, H'xW', 2)
         # then apply gumbel softmax and pick p's index as part of the mask
         gumbel_out = nn.functional.gumbel_softmax(sigmoid_both_log_probs, tau=self.tau, hard=True)
-        indexed_gumbel_out = gumbel_out[:, :, :, :1].squeeze(0)
+        indexed_gumbel_out = gumbel_out[:, :, :, :1].squeeze(-1)
         return indexed_gumbel_out
 
 
 class SoftAttention(nn.Module):
     def __init__(self, hidden_size, is_mask=False, gumbel_params=None, projection_scale=1):
         super().__init__()
-        # TODO: Gumbel-Softmax
         if gumbel_params is None:
             self.prob_activ = SoftmaxProbActiv(dim=-1) if not is_mask else nn.Sigmoid()
         else:
@@ -151,20 +151,21 @@ class SoftAttention(nn.Module):
         # result (batch*H'*W', 1)
         result = result.view(b, h_pxw_p, 1).transpose(1, 2)
         # result (batch, 1, H'xW')
-        importance = self.prob_activ(result, hidden_state)
+        importance = self.prob_activ(result, h_t)
         # out (batch, 1, H'xW')
         return importance
 
 
 class SoftCNNLSTMNetwork(nn.Module):
-    def __init__(self, hidden_size, is_coord, projection_scale, keep_masked=False, separate_prediction=False):
+    def __init__(self, hidden_size, is_coord, projection_scale, keep_masked=False, gumbel_params=None):
         super().__init__()
         self.keep_masked = keep_masked
         self.cnn = CNN(hidden_size=hidden_size, is_coord=is_coord)
         self.attention = SoftAttention(
             hidden_size=hidden_size,
             is_mask=keep_masked,
-            projection_scale=projection_scale
+            projection_scale=projection_scale,
+            gumbel_params=gumbel_params
         )
         if self.keep_masked:
             v_input_size = int(np.product(self.cnn.get_input_size_for((96, 128))))
@@ -176,7 +177,6 @@ class SoftCNNLSTMNetwork(nn.Module):
             self.mlp = MLP(input_size=hidden_size)
         self.importance = None
         self.h_p = None
-        self.separate_prediction = separate_prediction
         self.conv1_up = nn.UpsamplingBilinear2d(size=(96, 128))
 
     def get_upsampled_attention(self):
@@ -218,10 +218,7 @@ class SoftCNNLSTMNetwork(nn.Module):
                 assert z_t.size() == (b, c_p)
             # unsqueeze to add sequence dimension
             output, hidden_state = self.lstm(z_t.unsqueeze(0), hx=hidden_state)
-            if self.separate_prediction:
-                out[d_step] = self.mlp(z_t)
-            else:
-                out[d_step] = self.mlp(output.squeeze(0))
+            out[d_step] = self.mlp(z_t)
 
         # so out is (b, seq_len, 6) similarly to input
         return out.transpose(0, 1), hidden_state, importances

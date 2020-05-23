@@ -1,22 +1,22 @@
-import cv2
 import torch
 from torchvision import transforms
 
+from lib.common.utils import ResizeTransform
 from lib.dsae.dsae import CoordinateUtils
 from lib.soft.soft import SoftCNNLSTMNetwork, RecurrentFullImage, RecurrentCoordConv_32, RecurrentBaseline
-from lib.common.utils import ResizeTransform
 
 
 class RNNTipVelocityControllerAdapter(object):
     def __init__(self, parameters, hidden_size, projection_scale, separate_prediction, keep_mask, version,
-                 is_coord=False, size=(128, 96)):
+                 is_coord=False, size=(128, 96), gumbel_params=None):
         if version == "soft":
             self.model = SoftCNNLSTMNetwork(
                 hidden_size=hidden_size,
                 is_coord=is_coord,
                 projection_scale=projection_scale,
                 separate_prediction=separate_prediction,
-                keep_masked=keep_mask
+                keep_masked=keep_mask,
+                gumbel_params=gumbel_params
             )
         elif version == "full":
             self.model = RecurrentFullImage(
@@ -88,13 +88,15 @@ class RNNTipVelocityControllerAdapter(object):
         return self.get_np_attention_mapped_images_from(self.demonstration_attention_maps)
 
     @staticmethod
-    def get_np_attention_mapped_images_from(demonstration_attention_maps):
+    def get_np_attention_mapped_images_from(demonstration_attention_maps, is_gumbel=False):
+        # if is_gumbel, we are using a gumbel softmax distribution to obtain a hard mask
+        # need to soften the weights for this type of attention heatmap
         result = []
         for pair in demonstration_attention_maps:
             torch_img, torch_attention = pair
             np_img = (torch_img.permute(1, 2, 0).cpu().numpy() + 1) / 2
             attention_heatmap = torch_attention.permute(1, 2, 0).cpu().numpy()
-            res = np_img * 0.7 + attention_heatmap * 3
+            res = np_img * 0.7 + attention_heatmap * (3 if not is_gumbel else 0.3)
             result.append(res)
         return result
 
@@ -115,5 +117,6 @@ class RNNTipVelocityControllerAdapter(object):
             is_coord=info["is_coord"] if "is_coord" in info else False,
             separate_prediction=info["separate_prediction"] if "separate_prediction" in info else True,
             keep_mask=info["keep_mask"] if "keep_mask" in info else False,
-            version=info["version"] if "version" in info else "soft"
+            version=info["version"] if "version" in info else "soft",
+            gumbel_params=info["gumbel_params"] if "gumbel_params" in info else None
         )

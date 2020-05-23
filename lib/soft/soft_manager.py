@@ -10,8 +10,8 @@ from lib.soft.soft import SoftCNNLSTMNetwork, RecurrentFullImage, RecurrentCoord
 
 class SoftManager(BestSaveable):
 
-    def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, keep_mask, separate_prediction,
-                 version, entropy_lambda=1.0):
+    def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, keep_mask,
+                 version, gumbel_params, entropy_lambda=1.0):
         super().__init__()
         self.name = name
         if version == "soft":
@@ -19,8 +19,8 @@ class SoftManager(BestSaveable):
                 hidden_size=hidden_size,
                 is_coord=is_coord,
                 projection_scale=projection_scale,
-                separate_prediction=separate_prediction,
-                keep_masked=keep_mask
+                keep_masked=keep_mask,
+                gumbel_params=gumbel_params
             )
         elif version == "full":
             self.model = RecurrentFullImage(
@@ -41,6 +41,7 @@ class SoftManager(BestSaveable):
         # print number of model parameters
         print("Parameters:", sum([p.numel() for p in self.model.parameters()]))
         self.version = version
+        self.gumbel_params = gumbel_params
         self.is_coord = is_coord
         self.projection_scale = projection_scale
         self.keep_mask = keep_mask
@@ -51,7 +52,6 @@ class SoftManager(BestSaveable):
         self.early_stopper = EarlyStopper(patience=10, saveable=self)
         self.best_info = None
         self.hidden_size = hidden_size
-        self.separate_prediction = separate_prediction
         self.entropy_lambda = entropy_lambda
 
     def train(self, num_epochs, train_dataloader, val_dataloader):
@@ -116,9 +116,10 @@ class SoftManager(BestSaveable):
                         (image[:3], self.model.get_upsampled_attention().squeeze(0))
                     )
                 break
-            # TODO: change this name
             blended_imgs = RNNTipVelocityControllerAdapter.get_np_attention_mapped_images_from(
-                demonstration_attention_maps)
+                demonstration_attention_maps,
+                is_gumbel=self.gumbel_params is not None
+            )
             for index, i in enumerate(blended_imgs):
                 save_image(i, "{}-{}image{}.png".format(prefix, batch_index, index))
 
@@ -162,6 +163,6 @@ class SoftManager(BestSaveable):
             is_coord=self.is_coord,
             projection_scale=self.projection_scale,
             keep_mask=self.keep_mask,
-            separate_prediction=self.separate_prediction,
-            version=self.version
+            version=self.version,
+            gumbel_params=self.gumbel_params
         )
