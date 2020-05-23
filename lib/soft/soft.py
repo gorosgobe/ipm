@@ -165,7 +165,7 @@ class RecurrentBaseline(nn.Module):
     def __init__(self, hidden_size, **kwargs):
         super().__init__()
         self.lstm = nn.LSTM(input_size=6, hidden_size=hidden_size)
-        self.fc1 = torch.nn.Linear(in_features=hidden_size, out_features=64)
+        self.fc1 = torch.nn.Linear(in_features=hidden_size + 6, out_features=64)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
 
@@ -173,7 +173,9 @@ class RecurrentBaseline(nn.Module):
         # x (b, d_len, 6)
         out_lstm, _hidden_state = self.lstm(x.transpose(0, 1))
         # out_lstm (d_len, b, hidden_size)
-        out_fc1 = F.relu(self.fc1.forward(out_lstm.transpose(0, 1)))
+        transposed_out_lstm = out_lstm.transpose(0, 1)
+        out_lstm_concat_rels = torch.cat((transposed_out_lstm, x), dim=-1)
+        out_fc1 = F.relu(self.fc1.forward(out_lstm_concat_rels))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
         return out_fc3, None, None
@@ -189,10 +191,11 @@ class RecurrentFullImage(nn.Module):
         self.batch_norm2 = torch.nn.BatchNorm2d(32)
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
         self.batch_norm3 = torch.nn.BatchNorm2d(16)
-        self.fc1 = torch.nn.Linear(in_features=hidden_size, out_features=64)
+        flattened_size = 2240
+        self.lstm = nn.LSTM(input_size=flattened_size, hidden_size=hidden_size)
+        self.fc1 = torch.nn.Linear(in_features=hidden_size + flattened_size, out_features=64)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
-        self.lstm = nn.LSTM(input_size=2240, hidden_size=hidden_size)
 
     def forward(self, x, hidden_state=None):
         # x(batch, d_len, C, H, W)
@@ -201,16 +204,17 @@ class RecurrentFullImage(nn.Module):
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(x)))
         out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
         out_conv3 = F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
-        out_conv3 = out_conv3.view(b, d_len, -1).transpose(0, 1)
-        # out_conv3 (d_len, b, c * h * w)
-        out_lstm, hidden_state = self.lstm(out_conv3)
+        out_conv3 = out_conv3.view(b, d_len, -1)
+        # out_conv3 (b, d_len, c * h * w)
+        out_lstm, hidden_state = self.lstm(out_conv3.transpose(0, 1))
         # out_lstm (d_len, b, hidden)
-        out_lstm = out_lstm.transpose(0, 1).reshape((b * d_len, self.hidden_size))
-        out_fc1 = F.relu(self.fc1.forward(out_lstm))
+        out_lstm = out_lstm.transpose(0, 1)
+        out_lstm_concat_visual = torch.cat((out_lstm, out_conv3), dim=-1)
+        out_fc1 = F.relu(self.fc1.forward(out_lstm_concat_visual))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
-        # out is (b, seq_len, 6)
-        return out_fc3.view(b, d_len, 6), None, None
+        # out is (b, d_len, 6)
+        return out_fc3, None, None
 
 
 class RecurrentCoordConv_32(nn.Module):
@@ -223,10 +227,11 @@ class RecurrentCoordConv_32(nn.Module):
         self.batch_norm2 = torch.nn.BatchNorm2d(32)
         self.conv3 = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2, padding=1)
         self.batch_norm3 = torch.nn.BatchNorm2d(16)
-        self.fc1 = torch.nn.Linear(in_features=hidden_size, out_features=64)
+        flattened_size = 32
+        self.lstm = nn.LSTM(input_size=flattened_size, hidden_size=hidden_size)
+        self.fc1 = torch.nn.Linear(in_features=hidden_size + flattened_size, out_features=64)
         self.fc2 = torch.nn.Linear(in_features=64, out_features=64)
         self.fc3 = torch.nn.Linear(in_features=64, out_features=6)
-        self.lstm = nn.LSTM(input_size=32, hidden_size=hidden_size)
 
     def forward(self, image_batch, hidden_state=None):
         b, d_len, c, h, w = image_batch.size()
@@ -234,14 +239,15 @@ class RecurrentCoordConv_32(nn.Module):
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(image_batch)))
         out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
         out_conv3 = F.relu(self.batch_norm3.forward(self.conv3.forward(out_conv2)))
-
-        out_conv3 = out_conv3.view(b, d_len, -1).transpose(0, 1)
-        # out_conv3 (d_len, b, c * h * w)
-        out_lstm, hidden_state = self.lstm(out_conv3)
+        out_conv3 = out_conv3.view(b, d_len, -1)
+        # out_conv3 (b, d_len, c * h * w)
+        out_lstm, hidden_state = self.lstm(out_conv3.transpose(0, 1))
         # out_lstm (d_len, b, hidden)
-        out_lstm = out_lstm.transpose(0, 1).reshape((b * d_len, -1))
-        out_fc1 = F.relu(self.fc1.forward(out_lstm))
+        out_lstm = out_lstm.transpose(0, 1)
+        # TODO: concat flattened outconv3 and LSTM output, and use that instead.
+        out_lstm_concat_visual = torch.cat((out_lstm, out_conv3), dim=-1)
+        out_fc1 = F.relu(self.fc1.forward(out_lstm_concat_visual))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
-        # out is (b, seq_len, 6)
-        return out_fc3.view(b, d_len, 6), None, None
+        # out is (b, d_len, 6)
+        return out_fc3, None, None
