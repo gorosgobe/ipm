@@ -100,6 +100,7 @@ class GumbelSigmoidProbActiv(nn.Module):
             self.tau = self.tau.view(b, 1, 1, 1)
 
         sigmoid_x = self.activ(x.unsqueeze(-1))
+        sigmoid_x = torch.clamp(sigmoid_x, 1e-7, 1 - 1e-7)
         # sigmoid_x (batch, 1, H'xW', 1)
         # given tensor with probabilities p for feature vector i computed from an element-wise sigmoid
         # calculate 1 - p, zip to obtain tensor with [p, 1 - p], apply log
