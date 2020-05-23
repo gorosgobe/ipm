@@ -111,11 +111,20 @@ class GumbelSigmoidProbActiv(nn.Module):
         return indexed_gumbel_out
 
 
+class DummySigmoid(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x, _hidden_state):
+        return self.sigmoid(x)
+
+
 class SoftAttention(nn.Module):
     def __init__(self, hidden_size, is_mask=False, gumbel_params=None, projection_scale=1):
         super().__init__()
         if gumbel_params is None:
-            self.prob_activ = SoftmaxProbActiv(dim=-1) if not is_mask else nn.Sigmoid()
+            self.prob_activ = SoftmaxProbActiv(dim=-1) if not is_mask else DummySigmoid()
         else:
             self.prob_activ = GumbelSigmoidProbActiv(
                 hidden_size=hidden_size,
