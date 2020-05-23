@@ -50,8 +50,8 @@ if __name__ == "__main__":
     parser.add_argument("--projection_scale", type=int, default=1)
     parser.add_argument("--keep_mask", default="no")
     parser.add_argument("--version", default="soft")
-    parser.add_argument("--patience", default=10)
-    parser.add_argument("--learning_rate", default=0.0001)
+    parser.add_argument("--patience", type=int, default=10)
+    parser.add_argument("--learning_rate", type=float, default=0.0001)
     # these two only have an effect when version is soft
     # they are related to the temperature parameter of the Gumbel-Softmax sampling method
     parser.add_argument("--annealed")
