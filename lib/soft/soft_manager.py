@@ -11,7 +11,7 @@ from lib.soft.soft import SoftCNNLSTMNetwork, RecurrentFullImage, RecurrentCoord
 class SoftManager(BestSaveable):
 
     def __init__(self, name, dataset, device, hidden_size, is_coord, projection_scale, keep_mask,
-                 version, gumbel_params, patience=10, entropy_lambda=1.0):
+                 version, gumbel_params, patience=10, entropy_lambda=1.0, learning_rate=0.0001):
         super().__init__()
         self.name = name
         if version == "soft":
@@ -47,7 +47,7 @@ class SoftManager(BestSaveable):
         self.keep_mask = keep_mask
         self.dataset = dataset
         self.device = device
-        self.optimiser = torch.optim.Adam(self.model.parameters(), lr=0.0001)
+        self.optimiser = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         self.loss = nn.MSELoss(reduction="none")
         self.early_stopper = EarlyStopper(patience=patience, saveable=self)
         self.best_info = None

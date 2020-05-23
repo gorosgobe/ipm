@@ -51,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--keep_mask", default="no")
     parser.add_argument("--version", default="soft")
     parser.add_argument("--patience", default=10)
+    parser.add_argument("--learning_rate", default=0.0001)
     # these two only have an effect when version is soft
     # they are related to the temperature parameter of the Gumbel-Softmax sampling method
     parser.add_argument("--annealed")
@@ -83,6 +84,7 @@ if __name__ == "__main__":
         keep_mask=parse_result.keep_mask == "yes",
         version=parse_result.version,
         patience=parse_result.patience,
+        learning_rate=parse_result.learning_rate,
         # if either adaptive or annealed are not None and it is a soft version, declare gumbel params
         # otherwise, if both are none, we are not using the gumbel method, nor if version is not soft
         gumbel_params=dict(
@@ -174,7 +176,8 @@ if __name__ == "__main__":
             keep_mask=config["keep_mask"],
             version=config["version"],
             gumbel_params=config["gumbel_params"],
-            patience=config["patience"]
+            patience=config["patience"],
+            learning_rate=config["learning_rate"]
         )
 
         manager.train(
