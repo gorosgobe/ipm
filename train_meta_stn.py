@@ -40,7 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
     # whether to anneal scale from 1.0 to desired scale during training
-    parser.add_argument("anneal", default="no")
+    parser.add_argument("--anneal", default="no")
     # load index of spatial feature for pretraining
     parser.add_argument("--dsae_load_index_from")
     # load dsae
