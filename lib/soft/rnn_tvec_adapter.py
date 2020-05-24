@@ -88,7 +88,7 @@ class RNNTipVelocityControllerAdapter(object):
         return self.get_np_attention_mapped_images_from(self.demonstration_attention_maps)
 
     @staticmethod
-    def get_np_attention_mapped_images_from(demonstration_attention_maps, is_gumbel=False):
+    def get_np_attention_mapped_images_from(demonstration_attention_maps, lower_weight=False):
         # if is_gumbel, we are using a gumbel softmax distribution to obtain a hard mask
         # need to soften the weights for this type of attention heatmap
         result = []
@@ -96,7 +96,7 @@ class RNNTipVelocityControllerAdapter(object):
             torch_img, torch_attention = pair
             np_img = (torch_img.permute(1, 2, 0).cpu().numpy() + 1) / 2
             attention_heatmap = torch_attention.permute(1, 2, 0).cpu().numpy()
-            res = np_img * 0.7 + attention_heatmap * (3 if not is_gumbel else 0.3)
+            res = np_img * 0.7 + attention_heatmap * (3 if not lower_weight else 0.3)
             result.append(res)
         return result
 

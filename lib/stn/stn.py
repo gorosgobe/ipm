@@ -1,5 +1,6 @@
 import enum
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import Sequential
@@ -118,10 +119,17 @@ class SpatialTransformerNetwork(MetaModule):
         self.sampling_type = sampling_type
         self.transformed_image = None
         self.transformation_params = None
+
+        self.init_scale_loc = self.localisation_param_regressor.scale
+        self.annealing_rate = 0.03
+
         if sampling_type == STN_SamplingType.LINEARISED:
             # number of samples to take
             # the higher the number, the better the performance/gradients, but computationally more expensive
             LinearizedMutilSampler.num_grid = linearised_samples
+
+    def anneal_scale_step(self, iter):
+        self.localisation_param_regressor.scale = max(self.init_scale_loc, np.exp(-self.annealing_rate * iter))
 
     def forward(self, x, params=None):
         if isinstance(x, tuple):

@@ -61,7 +61,12 @@ class STNManager(BestSaveable):
                 count += 1
 
     def train(self, num_epochs, train_dataloader, val_dataloader, test_dataloader, pre_training=True,
-              double_meta_loss=False, dsae_guide_init_params=None):
+              double_meta_loss=False, dsae_guide_init_params=None, anneal=False):
+
+        if dsae_guide_init_params is not None and anneal:
+            raise ValueError("Annealing of scale is not compatible with guided DSAE initialisation, they are for the "
+                             "purpose!")
+
         self.stn.to(self.device)
         if dsae_guide_init_params is not None:
             dsae_init_epochs = dsae_guide_init_params["dsae_init_epochs"]
@@ -85,6 +90,11 @@ class STNManager(BestSaveable):
         print("Starting meta learning...")
         for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1}")
+
+            if anneal:
+                self.stn.anneal_scale_step(epoch + 1)
+                print("Current scale", self.stn.localisation_param_regressor.scale)
+
             self.stn.localisation_param_regressor.train()
             self.stn.model.train()
             # one epoch of training for regression model with default transformation (set to identity at the beginning)

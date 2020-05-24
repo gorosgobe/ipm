@@ -118,7 +118,7 @@ class SoftManager(BestSaveable):
                 break
             blended_imgs = RNNTipVelocityControllerAdapter.get_np_attention_mapped_images_from(
                 demonstration_attention_maps,
-                is_gumbel=self.gumbel_params is not None
+                lower_weight=self.gumbel_params is not None or self.keep_mask,
             )
             for index, i in enumerate(blended_imgs):
                 save_image(i, "{}-{}image{}.png".format(prefix, batch_index, index))

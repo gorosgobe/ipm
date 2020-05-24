@@ -39,6 +39,8 @@ if __name__ == "__main__":
     parser.add_argument("--pretrain", default="yes")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--scale", type=float)
+    # whether to anneal scale from 1.0 to desired scale during training
+    parser.add_argument("anneal", default="no")
     # load index of spatial feature for pretraining
     parser.add_argument("--dsae_load_index_from")
     # load dsae
@@ -129,6 +131,7 @@ if __name__ == "__main__":
         device=device,
         retraining=parse_result.retraining,
         double_meta_loss=parse_result.double_meta_loss == "yes",
+        anneal=parse_result.anneal == "yes",
         dsae_guide_init_params=dict(
             dsae_init_epochs=10,
             dsae_init_index=dsae_init_index
@@ -171,7 +174,7 @@ if __name__ == "__main__":
     manager.train(num_epochs=config["max_epochs"], train_dataloader=train_data_loader,
                   val_dataloader=validation_data_loader, test_dataloader=test_data_loader,
                   pre_training=config["pretrain"], double_meta_loss=config["double_meta_loss"],
-                  dsae_guide_init_params=config["dsae_guide_init_params"])
+                  dsae_guide_init_params=config["dsae_guide_init_params"], anneal=config["anneal"])
 
     # save_best_model
     if config["max_epochs"] > 0:
