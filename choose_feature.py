@@ -20,6 +20,7 @@ if __name__ == '__main__':
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--training", type=float, default=0.8)
     parser.add_argument("--output_divisor", type=int, default=4)
+    parser.add_argument("--crop_size", type=int, default=32)
     parser.add_argument("--is_bop", default="no")
     parser.add_argument("--trials", type=int)
     parser.add_argument("--index", type=int)
@@ -42,7 +43,8 @@ if __name__ == '__main__':
         output_divisor=parse_result.output_divisor,
         is_bop=parse_result.is_bop == "yes",
         trials=parse_result.trials,
-        index=None
+        index=None,
+        crop_size=(32, 24) if parse_result.crop_size == 32 else (64, 48)
     )
 
     if config["is_bop"] and config["trials"] is None:
@@ -113,7 +115,6 @@ if __name__ == '__main__':
         searcher.save_plots("models/bop_chooser")
     else:
         # latent_dimension // 2, number of trials
-        # TODO: do this for multiple crop sizes
-        feature_index = chooser.get_best_feature_index()
-        print(f"Best feature index {feature_index} for {config['dsae_path']}.")
+        feature_index = chooser.get_best_feature_index(crop_size=config["crop_size"])
+        print(f"Best feature index {feature_index} for {config['dsae_path']} and size {config['crop_size']}.")
         chooser.save("models/dsae_chooser")

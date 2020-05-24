@@ -65,12 +65,12 @@ class DSAE_ValFeatureChooser(Saveable):
         val_loss = estimator.get_best_val_loss()
         return val_loss, estimator
 
-    def get_best_feature_index(self):
+    def get_best_feature_index(self, crop_size=(32, 24)):
         validation_losses = []
         best_val_loss = None
         best_estimator = None
         for idx, f in enumerate(range(self.features)):
-            val_loss, estimator = self.train_model_with_feature(index=idx)
+            val_loss, estimator = self.train_model_with_feature(index=idx, crop_size=crop_size)
 
             if best_val_loss is None or val_loss < best_val_loss:
                 best_val_loss, best_estimator = (val_loss, estimator)
