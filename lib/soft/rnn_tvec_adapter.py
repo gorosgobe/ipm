@@ -7,14 +7,13 @@ from lib.soft.soft import SoftCNNLSTMNetwork, RecurrentFullImage, RecurrentCoord
 
 
 class RNNTipVelocityControllerAdapter(object):
-    def __init__(self, parameters, hidden_size, projection_scale, separate_prediction, keep_mask, version,
+    def __init__(self, parameters, hidden_size, projection_scale, keep_mask, version,
                  is_coord=False, size=(128, 96), gumbel_params=None):
         if version == "soft":
             self.model = SoftCNNLSTMNetwork(
                 hidden_size=hidden_size,
                 is_coord=is_coord,
                 projection_scale=projection_scale,
-                separate_prediction=separate_prediction,
                 keep_masked=keep_mask,
                 gumbel_params=gumbel_params
             )
@@ -115,7 +114,6 @@ class RNNTipVelocityControllerAdapter(object):
             hidden_size=info["hidden_size"],
             projection_scale=info["projection_scale"],
             is_coord=info["is_coord"] if "is_coord" in info else False,
-            separate_prediction=info["separate_prediction"] if "separate_prediction" in info else True,
             keep_mask=info["keep_mask"] if "keep_mask" in info else False,
             version=info["version"] if "version" in info else "soft",
             gumbel_params=info["gumbel_params"] if "gumbel_params" in info else None

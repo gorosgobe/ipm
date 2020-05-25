@@ -51,7 +51,6 @@ class STNManager(BestSaveable):
         only_translation_idx = 1 if transform_size == 3 else 0
         return self.loss(regression_transform_params[:, only_translation_idx:], target_indexed_spatial_feature)
 
-
     @staticmethod
     def pseudo_infinite_sampling(dataloader, max_count):
         count = 0
@@ -65,7 +64,7 @@ class STNManager(BestSaveable):
 
         if dsae_guide_init_params is not None and anneal:
             raise ValueError("Annealing of scale is not compatible with guided DSAE initialisation, they are for the "
-                             "purpose!")
+                             "same purpose!")
 
         self.stn.to(self.device)
         if dsae_guide_init_params is not None:
@@ -74,7 +73,8 @@ class STNManager(BestSaveable):
             self.stn.eval()
             # only train param regressor layer, not the DSAE
             self.stn.localisation_param_regressor.fc_model.train()
-            regressor_optimiser = torch.optim.Adam(self.stn.localisation_param_regressor.fc_model.parameters(), lr=0.001)
+            regressor_optimiser = torch.optim.Adam(self.stn.localisation_param_regressor.fc_model.parameters(),
+                                                   lr=0.001)
             print("Starting initialisation regression...")
             for epoch in range(dsae_init_epochs):
                 print("Guide init epoch", epoch + 1)
@@ -162,7 +162,13 @@ class STNManager(BestSaveable):
                 self.stn_scheduler.step(avg_test_eval_loss_epoch)
                 self.model_scheduler.step(avg_test_eval_loss_epoch)
 
-                self.early_stopper.register_loss(avg_test_eval_loss_epoch)
+                # only perform early stopping once annealing is done and we have reached the desired scale
+                if anneal:
+                    if self.stn.localisation_param_regressor.scale == self.stn.init_scale_loc:
+                        self.early_stopper.register_loss(avg_test_eval_loss_epoch)
+                else:
+                    self.early_stopper.register_loss(avg_test_eval_loss_epoch)
+
                 print("Test EVAL:", avg_test_eval_loss_epoch)
                 if self.early_stopper.should_stop():
                     print("Patience reached, stopping...")

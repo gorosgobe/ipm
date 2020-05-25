@@ -121,7 +121,7 @@ class SpatialTransformerNetwork(MetaModule):
         self.transformation_params = None
 
         self.init_scale_loc = self.localisation_param_regressor.scale
-        self.annealing_rate = 0.03
+        self.annealing_rate = 0.02
 
         if sampling_type == STN_SamplingType.LINEARISED:
             # number of samples to take
