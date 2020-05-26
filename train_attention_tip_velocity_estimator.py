@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("--name", required=True)
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--size", type=int, required=True)
+    parser.add_argument("--size", type=int, default=64)
     parser.add_argument("--training", type=float)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=0.0001)
