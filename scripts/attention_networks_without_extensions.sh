@@ -28,7 +28,7 @@ for v in $versions; do
     for training in $training_list; do
       echo "Starting training attention network for version ${v}, size 64, training data ${training}, replication ${repl}."
       training_str=$(echo "$training" | sed -e "s/\.//g")
-      time python3 train_attention_tip_velocity_estimator.py --name "AttentionNetwork${v}_${dataset_str}_${training_str}" --dataset "$dataset" \
+      time python3 train_attention_tip_velocity_estimator.py --name "AttentionNetwork${v}_${dataset_str}_${training_str}_${repl}" --dataset "$dataset" \
               --training "$training" --version "$v" --seed "$seed" >> "$log_file"
       echo "Completed training."
     done
