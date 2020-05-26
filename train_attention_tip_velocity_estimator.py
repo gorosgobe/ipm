@@ -9,8 +9,6 @@ from lib.cv.dataset import ImageTipVelocitiesDataset
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.meta.mil import MetaImitationLearning
 from lib.networks import *
-from lib.stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, STN_SamplingType
-from lib.stn.stn_visualise import visualise
 
 if __name__ == "__main__":
 
@@ -20,15 +18,12 @@ if __name__ == "__main__":
     parser.add_argument("--version", required=True)
     parser.add_argument("--size", type=int, required=True)
     parser.add_argument("--training", type=float)
-    parser.add_argument("--random_std", type=int)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=0.0001)
     parser.add_argument("--epochs", type=int, default=250)
-    parser.add_argument("--fpn", default="no")
     parser.add_argument("--loss")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--init_from")
-    parser.add_argument("--scale", type=float)
     parser.add_argument("--pos_dim")
     parse_result = parser.parse_args()
 
@@ -44,10 +39,6 @@ if __name__ == "__main__":
     elif parse_result.size == 64:
         size = (64, 48)
         divisor = 2
-    elif parse_result.size == 128:
-        # only for STN
-        size = (128, 96)
-        divisor = 1
     else:
         raise ValueError("Invalid size!")
 
@@ -80,40 +71,12 @@ if __name__ == "__main__":
     elif version.lower() == "coord_se":
         version = AttentionNetworkCoordSE_32 if parse_result.size == 32 else AttentionNetworkCoordSE
         add_spatial_maps = True
-    elif version.lower() == "stn":
-        # should not crop
-        divisor = 1
-        localisation_param_regressor = LocalisationParamRegressor(
-            add_coord=True,
-            scale=parse_result.scale,
-            fpn=parse_result.fpn == "yes"
-        )
-        model = AttentionNetworkCoordGeneral.create(*size)(*size)
-        add_spatial_maps = True
-
-        def spatial_version(_w, _h, size=size):
-            return SpatialTransformerNetwork(
-                localisation_param_regressor=localisation_param_regressor,
-                model=model,
-                output_size=size,
-                sampling_type=STN_SamplingType.DEFAULT_BILINEAR
-            )
-
-        version = spatial_version
-        # size is 128, 96 for images, CoordConv takes downsampled version
-        size = (128, 96)
     else:
         raise ValueError(f"Attention network version {version} is not available")
 
     dataset = parse_result.dataset
     print("Dataset: ", dataset)
 
-    # random crop, if required
-    crop_deviation_sampler = None
-    if parse_result.random_std is not None:
-        std = parse_result.random_std
-        print(f"Random cropping, std {std}")
-        crop_deviation_sampler = CropDeviationSampler(std=std)
 
     config = dict(
         seed=seed,
@@ -126,8 +89,7 @@ if __name__ == "__main__":
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
         initial_pixel_cropper=TrainingPixelROI(
-            480 // divisor, 640 // divisor, add_spatial_maps=add_spatial_maps,
-            crop_deviation_sampler=crop_deviation_sampler, add_r_map=add_r_map
+            480 // divisor, 640 // divisor, add_spatial_maps=add_spatial_maps, add_r_map=add_r_map
         ),
         cache_images=False,
         batch_size=32,
@@ -202,10 +164,3 @@ if __name__ == "__main__":
     if config["max_epochs"] > 0:
         tip_velocity_estimator.save_best_model(config["save_to_location"])
     # tip_velocity_estimator.plot_train_val_losses()
-
-    if parse_result.version.lower() == "stn":
-        # visualise test images and their transformations
-        if config["max_epochs"] > 0:
-            tip_velocity_estimator.get_network().load_state_dict(tip_velocity_estimator.best_info["model_state_dict"])
-        visualise(name=config["name"], model=tip_velocity_estimator.get_network(), dataloader=test_data_loader)
-

@@ -4,16 +4,15 @@ import shutil
 import numpy as np
 
 from lib.simulation.camera_robot import CameraRobot
-from lib.simulation.scenes import CameraScene1, CameraSceneSimplest, CameraScene2, CameraScene3, CameraScene4, \
-    CameraScene5
+from lib.simulation.scenes import CameraScene1, CameraScene5, CameraScene4, CameraScene3
 from lib.common.utils import save_images_and_tip_velocities
 
 if __name__ == "__main__":
 
-    seed = 2020
+    seed = 4045
     np.random.seed(seed)
 
-    with CameraScene2(headless=True) as (pr, scene):
+    with CameraScene5(headless=True, random_distractors=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
         # 5250
@@ -25,7 +24,7 @@ if __name__ == "__main__":
         counts = []
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./blabla"
+        folder = "./randist5"
         tip_velocity_file = "velocities.csv"
         rotations_file = "rotations.csv"
         metadata_file = "metadata.json"
@@ -48,17 +47,18 @@ if __name__ == "__main__":
                 scene=scene, offset=offset, target_position=target_above_cube, target_object=target_cube,
                 randomise_distractors=True, discontinuity=discontinuity
             )
-            # save_images_and_tip_velocities(
-            #     demonstration_num=demonstration_num,
-            #     tip_velocity_file=tip_velocity_file,
-            #     metadata_file=metadata_file,
-            #     rotations_file=rotations_file,
-            #     **result
-            # )
+            save_images_and_tip_velocities(
+                demonstration_num=demonstration_num,
+                tip_velocity_file=tip_velocity_file,
+                metadata_file=metadata_file,
+                rotations_file=rotations_file,
+                **result
+            )
             demonstration_num += 1
             total_count += len(result["tip_velocities"])
             counts.append(len(result["tip_velocities"]))
-            stop_demonstration.append(result["count_stop_demonstration"] if result["count_stop_demonstration"] is not None else -1)
+            stop_demonstration.append(
+                result["count_stop_demonstration"] if result["count_stop_demonstration"] is not None else -1)
 
         print("Counts mean:", np.array(counts).mean())
         print("Stop demonstration mean:", np.array(stop_demonstration).mean())

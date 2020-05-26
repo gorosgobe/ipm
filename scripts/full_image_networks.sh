@@ -13,11 +13,6 @@ seed="$3"
 source /vol/bitbucket/pg1816/venv/bin/activate
 
 training_list="0.8
-0.4
-0.2
-0.15
-0.10
-0.05
 "
 
 sizes="64

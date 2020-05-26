@@ -135,19 +135,17 @@ class CameraRobot(object):
         dsp = scene.get_distractor_safe_distances()
         x_target = target_position[0]
         y_target = target_position[1]
+        target = np.array([x_target, y_target])
         distractor_positions = []
         for idx, d in enumerate(distractors):
             previous_distractors = distractors[:idx]
             # get random position within table dimensions
-            x = x_target
-            y = y_target
+            x = d.get_position()[0]
+            y = d.get_position()[1]
             # make sure obtained x is not within safe distance of target or previously set distractors
-            while abs(x - x_target) < dsp[idx] or \
-                    any(filter(lambda other_d: abs(x - other_d.get_position()[0]) < dsp[idx], previous_distractors)):
+            while np.linalg.norm(np.array([x, y]) - target) < dsp[idx] + 0.1 or \
+                    any(filter(lambda other_d: np.linalg.norm(np.array([x, y]) - np.array(other_d.get_position()[:2])) < dsp[idx], previous_distractors)):
                 x = self.get_x_distractor()
-
-            while abs(y - y_target) < dsp[idx] or \
-                    any(filter(lambda other_d: abs(y - other_d.get_position()[1]) < dsp[idx], previous_distractors)):
                 y = self.get_y_distractor()
 
             d_position = [x, y, d.get_position()[-1]]
