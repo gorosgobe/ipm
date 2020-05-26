@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--loss")
     parser.add_argument("--seed", default="random")
     parser.add_argument("--init_from")
-    parser.add_argument("--pos_dim")
+    parser.add_argument("--pos_dim", type=int)
     parse_result = parser.parse_args()
 
     loss_params = get_loss(parse_result.loss)
