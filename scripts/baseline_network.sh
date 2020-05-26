@@ -14,11 +14,18 @@ source /vol/bitbucket/pg1816/venv/bin/activate
 training_list="0.8
 "
 
+replication_list="v1
+v2
+v3
+"
+
 for training in $training_list; do
-  echo "Starting training baseline network for training data ${training}."
-  training_str=$(echo "$training" | sed -e "s/\.//g")
-  dataset_str=$(echo "$dataset" | sed -e "s/\///g")
-  time python3 train_baseline_estimator.py --name "BaselineNetwork_${dataset_str}_${training_str}" --dataset "$dataset" \
-          --training "$training" --seed "$seed" >> "$log_file"
-  echo "Completed training."
+  for repl in $replication_list; do
+    echo "Starting training baseline network for training data ${training} and replication ${repl}."
+    training_str=$(echo "$training" | sed -e "s/\.//g")
+    dataset_str=$(echo "$dataset" | sed -e "s/\///g")
+    time python3 train_baseline_estimator.py --name "BaselineNetwork_${dataset_str}_${training_str}_${repl}" --dataset "$dataset" \
+            --training "$training" --seed "$seed" >> "$log_file"
+    echo "Completed training."
+  done
 done

@@ -15,6 +15,11 @@ source /vol/bitbucket/pg1816/venv/bin/activate
 training_list="0.8
 "
 
+replication_list="v1
+v2
+v3
+"
+
 sizes="64
 32
 "
@@ -24,29 +29,35 @@ coord
 "
 
 for training in $training_list; do
-  echo "Starting training full image network with coord for training data ${training}"
-  training_str=$(echo "$training" | sed -e "s/\.//g")
-  time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_coord_${training_str}" --dataset "$dataset" \
-          --training "$training" --seed "$seed" >> "$log_file"
-  echo "Completed training"
+  for repl in $replication_list; do
+    echo "Starting training full image network with coord for training data ${training}, replication ${repl}"
+    training_str=$(echo "$training" | sed -e "s/\.//g")
+    time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_coord_${training_str}_${repl}" --dataset "$dataset" \
+            --training "$training" --seed "$seed" >> "$log_file"
+    echo "Completed training"
+  done
 done
 
 for training in $training_list; do
-  echo "Starting training full image network for training data ${training}."
-  training_str=$(echo "$training" | sed -e "s/\.//g")
-  time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_${training_str}" --dataset "$dataset" \
-          --training "$training" --seed "$seed" >> "$log_file"
-  echo "Completed training."
+  for repl in $replication_list; do
+    echo "Starting training full image network for training data ${training}, replication ${repl}."
+    training_str=$(echo "$training" | sed -e "s/\.//g")
+    time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_${training_str}_${repl}" --dataset "$dataset" \
+            --training "$training" --seed "$seed" >> "$log_file"
+    echo "Completed training."
+  done
 done
 
 for v in $versions; do
   for s in $sizes; do
     for training in $training_list; do
-      echo "Starting training full image network on size ${s}:${v} data for training data ${training}"
-      training_str=$(echo "$training" | sed -e "s/\.//g")
-      time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_${v}_${s}_${training_str}" --dataset "$dataset" \
-              --training "$training" --size "$s" --version "$v" --seed "$seed" >> "$log_file"
-      echo "Completed training."
+      for repl in $replication_list; do
+        echo "Starting training full image network on size ${s}:${v} data for training data ${training}, replication ${repl}"
+        training_str=$(echo "$training" | sed -e "s/\.//g")
+        time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_${v}_${s}_${training_str}_${repl}" --dataset "$dataset" \
+                --training "$training" --size "$s" --version "$v" --seed "$seed" >> "$log_file"
+        echo "Completed training."
+      done
     done
   done
 done
