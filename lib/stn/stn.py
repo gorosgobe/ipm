@@ -21,7 +21,7 @@ class SpatialLocalisationRegressor(nn.Module):
         self.scale = scale
         self.fc_model = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=latent_dimension, out_features=64),
+            nn.Linear(in_features=latent_dimension if scale is None else latent_dimension + 1, out_features=64),
             nn.ReLU(),
             nn.Linear(in_features=64, out_features=64),
             nn.ReLU(),
@@ -35,8 +35,13 @@ class SpatialLocalisationRegressor(nn.Module):
             self.fc_model[-1].bias.data.copy_(torch.tensor([0, 0], dtype=torch.float))
 
     def forward(self, x):
+        b = x.size()[0]
         spatial_features = self.dsae(x[:, :3])
-        res = self.fc_model(spatial_features)
+        res = self.fc_model(
+            spatial_features if self.scale is None else torch.cat(
+                (spatial_features, torch.tensor([self.scale * 2 - 1]).to(x.device).repeat(b, 1)), dim=-1
+            )
+        )
         scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
         t_x_position = torch.tensor([[0, 0, 1, 0, 0, 0]]).to(x.device)
         t_y_position = torch.tensor([[0, 0, 0, 0, 0, 1]]).to(x.device)
