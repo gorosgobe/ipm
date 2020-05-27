@@ -39,7 +39,7 @@ class SpatialLocalisationRegressor(nn.Module):
         spatial_features = self.dsae(x[:, :3])
         res = self.fc_model(
             spatial_features if self.scale is None else torch.cat(
-                (spatial_features, torch.tensor([self.scale * 2 - 1]).to(x.device).repeat(b, 1)), dim=-1
+                (spatial_features.view(b, -1), torch.tensor([self.scale * 2 - 1]).to(x.device).repeat(b, 1)), dim=-1
             )
         )
         scale_position = torch.tensor([[1, 0, 0, 0, 1, 0]]).to(x.device)
