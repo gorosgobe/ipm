@@ -16,8 +16,7 @@ class STNManager(BestSaveable):
         self.best_info = None
         self.device = device
         self.loss = nn.MSELoss()
-        self.stn_optimiser = torch.optim.SGD(self.stn.localisation_param_regressor.parameters(), lr=loc_lr,
-                                             momentum=0.9, weight_decay=1e-4)
+        self.stn_optimiser = torch.optim.Adam(self.stn.localisation_param_regressor.parameters(), lr=loc_lr)
         self.model_optimiser = torch.optim.SGD(self.stn.model.parameters(), lr=model_lr)
         self.loc_lr = loc_lr
         self.model_lr = model_lr
