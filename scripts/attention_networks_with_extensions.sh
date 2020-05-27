@@ -47,33 +47,6 @@ for v in $versions; do
   done
 done
 
-pos_dims="1
-2
-"
-# pos
-for pos in $pos_dims; do
-  for repl in $replication_list; do
-    for training in $training_list; do
-      echo "Starting training attention network for version pos, size 64, pos ${pos}, training data ${training}, replication ${repl}."
-      training_str=$(echo "$training" | sed -e "s/\.//g")
-      time python3 train_attention_tip_velocity_estimator.py --name "AttentionNetworkpos${pos}_${dataset_str}_${training_str}_${repl}" \
-      --dataset "$dataset" --training "$training" --version "pos" --pos_dim "$pos" --seed "$seed" >> "$log_file"
-      echo "Completed training."
-    done
-  done
-done
-
-for pos in $pos_dims; do
-  for repl in $replication_list; do
-    for training in $training_list; do
-      echo "Starting training attention network for version pos, size 32, pos ${pos}, training data ${training}, replication ${repl}."
-      training_str=$(echo "$training" | sed -e "s/\.//g")
-      time python3 train_attention_tip_velocity_estimator.py --name "AttentionNetworkpos${pos}_${dataset_str}_32_${training_str}_${repl}" \
-      --dataset "$dataset" --training "$training" --version "pos" --size 32 --pos_dim "$pos" --seed "$seed" >> "$log_file"
-      echo "Completed training."
-    done
-  done
-done
 
 exit 0
 

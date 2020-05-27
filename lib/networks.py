@@ -364,7 +364,7 @@ class FullImageNetworkCoord(FullImageNetwork):
         b, c, h, w = x.size()
         assert self.image_width == w and self.image_height == h
         i_tensor, j_tensor = self.spatial_dimension_adder.get_tensor_batch_spatial_dimensions(b, h, w)
-        image_batch_spatial = torch.cat((x, i_tensor, j_tensor), dim=1)
+        image_batch_spatial = torch.cat((x, i_tensor * 2 - 1, j_tensor * 2 - 1), dim=1)
         return super().forward(image_batch_spatial)
 
 
@@ -384,7 +384,7 @@ class FullImageNetworkCoord_64(FullImageNetwork_64):
         b, c, h, w = x.size()
         assert self.image_width == w and self.image_height == h
         i_tensor, j_tensor = self.spatial_dimension_adder.get_tensor_batch_spatial_dimensions(b, h, w)
-        image_batch_spatial = torch.cat((x, i_tensor, j_tensor), dim=1)
+        image_batch_spatial = torch.cat((x, i_tensor * 2 - 1, j_tensor * 2 - 1), dim=1)
         return super().forward(image_batch_spatial)
 
 
@@ -405,7 +405,7 @@ class FullImageNetworkCoord_32(FullImageNetwork_32):
         b, c, h, w = x.size()
         assert self.image_width == w and self.image_height == h
         i_tensor, j_tensor = self.spatial_dimension_adder.get_tensor_batch_spatial_dimensions(b, h, w)
-        image_batch_spatial = torch.cat((x, i_tensor, j_tensor), dim=1)
+        image_batch_spatial = torch.cat((x, i_tensor * 2 - 1, j_tensor * 2 - 1), dim=1)
         return super().forward(image_batch_spatial)
 
 
