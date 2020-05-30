@@ -42,7 +42,7 @@ def plot_reconstruction_images(epoch, name, dataset, model, attender, upsample_t
             image = (image[:3, :, :] + 1) * 255 / 2
             numpy_g_image = grayscale(image.type(torch.uint8)).numpy().transpose(1, 2, 0)
             # draw spatial features on image
-            idx_features = len(features) - 1
+            idx_features = len(features)
             for idx, pos in enumerate(features):
                 x, y = pos
                 # x, y are in [-1, 1]

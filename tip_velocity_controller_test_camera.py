@@ -1,56 +1,57 @@
 import json
 import os
-from collections import OrderedDict
 
 import numpy as np
 import torch
 from stable_baselines import SAC, PPO2
 
 from bop.crop_size_feature_search import CropSizeFeatureSearch
-from lib.dsae.dsae_choose_feature import DSAE_ChooserROI, DSAE_ValFeatureChooser
 from lib.common.test_utils import get_testing_configs, get_scene_and_test_scene_configuration, TestConfig
+from lib.common.utils import save_image
 from lib.cv.controller import TipVelocityController
 from lib.cv.tip_velocity_estimator import TipVelocityEstimator
 from lib.dsae.dsae import CustomDeepSpatialAutoencoder, DSAE_Encoder
 from lib.dsae.dsae_action_predictor import ActionPredictorManager
 from lib.dsae.dsae_action_tvec_adapter import DSAETipVelocityEstimatorAdapter
+from lib.dsae.dsae_choose_feature import DSAE_ChooserROI, DSAE_ValFeatureChooser
 from lib.dsae.dsae_feature_provider import FeatureProvider, FilterSpatialRLFeatureProvider
 from lib.dsae.dsae_manager import DSAEManager
 from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.simulation.camera_robot import CameraRobot
+from lib.stn.stn_tvec_adapter import STNControllerAdapter
 from meta_networks import MetaAttentionNetworkCoord
 from soft.rnn_tvec_adapter import RNNTipVelocityControllerAdapter
-from lib.common.utils import save_image
-from stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, STN_SamplingType, \
-    SpatialLocalisationRegressor
-from stn.stn_manager import STNManager
-from stn.stn_tvec_adapter import STNControllerAdapter
+from stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, SpatialLocalisationRegressor
 
 
-def get_full_image_networks(scene_trained, training_list, prefix=""):
+def get_full_image_networks(scenes_trained, training_list, versions, prefix=""):
     models_res = []
-    for tr in training_list:
-        models_res.append(f"{prefix}FullImageNetwork_{scene_trained}_{tr}")
+    for s in scenes_trained:
+        for v in versions:
+            for tr in training_list:
+                models_res.append(f"{prefix}FullImageNetwork_{s}_{tr}_{v}")
+                models_res.append(f"{prefix}FullImageNetwork_{s}_coord_{tr}_{v}")
 
-    for tr in training_list:
-        for sc in ["32", "64"]:
-            for v in ["a", "coord"]:
-                models_res.append(f"{prefix}FullImageNetwork_{scene_trained}_{v}_{sc}_{tr}")
-
-    for tr in training_list:
-        models_res.append(f"{prefix}FullImageNetwork_{scene_trained}_coord_{tr}")
+    for s in scenes_trained:
+        for vers in versions:
+            for tr in training_list:
+                for sc in ["32", "64"]:
+                    for v in ["a", "coord"]:
+                        models_res.append(f"{prefix}FullImageNetwork_{s}_{v}_{sc}_{tr}_{vers}")
 
     return models_res, TestConfig.FULL_IMAGE
 
 
-def get_baseline_networks(scene_trained, training_list, prefix=""):
+def get_baseline_networks(scenes_trained, training_list, versions, prefix=""):
     models_res = []
-    for tr in training_list:
-        models_res.append(f"{prefix}BaselineNetwork_{scene_trained}_{tr}")
+    for s in scenes_trained:
+        for tr in training_list:
+            for v in versions:
+                models_res.append(f"{prefix}BaselineNetwork_{s}_{tr}_{v}")
     return models_res, TestConfig.BASELINE
 
 
-def get_attention_networks(size, scene_trained, training_list, prefix=""):
+def get_attention_networks(size, scenes_trained, training_list, versions, prefix=""):
     models_res = []
     if size == 64:
         config = TestConfig.ATTENTION_64
@@ -59,17 +60,19 @@ def get_attention_networks(size, scene_trained, training_list, prefix=""):
     else:
         raise ValueError("Unknown size")
 
-    for tr in training_list:
-        for v in ["V1", "V2", "tile"]:
-            if size == 64:
-                models_res.append(f"{prefix}AttentionNetwork{v}_{scene_trained}_{tr}")
-            else:
-                models_res.append(f"{prefix}AttentionNetwork{v}_{scene_trained}_32_{tr}")
+    for s in scenes_trained:
+        for ver in versions:
+            for tr in training_list:
+                for v in ["V1", "V2", "tile"]:
+                    if size == 64:
+                        models_res.append(f"{prefix}AttentionNetwork{v}_{s}_{tr}_{ver}")
+                    else:
+                        models_res.append(f"{prefix}AttentionNetwork{v}_{s}_32_{tr}_{ver}")
 
     return models_res, config
 
 
-def get_coord_attention_networks(size, scene_trained, training_list, prefix=""):
+def get_coord_attention_networks(size, scenes_trained, training_list, versions, prefix=""):
     models_res = []
     if size == 64:
         config = TestConfig.ATTENTION_COORD_64
@@ -78,17 +81,19 @@ def get_coord_attention_networks(size, scene_trained, training_list, prefix=""):
     else:
         raise ValueError("Unknown size")
 
-    for tr in training_list:
-        if size == 64:
-            models_res.append(f"{prefix}AttentionNetworkcoord_{scene_trained}_{tr}")
-        else:
-            models_res.append(f"{prefix}AttentionNetworkcoord_{scene_trained}_32_{tr}")
+    for s in scenes_trained:
+        for v in versions:
+            for tr in training_list:
+                if size == 64:
+                    models_res.append(f"{prefix}AttentionNetworkcoord_{s}_{tr}_{v}")
+                else:
+                    models_res.append(f"{prefix}AttentionNetworkcoord_{s}_32_{tr}_{v}")
 
     return models_res, config
 
 
 def get_target_feature_provider_model(dsae_path, latent_dimension, image_output_size=(24, 32)):
-    state_dict = DSAEManager.load_state_dict(os.path.join("models/dsae", dsae_path))
+    state_dict = DSAEManager.load_state_dict(os.path.join("models", f"{dsae_path}.pt"))
     model = CustomDeepSpatialAutoencoder(
         encoder=DSAE_Encoder(
             in_channels=3,
@@ -107,11 +112,12 @@ def get_target_feature_provider_model(dsae_path, latent_dimension, image_output_
 
 
 def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, image_output_size=(24, 32), rl_path=None,
-                       is_sac=None):
+                       is_sac=None, prefix=""):
     if (rl_path is None) + (is_sac is None) == 1:
         raise ValueError("rl_path and is_sac should be both None or both contain information about the RL model")
 
-    model = get_target_feature_provider_model(dsae_path=dsae_path, latent_dimension=latent_dimension,
+    model = get_target_feature_provider_model(dsae_path=os.path.join(prefix, dsae_path),
+                                              latent_dimension=latent_dimension,
                                               image_output_size=image_output_size)
     device = torch.device("cpu")
 
@@ -129,7 +135,7 @@ def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, im
         )
 
     action_predictor = ActionPredictorManager.load(
-        path=os.path.join("models/dsae/action_predictor", action_predictor_path),
+        path=os.path.join("models/", os.path.join(prefix, f"{action_predictor_path}.pt")),
         k=k
     )
 
@@ -143,7 +149,7 @@ def get_default_tve_model(tve_prefix, tve_model_name):
 
 
 def get_recurrent_tve_model(tve_prefix, tve_model_name):
-    return RNNTipVelocityControllerAdapter.load(os.path.join("models", tve_prefix, tve_model_name))
+    return RNNTipVelocityControllerAdapter.load(os.path.join("models", tve_prefix, f"{tve_model_name}.pt"))
 
 
 def get_dsae_chooser_tve_model(tve_prefix, tve_model_name, dsae_path, latent_dimension, is_bop=False, index_path=None):
@@ -199,33 +205,69 @@ def get_stn_tve_model(tve_prefix, tve_model_name, scale, size, sampling_type, ds
 
     info = torch.load(os.path.join("models", tve_prefix, tve_model_name), map_location=torch.device('cpu'))
     state = info["stn_state_dict"]
-    # state = OrderedDict((name.replace("dsae", ""), param) for (name, param) in state)
     stn.load_state_dict(state)
 
     return STNControllerAdapter(stn=stn)
 
 
+def get_dsae_networks(scenes_trained, trains, versions, prefix=""):
+    dsae_paths = []
+    models = []
+    for s in scenes_trained:
+        for tr in trains:
+            for vs in versions:
+                models.append(f"{prefix}act_64_0_1_1_{s}_{tr}_{vs}")
+                # during training, we used version 1 of the autoencoder for each action predictor replication
+                dsae_paths.append(f"{prefix}target_64_0_1_1_{s}_{tr}_v1")
+
+    return models, TestConfig.DSAE, dsae_paths, 128, 64, None, None
+
+
+def get_full_recurrent_networks(scenes_trained, trains, versions):
+    models = []
+    for s in scenes_trained:
+        for tr in trains:
+            for vs in versions:
+                models.append(f"LSTMNetwork_full_{s}_{tr}_{vs}")
+                models.append(f"LSTMNetwork_fullcoord_{s}_{tr}_{vs}")
+                models.append(f"LSTMNetwork_mask_{s}_{tr}_{vs}")
+                models.append(f"LSTMNetwork_context_{s}_{tr}_{vs}")
+
+    return models, TestConfig.RECURRENT_FULL
+
+
+def get_coordconv_recurrent_networks(scenes_trained, trains, versions):
+    models = []
+    for s in scenes_trained:
+        for tr in trains:
+            for vs in versions:
+                models.append(F"LSTMNetwork_coordconv32_{s}_{tr}_{vs}")
+
+    return models, TestConfig.RECURRENT_ATTENTION_COORD_32
+
+
 if __name__ == "__main__":
 
     trainings = [
-        "005",
-        "010",
-        "015",
-        "02",
-        "04",
         "08"
     ]
 
-    scenes = ["scene1scene1"]
+    scenes = [
+        "nodist1", "nodist2", "nodist3", "nodist4", "nodist5", "randist1", "randist2", "randist3", "randist4",
+        "randist5"
+    ]
 
-    vs = ["V4"]
+    vs = ["v1", "v2", "v3"]
 
     sizes = ["64", "32"]
-
-    # models, testing_config_name = get_full_image_networks(scenes[0], trainings)
-    # models, testing_config_name = get_baseline_networks(scenes[0], trainings)
-    # models, testing_config_name = get_attention_networks(32, scenes[0], trainings)
-    # models, testing_config_name = get_coord_attention_networks(32, scenes[0], trainings)
+    prefix = "evaluation/soft_lstm/"
+    # models, testing_config_name = get_full_image_networks(scenes, trainings, vs)
+    # models, testing_config_name = get_baseline_networks(scenes, trainings, vs)
+    # models, testing_config_name = get_attention_networks(32, scenes, trainings, vs)
+    # models, testing_config_name = get_coord_attention_networks(64, scenes, trainings, vs)
+    # models, testing_config_name, dsae_paths, latent_dimension, k, rl_path, is_sac = get_dsae_networks(scenes, trainings,
+    #                                                                                                   vs)
+    models, testing_config_name = get_coordconv_recurrent_networks(scenes, trainings, vs)
     # for scene in scenes:
     #     for t in trainings:
     #         # for ty in types:
@@ -252,17 +294,22 @@ if __name__ == "__main__":
     #     "AttentionNetworkcoordRot_scene1scene1_32_005",
     #
     # ]
-    testing_config_name = TestConfig.STN
-    prefix = "meta_stn/"
-    models = ["meta_stn_dsae_pre_06-03-01_sc05_60_scene1scene1.pt", "meta_stn_dsae_pre_06-03-01_sc05_80_scene1scene1.pt"]
-    scale = 0.5
-    size = (64, 48)
-    sampling_type = STN_SamplingType.LINEARISED,
-    dsae = "target_64_0_1_1_08_scene1scene1_v1.pt"
+    # testing_config_name = TestConfig.STN
+    # prefix = "meta_stn/official/meta_stn_dsae_anneal/v3/"
+    # models = [
+    #     "eval_meta_stn_dsae_anneal_025_bilinear_scene1scene1_v3.pt",
+    #     "eval_meta_stn_dsae_anneal_025_bilinear_scene1scene1_v3_retrain.pt",
+    # ]
+    # scale = 0.25
+    # size = (32, 24)
+    # sampling_type = STN_SamplingType.DEFAULT_BILINEAR,
+    # dsae = "target_64_0_1_1_08_scene1scene1_v1.pt"
 
     # testing_config_name = TestConfig.RECURRENT_BASELINE
-    # prefix = "soft_lstm/"
-    # models = ["lstm_baseline64_scene1scene1_08_v1.pt"]
+    # prefix = "soft_lstm/baseline/v3/"
+    # models = [
+    #     "lstm_baseline_16_scene1scene1_v3.pt"
+    # ]
 
     # testing_config_name = TestConfig.DSAE_CHOOSE
     # prefix = "bop_chooser/v3/"
@@ -283,10 +330,9 @@ if __name__ == "__main__":
     # rl_path = "ppo_dense_k3"
     # is_sac = False
     # # is_sac = False
-
-    for model_name in models:
+    for model_idx, model_name in enumerate(models):
         s, test = get_scene_and_test_scene_configuration(model_name=model_name)
-        with s(headless=True) as (pr, scene):
+        with s(headless=True, no_distractors=True) as (pr, scene):
             camera_robot = CameraRobot(pr)
             target_cube = scene.get_target()
             target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
@@ -299,7 +345,8 @@ if __name__ == "__main__":
             if testing_config_name == TestConfig.DSAE:
                 print("DSAE-based policy!")
                 tve_model = get_dsae_tve_model(
-                    dsae_path=dsae_path,
+                    prefix=prefix,
+                    dsae_path=dsae_paths[model_idx],
                     action_predictor_path=model_name,
                     latent_dimension=latent_dimension,
                     k=k,
@@ -374,8 +421,8 @@ if __name__ == "__main__":
                     fixed_steps=scene.get_steps_per_demonstration()
                 )
                 count += 1
-                # for index, i in enumerate(result["images"]):
-                #     save_image(i, "/home/pablo/Desktop/rnn-{}image{}.png".format(count, index))
+                for index, i in enumerate(result["images"]):
+                    save_image(i, "/home/pablo/Desktop/dsae-test-{}image{}.png".format(count, index))
                 # if testing_config_name == TestConfig.RECURRENT_FULL:
                 #     for index, i in enumerate(controller.get_model().get_np_attention_mapped_images()):
                 # #         save_image(i, "/home/pablo/Desktop/{}_attention-{}image{}.png".format(model_name, count, index))
