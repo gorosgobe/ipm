@@ -91,8 +91,8 @@ class STNManager(BestSaveable):
         for epoch in range(num_epochs):
             print(f"Epoch {epoch + 1}")
 
-            if anneal and epoch % 2 == 0:
-                self.stn.anneal_scale_step((epoch + 1) // 2)
+            if anneal:
+                self.stn.anneal_scale_step(epoch + 1)
                 print("Current scale", self.stn.localisation_param_regressor.scale)
 
             self.stn.localisation_param_regressor.train()
