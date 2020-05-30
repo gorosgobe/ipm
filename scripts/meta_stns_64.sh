@@ -24,14 +24,14 @@ for training in $training_list; do
     echo "Starting training normal metastn, scale 0.5, for training data ${training} and replication ${repl}."
     training_str=$(echo "$training" | sed -e "s/\.//g")
     dataset_str=$(echo "$dataset" | sed -e "s/\///g")
-    time python3 train_meta_stn.py --name "final_meta_stn_040401_05_${dataset}_${training}_${repl}" --size 64
+    time python3 train_meta_stn.py --name "final_meta_stn_040401_05_${dataset}_${training}_${repl}" --size 64\
     --epochs 200 --dataset "${dataset}" --split 0.4 0.4 0.1 --loc_lr 0.01 --model_lr 0.1 --batch_size 32 --scale 0.5 >> "$log_file"
     echo "Completed training."
 
     echo "Starting training DSAE metastn, scale 0.5 for training data ${training} and replication ${repl}."
     training_str=$(echo "$training" | sed -e "s/\.//g")
     dataset_str=$(echo "$dataset" | sed -e "s/\///g")
-    time python3 train_meta_stn.py --name "final_meta_stn_dsae_040401_05_${dataset}_${training}_${repl}" --size 64
+    time python3 train_meta_stn.py --name "final_meta_stn_dsae_040401_05_${dataset}_${training}_${repl}" --size 64\
     --epochs 200 --dataset "${dataset}" --split 0.4 0.4 0.1 --loc_lr 0.01 --model_lr 0.1 --batch_size 32 --scale 0.5\
      --dsae_path "target_64_0_1_1_${dataset}_${training}_v1.pt" >> "$log_file"
     echo "Completed training."
@@ -39,7 +39,7 @@ for training in $training_list; do
     echo "Starting training DSAE metastn with guided init, scale 0.5 for training data ${training} and replication ${repl}."
     training_str=$(echo "$training" | sed -e "s/\.//g")
     dataset_str=$(echo "$dataset" | sed -e "s/\///g")
-    time python3 train_meta_stn.py --name "final_meta_stn_dsae_guided_040401_05_${dataset}_${training}_${repl}" --size 64
+    time python3 train_meta_stn.py --name "final_meta_stn_dsae_guided_040401_05_${dataset}_${training}_${repl}" --size 64\
     --epochs 200 --dataset "${dataset}" --split 0.4 0.4 0.1 --loc_lr 0.01 --model_lr 0.1 --batch_size 32 --scale 0.5\
      --dsae_path "target_64_0_1_1_${dataset}_${training}_v1.pt" --dsae_load_index_from "choose_64_0_1_1_${dataset}_${training}_${repl}" >> "$log_file"
     echo "Completed training."
@@ -47,7 +47,7 @@ for training in $training_list; do
     echo "Starting training DSAE metastn with anneal, scale 0.5 for training data ${training} and replication ${repl}."
     training_str=$(echo "$training" | sed -e "s/\.//g")
     dataset_str=$(echo "$dataset" | sed -e "s/\///g")
-    time python3 train_meta_stn.py --name "final_meta_stn_dsae_anneal_040401_05_${dataset}_${training}_${repl}" --size 64
+    time python3 train_meta_stn.py --name "final_meta_stn_dsae_anneal_040401_05_${dataset}_${training}_${repl}" --size 64\
     --epochs 200 --dataset "${dataset}" --split 0.4 0.4 0.1 --loc_lr 0.01 --model_lr 0.1 --batch_size 32 --scale 0.5\
      --dsae_path "target_64_0_1_1_${dataset}_${training}_v1.pt" --anneal yes >> "$log_file"
     echo "Completed training."
