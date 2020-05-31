@@ -81,7 +81,8 @@ if __name__ == "__main__":
         localisation_param_regressor = SpatialLocalisationRegressor(
             dsae=dsae.encoder,
             latent_dimension=128,
-            scale=parse_result.scale
+            scale=parse_result.scale,
+            anneal=parse_result.anneal == "yes"
         )
     else:
         localisation_param_regressor = LocalisationParamRegressor(

@@ -89,7 +89,7 @@ class DSAE_ValFeatureChooser(Saveable):
 
     @staticmethod
     def load_info(path):
-        return torch.load(path)
+        return torch.load(path, map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
     def save_estimator(self, path):
         self.best_estimator.save_best_model(path=path)

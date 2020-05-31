@@ -15,13 +15,14 @@ class STN_SamplingType(enum.Enum):
 
 
 class SpatialLocalisationRegressor(nn.Module):
-    def __init__(self, dsae, latent_dimension, scale=None):
+    def __init__(self, dsae, latent_dimension, scale=None, anneal=False):
         super().__init__()
         self.dsae = dsae
         self.scale = scale
+        self.anneal = anneal
         self.fc_model = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=latent_dimension if scale is None else latent_dimension + 1, out_features=64),
+            nn.Linear(in_features=latent_dimension if not anneal else latent_dimension + 1, out_features=64),
             nn.ReLU(),
             nn.Linear(in_features=64, out_features=64),
             nn.ReLU(),
@@ -38,7 +39,7 @@ class SpatialLocalisationRegressor(nn.Module):
         b = x.size()[0]
         spatial_features = self.dsae(x[:, :3])
         res = self.fc_model(
-            spatial_features if self.scale is None else torch.cat(
+            spatial_features if not self.anneal else torch.cat(
                 (spatial_features.view(b, -1), torch.tensor([self.scale * 2 - 1]).to(x.device).repeat(b, 1)), dim=-1
             )
         )

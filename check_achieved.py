@@ -67,4 +67,13 @@ if __name__ == '__main__':
     print("Latex MMD:", res_mmd_latex)
     print("Latex FSD:", res_fsd_latex)
     print("Latex achieved <:", res_achieved_latex)
-    plot_achieved(achieved_plot)
+
+    legend_names = {
+        "AttentionNetworkV1_scene1scene1_08.test": "Attention Network V1 (64x48)",
+        "AttentionNetworkV2_scene1scene1_08.test": "Attention Network V2 (64x48)",
+        "AttentionNetworkcoord_scene1scene1_08.test": "Attention Network Coord (64x48)",
+        "AttentionNetworktile_scene1scene1_08.test": "Attention Network Tile (64x48)",
+        "FullImageNetwork_scene1scene1_08.test": "Full Image Network (128x96)"
+    }
+
+    plot_achieved(achieved_plot, legend_names=legend_names)

@@ -6,7 +6,7 @@ import argparse
 import numpy as np
 
 
-def get_mean_error_per_step(error_values, num_steps=40):
+def get_mean_error_per_step(error_values, num_steps=29):
     # list of [cumulative_error, num trajectories with this step] per step across all trajectories
     result = [[0, 0] for _ in range(num_steps)]
     for i_str in error_values:
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     print("Test names:", test_names)
     test_names = list(map(lambda t: f"{t}{result.training}", test_names))
     errors_plot = []
-    steps = 35  # DEPENDS ON SCENE!
+    steps = 29  # DEPENDS ON SCENE!
     error_for_each_trajectory = []
     for t_name in test_names:
         with open(t_name, "r") as f:

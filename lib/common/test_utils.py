@@ -1,6 +1,8 @@
 import enum
 import json
 import math
+import os
+from collections import OrderedDict
 
 import cv2
 import numpy as np
@@ -188,12 +190,32 @@ def get_achieved_and_target(distances, minimum_distances, special_distance):
     return test_achieved, special_distance_count
 
 
-def plot_achieved(achieved_plot):
+def plot_achieved(achieved_plot, legend_names=None):
+    mean_intervals = OrderedDict()
     for t in achieved_plot:
         name, achieved_data = t
-        target_distances, num_achieved = zip(*achieved_data)
-        plt.plot(target_distances, num_achieved, label=name)
+        t_base = os.path.basename(name)
+        if t_base not in mean_intervals:
+            mean_intervals[t_base] = [achieved_data]
+        else:
+            mean_intervals[t_base].append(achieved_data)
+
+    for base in mean_intervals:
+        # compute mean and std at every datapoint
+        lines = mean_intervals[base]
+        num_achieved = []
+        target_distances = []
+        for line in lines:
+            target_distances, line_achieved = zip(*line)
+            num_achieved.append(line_achieved)
+        mean_achieved = np.mean(num_achieved, axis=0)
+        std_achieved = np.std(num_achieved, axis=0)
+        plt.plot(target_distances, mean_achieved, label=base if legend_names is None else legend_names[base])
+        plt.fill_between(target_distances, mean_achieved - std_achieved, mean_achieved + std_achieved, alpha=0.25)
+
     plt.legend()
+    plt.xlabel("Threshold distance (m)")
+    plt.ylabel("Success rate")
     plt.show()
 
 
