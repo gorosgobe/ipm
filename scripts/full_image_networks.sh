@@ -33,7 +33,7 @@ for training in $training_list; do
     echo "Starting training full image network with coord for training data ${training}, replication ${repl}"
     training_str=$(echo "$training" | sed -e "s/\.//g")
     time python3 train_tip_velocity_estimator.py --name "FullImageNetwork_${dataset_str}_coord_${training_str}_${repl}" --dataset "$dataset" \
-            --training "$training" --seed "$seed" >> "$log_file"
+            --training "$training" --seed "$seed" --version "coord" >> "$log_file"
     echo "Completed training"
   done
 done

@@ -138,6 +138,10 @@ class STNManager(BestSaveable):
 
                 if not pre_training:
                     # update theta prime
+                    self.model_optimiser.zero_grad()
+                    self.stn_optimiser.zero_grad()
+                    train_loss = self.get_loss(train_batch)
+                    train_loss.backward()
                     self.model_optimiser.step()
 
             train_val_train_loss_epoch /= len(train_dataloader.dataset)

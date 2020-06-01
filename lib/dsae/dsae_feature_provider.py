@@ -23,6 +23,9 @@ class FeatureProvider(object):
         self.model.to(device)
         return self
 
+    def get_num_parameters(self):
+        return sum([p.numel() for p in self.model.encoder.parameters()])
+
     def __call__(self, x):
         # make sure weights are frozen
         self.model.eval()
