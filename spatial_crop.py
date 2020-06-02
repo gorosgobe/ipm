@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("--images_every", type=int, required=True)
     parser.add_argument("--latent", type=int, required=True)
     parser.add_argument("--train_dem", required=True)
+    parser.add_argument("--split", type=float, nargs=3, default=[0.8, 0.1, 0.1])
     parser.add_argument("--val_dem", required=True)
     parser.add_argument("--dsae_path", required=True)
     parser.add_argument("--dataset", required=True)
@@ -74,7 +75,7 @@ if __name__ == '__main__':
         rotations_csv=f"{dataset}/rotations.csv",
         metadata=f"{dataset}/metadata.json",
         root_dir=dataset,
-        split=[parse_result.training, 0.1, 0.1],
+        split=parse_result.split,
         name=parse_result.name,
         log_dir="spatial_crop_output_log",
         shuffle=True,
