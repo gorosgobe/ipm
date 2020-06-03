@@ -1,3 +1,5 @@
+import json
+from itertools import cycle
 from os.path import abspath, dirname, join
 
 import numpy as np
@@ -6,10 +8,11 @@ from pyrep.const import PrimitiveShape
 from pyrep.objects.shape import Shape
 
 from camera_robot import CameraRobot
+from distractor import Distractor
 
 
 class Scene(object):
-    def __init__(self, scene_file, headless=True, no_distractors=False, random_distractors=False):
+    def __init__(self, scene_file, headless=True, no_distractors=False, random_distractors=False, distractors_from=None):
         self.scene_file = join(dirname(abspath(__file__)), "../../scenes/", scene_file)
         self.headless = headless
         self.no_distractors = no_distractors
@@ -17,8 +20,16 @@ class Scene(object):
         # TODO: implement
         self.random_distractors = random_distractors
         self.random_distractor_safe_distances = None
+        self.distractors_from = distractors_from
+        self.test_distractors = None
 
     def __enter__(self):
+        # load test random distractors if available
+        if self.distractors_from is not None:
+            with open(self.distractors_from, "r") as f:
+                content = f.read()
+            self.test_distractors = json.loads(content)["test_distractors"]
+            self.test_distractor_iterator = iter(self.get_test_distractor())
         self.pr = PyRep()
         self.pr.launch(self.scene_file, headless=self.headless)
         self.pr.start()
@@ -33,22 +44,16 @@ class Scene(object):
             dist.remove()
         self.removed_distractors = True
 
-    def get_random_distractor(self):
-        primitive_shape = np.random.choice(list(PrimitiveShape))
-        if primitive_shape == PrimitiveShape.SPHERE:
-            size = [np.random.uniform(0.02, 0.2)] * 3
-        else:
-            size = list(np.random.uniform(0.02, 0.2, size=3))
-        z = 0.55 + (size[2] / 2)
-        position = [CameraRobot.get_x_distractor(), CameraRobot.get_y_distractor(), z]
-        return Shape.create(
-            type=primitive_shape,
-            size=size,
-            static=True,
-            position=position,
-            orientation=[0, 0, np.random.uniform(0, 2 * np.pi)],
-            color=list(np.random.uniform(0.0, 1.0, size=3))
-        ), max(size) + 0.05
+    def get_test_distractor(self):
+        for count in cycle(range(100)):
+            for single_dist_data in self.test_distractors[count]:
+                distractor = Distractor(**single_dist_data)
+                yield distractor.get_shape(), distractor.get_safe_distance()
+
+    @staticmethod
+    def get_random_distractor():
+        random_distractor = Distractor()
+        return random_distractor.get_shape(), random_distractor.get_safe_distance()
 
     def get_distractors_from_names(self, names):
         if self.no_distractors:
@@ -61,7 +66,10 @@ class Scene(object):
             shapes = []
             safe_distances = []
             for i in range(len(names)):
-                shape, safe_distance = self.get_random_distractor()
+                if self.test_distractors is None:
+                    shape, safe_distance = self.get_random_distractor()
+                else:
+                    shape, safe_distance = next(self.test_distractor_iterator)
                 shape.set_name(names[i])
                 shapes.append(shape)
                 safe_distances.append(safe_distance)

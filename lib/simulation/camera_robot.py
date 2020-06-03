@@ -34,10 +34,12 @@ class CameraRobot(object):
         self.movable_camera.set_initial_offset_position(offset_position)
         self.movable_camera.add_to_orientation(offset_orientation)
 
+        distractors = scene.get_distractors()
+        dsp = scene.get_distractor_safe_distances()
         if randomise_distractors:
-            self.set_distractor_random_positions(scene, target_position)
+            self.set_distractor_random_positions(target_position, distractors, dsp)
 
-        distractor_positions = [d.get_position() for d in scene.get_distractors()]
+        distractor_positions = [d.get_position() for d in distractors]
 
         self.pr.step()
 
@@ -123,16 +125,8 @@ class CameraRobot(object):
     def get_y_distractor():
         return np.random.uniform(-0.7, 0.8)
 
-    def set_distractor_random_positions(self, scene, target_position):
-        """
-        Sets the positions of distractor objects randomly. Every distractor will be at least 10cm away from the target
-        and other distractors.
-        :param scene: The scene to get the distractors from
-        :param target_position: The position of the target
-        :return: The positions the distractors were set at
-        """
-        distractors = scene.get_distractors()
-        dsp = scene.get_distractor_safe_distances()
+    @staticmethod
+    def set_distractor_random_positions(target_position, distractors, dsp):
         x_target = target_position[0]
         y_target = target_position[1]
         target = np.array([x_target, y_target])
@@ -145,8 +139,8 @@ class CameraRobot(object):
             # make sure obtained x is not within safe distance of target or previously set distractors
             while np.linalg.norm(np.array([x, y]) - target) < dsp[idx] + 0.1 or \
                     any(filter(lambda other_d: np.linalg.norm(np.array([x, y]) - np.array(other_d.get_position()[:2])) < dsp[idx], previous_distractors)):
-                x = self.get_x_distractor()
-                y = self.get_y_distractor()
+                x = CameraRobot.get_x_distractor()
+                y = CameraRobot.get_y_distractor()
 
             d_position = [x, y, d.get_position()[-1]]
             d.set_position(d_position)
@@ -185,7 +179,8 @@ class CameraRobot(object):
         self.movable_camera.set_initial_offset_position(offset_position)
         self.movable_camera.add_to_orientation(offset_orientation)
         # set distractor object positions
-        for idx, d in enumerate(scene.get_distractors()):
+        distractors = scene.get_distractors()
+        for idx, d in enumerate(distractors):
             d.set_position(distractor_positions[idx])
         self.pr.step()
 

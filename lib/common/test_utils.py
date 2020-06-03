@@ -17,22 +17,27 @@ def get_scene_and_test_scene_configuration(model_name):
     if "scene2" in model_name or "randist2" in model_name or "nodist2" in model_name:
         s = CameraScene2
         test = "test_demonstrations/scene2_test.json"
+        dist_config = "test_demonstrations/random2_test.json"
     elif "scene3" in model_name or "randist3" in model_name or "nodist3" in model_name:
         s = CameraScene3
         test = "test_demonstrations/scene3_test.json"
+        dist_config = "test_demonstrations/random3_test.json"
     elif "scene4" in model_name or "randist4" in model_name or "nodist4" in model_name:
         s = CameraScene4
         test = "test_demonstrations/scene4_test.json"
+        dist_config = "test_demonstrations/random4_test.json"
     elif "scene5" in model_name or "randist5" in model_name or "nodist5" in model_name:
         s = CameraScene5
         test = "test_demonstrations/scene5_test.json"
+        dist_config = "test_demonstrations/random5_test.json"
     elif "scene1" in model_name or "randist1" in model_name or "nodist1" in model_name:
         s = CameraScene1
         test = "test_demonstrations/scene1_test.json"
+        dist_config = "test_demonstrations/random1_test.json"
     else:
         raise ValueError("Unknown scene and test scene configuration")
 
-    return s, test
+    return s, test, dist_config
 
 
 class TestConfig(enum.Enum):
@@ -154,7 +159,7 @@ def get_latex(means, stds, display_all_values=True, display_std_means=False):
             if display_std_means:
                 res_latex += f"{_round(np.mean(np.array(list_std)))}$\pm${_round(np.std(np.array(list_std)))}"
             res_latex += " & "
-        if count % 6 == 0:
+        if count % 5 == 0:
             res_latex += "\n"
             count = 0
 
