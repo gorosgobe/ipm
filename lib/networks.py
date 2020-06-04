@@ -183,7 +183,7 @@ class AttentionNetworkPos(torch.nn.Module):
         assert c == 5
         image_rgb_batch, image_coord_batch = torch.split(image_batch, (3, 2), dim=1)
         pos_maps = PositionalEncodings.get_positional_encodings(L=self.pos_dimension,
-                                                                batched_coord_maps=image_coord_batch)
+                                                                batched_coord_maps=image_coord_batch).to(x.device)
         image_batch_with_pos = torch.cat((image_rgb_batch, pos_maps), dim=1)
         out_conv1 = F.relu(self.batch_norm1.forward(self.conv1.forward(image_batch_with_pos)))
         out_conv2 = F.relu(self.batch_norm2.forward(self.conv2.forward(out_conv1)))
