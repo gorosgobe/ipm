@@ -13,6 +13,11 @@ seed="$3"
 source /vol/bitbucket/pg1816/venv/bin/activate
 
 training_list="0.8
+0.4
+0.2
+0.15
+0.10
+0.05
 "
 
 replication_list="v1
@@ -22,19 +27,20 @@ v3
 
 pos_dims="1
 2
+5
 "
 # pos
-for pos in $pos_dims; do
-  for repl in $replication_list; do
-    for training in $training_list; do
-      echo "Starting training attention network for version pos, size 64, pos ${pos}, training data ${training}, replication ${repl}."
-      training_str=$(echo "$training" | sed -e "s/\.//g")
-      time python3 train_attention_tip_velocity_estimator.py --name "AttentionNetworkpos${pos}_${dataset_str}_${training_str}_${repl}" \
-      --dataset "$dataset" --training "$training" --version "pos" --pos_dim "$pos" --seed "$seed" >> "$log_file"
-      echo "Completed training."
-    done
-  done
-done
+#for pos in $pos_dims; do
+#  for repl in $replication_list; do
+#    for training in $training_list; do
+#      echo "Starting training attention network for version pos, size 64, pos ${pos}, training data ${training}, replication ${repl}."
+#      training_str=$(echo "$training" | sed -e "s/\.//g")
+#      time python3 train_attention_tip_velocity_estimator.py --name "AttentionNetworkpos${pos}_${dataset_str}_${training_str}_${repl}" \
+#      --dataset "$dataset" --training "$training" --version "pos" --pos_dim "$pos" --seed "$seed" >> "$log_file"
+#      echo "Completed training."
+#    done
+#  done
+#done
 
 for pos in $pos_dims; do
   for repl in $replication_list; do

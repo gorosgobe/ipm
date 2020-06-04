@@ -10,9 +10,9 @@ from lib.common.utils import set_up_cuda, get_demonstrations, get_seed
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--name")
+    parser.add_argument("--name", required=True)
     parser.add_argument("--training", type=float)
-    parser.add_argument("--dataset")
+    parser.add_argument("--dataset", required=True)
     parser.add_argument("--version")
     parser.add_argument("--seed")
     parse_result = parser.parse_args()
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         root_dir=dataset,
         batch_size=32,
         split=[0.8, 0.1, 0.1],
-        name=parse_result.name or "BaselineNetworkRand",
+        name=parse_result.name,
         learning_rate=0.001,
         max_epochs=500,
         validate_epochs=1,

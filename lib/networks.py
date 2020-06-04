@@ -196,8 +196,8 @@ class AttentionNetworkPos(torch.nn.Module):
 
 
 class AttentionNetworkPos_32(AttentionNetworkPos):
-    def __init__(self, image_width, image_height, pos_dimension=1):
-        super().__init__(image_width, image_height)
+    def __init__(self, image_width, image_height, pos_dimension):
+        super().__init__(image_width, image_height, pos_dimension)
         self.fc1 = torch.nn.Linear(in_features=32, out_features=64)
 
     @staticmethod
@@ -303,6 +303,8 @@ class BaselineNetwork(torch.nn.Module):
         out_fc1 = F.relu(self.fc1.forward(x))
         out_fc2 = F.relu(self.fc2.forward(out_fc1))
         out_fc3 = self.fc3.forward(out_fc2)
+        print("X:", x[0])
+        print("out", out_fc3[0])
         return out_fc3
 
 
