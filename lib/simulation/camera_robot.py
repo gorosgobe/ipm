@@ -9,9 +9,9 @@ class CameraRobot(object):
     TEST_STEPS_PER_TRAJECTORY = 40
     TARGET_ORIENTATION = [-np.pi, 0, -np.pi / 2]
 
-    def __init__(self, pr, show_paths=False):
+    def __init__(self, pr, show_paths=False, movable=None):
         self.pr = pr
-        self.movable_camera = MovableCamera(show_paths=show_paths)
+        self.movable_camera = movable or MovableCamera(show_paths=show_paths)
 
     def get_movable_camera(self):
         return self.movable_camera
@@ -31,8 +31,7 @@ class CameraRobot(object):
 
         # position and orientation in 6 x 1 vector
         offset_position, offset_orientation = np.split(offset, 2)
-        self.movable_camera.set_initial_offset_position(offset_position)
-        self.movable_camera.add_to_orientation(offset_orientation)
+        self.movable_camera.set_initial_offset_position_and_orientation(offset_position, offset_orientation)
 
         distractors = scene.get_distractors()
         dsp = scene.get_distractor_safe_distances()
@@ -101,8 +100,7 @@ class CameraRobot(object):
                 break
 
             print(difference_orientation_normalised)
-            self.movable_camera.add_to_orientation(step * difference_orientation_normalised)
-            self.movable_camera.move_along_velocity(velocity)
+            self.movable_camera.move_along_velocity_and_add_orientation(velocity, step * difference_orientation_normalised)
             self.pr.step()
 
         return dict(
@@ -176,12 +174,9 @@ class CameraRobot(object):
         # target is np array
         # set camera position and orientation
         offset_position, offset_orientation = np.split(offset, 2)
-        self.movable_camera.set_initial_offset_position(offset_position)
-        self.movable_camera.add_to_orientation(offset_orientation)
+        self.movable_camera.set_initial_offset_position_and_orientation(offset_position, offset_orientation)
         # set distractor object positions
-        distractors = scene.get_distractors()
-        for idx, d in enumerate(distractors):
-            d.set_position(distractor_positions[idx])
+        _ = scene.get_distractors()
         self.pr.step()
 
         achieved = False
@@ -238,11 +233,8 @@ class CameraRobot(object):
             print("Combined error", combined_error_norm, "vel", velocity_error_norm, "rot", rotation_error_norm)
 
             rotations.append(rotation)
-            # apply rotation
-            self.movable_camera.add_to_orientation(step * rotation)
-            # apply velocity
             tip_velocities.append(velocity)
-            self.movable_camera.move_along_velocity(velocity)
+            self.movable_camera.move_along_velocity_and_add_orientation(velocity, step * rotation)
             self.pr.step()
 
         assert fixed_steps_distance == -1 if fixed_steps == -1 else True

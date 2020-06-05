@@ -2,17 +2,16 @@ import json
 from itertools import cycle
 from os.path import abspath, dirname, join
 
-import numpy as np
 from pyrep import PyRep
-from pyrep.const import PrimitiveShape
+from pyrep.objects.dummy import Dummy
 from pyrep.objects.shape import Shape
 
-from camera_robot import CameraRobot
 from distractor import Distractor
 
 
 class Scene(object):
-    def __init__(self, scene_file, headless=True, no_distractors=False, random_distractors=False, distractors_from=None):
+    def __init__(self, scene_file, headless=True, no_distractors=False, random_distractors=False,
+                 distractors_from=None):
         self.scene_file = join(dirname(abspath(__file__)), "../../scenes/", scene_file)
         self.headless = headless
         self.no_distractors = no_distractors
@@ -255,3 +254,14 @@ class CameraSceneSimplest(Scene):
 
     def __init__(self, headless=True):
         super().__init__(self.SCENE_FILE, headless=headless)
+
+
+class SawyerInsertDiscScene(Scene):
+    SCENE_FILE = "sawyer_insert_disc.ttt"
+
+    def __init__(self, headless=True):
+        # TODO: extend with distractors
+        super().__init__(self.SCENE_FILE, headless=headless, no_distractors=True)
+
+    def get_target(self):
+        return Dummy("peg_waypoint")

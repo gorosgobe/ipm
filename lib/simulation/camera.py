@@ -55,8 +55,8 @@ class WristCamera(Camera):
 class MovableCamera(Camera):
     VISION_SENSOR = "movable_camera"
 
-    def __init__(self, show_paths=False, initial_position=None):
-        super(MovableCamera, self).__init__(MovableCamera.VISION_SENSOR)
+    def __init__(self, show_paths=False, initial_position=None, name=None):
+        super(MovableCamera, self).__init__(name or MovableCamera.VISION_SENSOR)
         self.show_paths = show_paths
         if initial_position is not None:
             self.set_position(initial_position)
@@ -149,5 +149,13 @@ class MovableCamera(Camera):
             points_to_draw.append(towards_z_axis)
         return self._compute_pixel_position_from_canvas(canvas_position), points_to_draw
 
+    def move_along_velocity_and_add_orientation(self, vel, rot):
+        self.add_to_orientation(rot)
+        self.move_along_velocity(vel)
+
     def add_to_orientation(self, rotation):
         self.set_orientation(np.array(self.get_orientation()) + rotation)
+
+    def set_initial_offset_position_and_orientation(self, offset_position, offset_orientation):
+        self.set_initial_offset_position(offset_position)
+        self.add_to_orientation(offset_orientation)

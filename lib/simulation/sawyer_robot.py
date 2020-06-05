@@ -7,6 +7,7 @@ from pyrep.robots.end_effectors.baxter_gripper import BaxterGripper
 
 from simulation.camera import WristCamera
 
+
 class SawyerRobot(object):
     SAWYER = "Sawyer"
     JOINT1 = "Sawyer_joint1"
@@ -19,7 +20,6 @@ class SawyerRobot(object):
     JOINTS = [
         JOINT1, JOINT2, JOINT3, JOINT4, JOINT5, JOINT6, JOINT7
     ]
-    TARGET_CUBE = "target_cube"
     # looking downwards from initial position upwards
     LOOK_DOWNWARDS_POSITION = {
         2: -1.45,
@@ -27,7 +27,7 @@ class SawyerRobot(object):
         6: 1.57
     }
 
-    def __init__(self, pr, move_to_initial_position=True):
+    def __init__(self, pr, move_to_initial_position=True, initial_close_gripper=False):
         """
         pr: PyRep instance, scene must have been launched and simulation 
         must have been started
@@ -37,11 +37,11 @@ class SawyerRobot(object):
         self.gripper = BaxterGripper()
         self.tip_velocities = []
         self.sawyer_handle = sim.simGetObjectHandle(SawyerRobot.SAWYER)
-        self.camera = WristCamera()
-        self.target_cube_handle = sim.simGetObjectHandle(SawyerRobot.TARGET_CUBE)
         # Handles for every joint
         self.joint_handles = [sim.simGetObjectHandle(joint_name) for joint_name in SawyerRobot.JOINTS]
 
+        if initial_close_gripper:
+            self.close_gripper()
         # Move robot to initial angle position in simulation
         if move_to_initial_position:
             self.set_initial_angles()
@@ -59,6 +59,22 @@ class SawyerRobot(object):
             joint_number + 1: sim.simGetJointPosition(joint_handle) \
             for joint_number, joint_handle in enumerate(self.joint_handles)
         }
+
+    def actuate_gripper(self, pos):
+        done = False
+        while not done:
+            done = self.gripper.actuate(pos, 0.1)
+            self.pr.step()
+
+    def open_gripper(self):
+        self.actuate_gripper(1.0)
+
+    def close_gripper(self):
+        self.actuate_gripper(0.0)
+
+    def grasp(self, obj):
+        self.close_gripper()
+        self.gripper.grasp(obj)
 
     @staticmethod
     def move_joint(joint_handle, target_angle):
@@ -128,16 +144,14 @@ class SawyerRobot(object):
         # angles contains all joint angles (1 to 7)
         return {jn: angles[jn] + offset_complete_dict[jn] for jn in angles}
 
-    def get_target_joint_angles_from_tip_velocity(self, tip_velocity):
-        """
-        tip_velocity: tip velocity for which we want the joint angles. Passed as 1-D np array.
-        """
-        jacobian = self.sawyer.get_jacobian().T
-        inv_j_j_t = np.linalg.inv(jacobian.dot(jacobian.T))
-        right_pseudo_inverse = jacobian.T.dot(inv_j_j_t)
-        joint_angles = right_pseudo_inverse.dot(tip_velocity)
-        return {joint_number + 1: offset_angle for joint_number, offset_angle in enumerate(joint_angles)}
+    def move_to_pos_and_orient(self, pos, orient):
+        angles = self.sawyer.solve_ik(position=list(pos), euler=orient)
+        self.set_angles({joint_number + 1: angle for joint_number, angle in enumerate(angles)})
 
+    def move_along_velocity_and_orientation(self, tip_velocity, orientation):
+        step = sim.simGetSimulationTimeStep()
+        end_position = np.array(self.sawyer.get_tip().get_position()) + np.array(tip_velocity) * step
+        self.move_to_pos_and_orient(end_position, orientation)
 
     def run_controller_simulation(self, controller, offset_angles={}, move_to_start_angles=True, target_distance=0.01):
         """
@@ -166,7 +180,8 @@ class SawyerRobot(object):
             angles = self.sawyer.solve_ik(position=list(end_position), euler=[0.0, 0.0, 0.0])
             self.set_angles({joint_number + 1: angle for joint_number, angle in enumerate(angles)})
             count += 1
-            dist = np.linalg.norm(np.array(self.sawyer.get_tip().get_position()) - self.get_target_reach_cube_position())
+            dist = np.linalg.norm(
+                np.array(self.sawyer.get_tip().get_position()) - self.get_target_reach_cube_position())
             print("Dist to target cube", dist)
             if dist < target_distance:
                 achieved = True
