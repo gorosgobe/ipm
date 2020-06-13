@@ -2,11 +2,13 @@ import json
 from itertools import cycle
 from os.path import abspath, dirname, join
 
+import numpy as np
 from pyrep import PyRep
-from pyrep.objects.dummy import Dummy
 from pyrep.objects.shape import Shape
 
-from distractor import Distractor
+from lib.simulation.distractor import Distractor
+from lib.simulation.sawyer_camera_adapter import TargetObject
+from lib.simulation.sim_gt_estimators import SimGTVelocityEstimator, SimGTOrientationEstimator, ContinuousGTEstimator
 
 
 class Scene(object):
@@ -16,11 +18,11 @@ class Scene(object):
         self.headless = headless
         self.no_distractors = no_distractors
         self.removed_distractors = False
-        # TODO: implement
         self.random_distractors = random_distractors
         self.random_distractor_safe_distances = None
         self.distractors_from = distractors_from
         self.test_distractors = None
+        self.target = None
 
     def __enter__(self):
         # load test random distractors if available
@@ -29,9 +31,11 @@ class Scene(object):
                 content = f.read()
             self.test_distractors = json.loads(content)["test_distractors"]
             self.test_distractor_iterator = iter(self.get_test_distractor())
+
         self.pr = PyRep()
         self.pr.launch(self.scene_file, headless=self.headless)
         self.pr.start()
+        self.target = self._get_target()
         return self.pr, self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -60,8 +64,11 @@ class Scene(object):
                 self.remove_distractors(Shape(d) for d in names)
             return []
         if self.random_distractors:
-            # remove previous shapes
-            self.remove_distractors(Shape(d) for d in names)
+            try:
+                # remove previous shapes
+                self.remove_distractors(Shape(d) for d in names)
+            except:
+                pass
             shapes = []
             safe_distances = []
             for i in range(len(names)):
@@ -76,8 +83,19 @@ class Scene(object):
             return shapes
         return [Shape(d) for d in names]
 
+    def _get_target(self):
+        return TargetObject(
+            intermediate_waypoints=["target_above_cube"],
+            pixel_waypoint="target_cube_dummy",
+            target_distractor_point="target_cube_dummy",
+            relative_point="target_cube_dummy"
+        )
+
+    def is_break_early(self):
+        return False
+
     def get_target(self):
-        return Shape("target_cube")
+        return self.target
 
     def get_distractors(self):
         return []
@@ -91,6 +109,14 @@ class Scene(object):
     def get_steps_per_demonstration(self):
         # mean is ~29 for all the generated datasets, without backtracking
         return 29
+
+    def get_sim_gt_velocity(self, generating=False, discontinuity=True):
+        target_above_cube = self.get_target().get_final_target().get_position()
+        return SimGTVelocityEstimator(target_above_cube, generating=generating, discontinuity=discontinuity)
+
+    def get_sim_gt_orientation(self):
+        target_above_cube = self.get_target().get_final_target().get_position()
+        return SimGTOrientationEstimator(target_above_cube, [-np.pi, 0, -np.pi / 2])
 
 
 class SawyerReachCubeScene(Scene):
@@ -258,10 +284,44 @@ class CameraSceneSimplest(Scene):
 
 class SawyerInsertDiscScene(Scene):
     SCENE_FILE = "sawyer_insert_disc.ttt"
+    distractors = ["dist1", "dist2", "dist3", "dist4"]
 
-    def __init__(self, headless=True):
-        # TODO: extend with distractors
-        super().__init__(self.SCENE_FILE, headless=headless, no_distractors=True)
+    def __init__(self, headless=True, **kwargs):
+        super().__init__(self.SCENE_FILE, headless=headless, **kwargs)
+        self.gt_estimator = None
 
-    def get_target(self):
-        return Dummy("peg_waypoint")
+    def is_break_early(self):
+        return True
+
+    def _get_target(self):
+        return TargetObject(
+            intermediate_waypoints=["peg_waypoint_reach", "peg_waypoint_end"],
+            pixel_waypoint="peg_waypoint_end",
+            target_distractor_point="peg_target",
+            relative_point="peg_waypoint_reach"
+        )
+
+    def get_sim_gt_velocity(self, generating=False, discontinuity=True):
+        self.gt_estimator = ContinuousGTEstimator(
+            self.target.get_waypoints(),
+            generating=generating,
+            reduce_factors=[1.25, 2]
+        )
+        return self.gt_estimator
+
+    def get_sim_gt_orientation(self):
+        if self.gt_estimator is None:
+            raise ValueError("Call get sim GT velocity first")
+        return self.gt_estimator
+
+    def get_distractors(self):
+        return self.get_distractors_from_names(self.distractors)
+
+    def get_distractor_safe_distances(self):
+        if self.random_distractors:
+            return self.random_distractor_safe_distances
+        return [0.05] * 4
+
+    def get_steps_per_demonstration(self):
+        return 33
+

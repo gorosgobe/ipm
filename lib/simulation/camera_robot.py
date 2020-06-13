@@ -1,5 +1,6 @@
 import numpy as np
 from pyrep.backend import sim
+from pyrep.objects.shape import Shape
 
 from simulation.camera import MovableCamera
 from simulation.sim_gt_estimators import SimGTVelocityEstimator, SimGTOrientationEstimator
@@ -7,17 +8,18 @@ from simulation.sim_gt_estimators import SimGTVelocityEstimator, SimGTOrientatio
 
 class CameraRobot(object):
     TEST_STEPS_PER_TRAJECTORY = 40
-    TARGET_ORIENTATION = [-np.pi, 0, -np.pi / 2]
 
-    def __init__(self, pr, show_paths=False, movable=None):
+    def __init__(self, pr, show_paths=False, movable=None, offset_generator=None):
         self.pr = pr
         self.movable_camera = movable or MovableCamera(show_paths=show_paths)
+        self.offset_generator = offset_generator
 
     def get_movable_camera(self):
         return self.movable_camera
 
-    @staticmethod
-    def generate_offset():
+    def generate_offset(self):
+        if self.offset_generator is not None:
+            return self.offset_generator.generate_offset()
         xy_position_offset = np.random.uniform(-0.4, 0.4, size=2)
         # otherwise, sometimes camera is too far away
         z_position_offset = np.random.uniform(-0.3, 0.3, size=1)
@@ -26,8 +28,8 @@ class CameraRobot(object):
         z_offset = np.random.normal(0, np.pi / 5, size=1)
         return np.concatenate((xy_position_offset, z_position_offset, xy_orientation_offset, z_offset), axis=0)
 
-    def generate_image_simulation(self, offset, scene, target_position, target_object, draw_center_pixel=False,
-                                  debug=False, randomise_distractors=False, discontinuity=True):
+    def generate_image_simulation(self, offset, scene, target_position, target_object, sim_gt_velocity, sim_gt_orientation,
+                                  draw_center_pixel=False, debug=False, randomise_distractors=False):
 
         # position and orientation in 6 x 1 vector
         offset_position, offset_orientation = np.split(offset, 2)
@@ -42,8 +44,6 @@ class CameraRobot(object):
 
         self.pr.step()
 
-        target_handle = target_object.get_handle()
-
         tip_positions = []
         tip_velocities = []
         rotations = []
@@ -51,13 +51,11 @@ class CameraRobot(object):
         relative_target_orientations = []
         images = []
         crop_pixels = []
-        sim_gt_velocity = SimGTVelocityEstimator(target_position, generating=True, discontinuity=discontinuity)
-        sim_gt_orientation = SimGTOrientationEstimator(target_position, self.TARGET_ORIENTATION)
         count = 0
         count_stop_demonstration = None
         while True:
             count += 1
-            # world camera position
+            # world camera/tip position
             camera_position = self.movable_camera.get_position()
             tip_positions.append(camera_position)
 
@@ -73,9 +71,7 @@ class CameraRobot(object):
 
             step = sim.simGetSimulationTimeStep()
             # get pixel and extra information
-            # TODO: refactor this to use object that knows how to compute pixel position from relative position, and pass
-            # TODO: directly relative position from handle
-            pixel, axis = self.movable_camera.compute_pixel_position(target_handle, debug=debug)
+            pixel, axis = self.movable_camera.compute_pixel_position(target_object.get_handle(), debug=debug)
             crop_pixels.append(pixel)
 
             # get image, add debug info and record
@@ -87,6 +83,7 @@ class CameraRobot(object):
                   np.linalg.norm(np.array(target_position) - np.array(camera_position)))
 
             velocity, should_zero = sim_gt_velocity.get_gt_tip_velocity(camera_position)
+            print("velocity", velocity)
             if should_zero:
                 # number of images in demonstration before discontinuity
                 count_stop_demonstration = count
@@ -95,11 +92,11 @@ class CameraRobot(object):
             tip_velocities.append(velocity if not should_zero else np.zeros(3))
             difference_orientation_normalised = sim_gt_orientation.get_gt_orientation_change(camera_position,
                                                                                              camera_orientation)
+            print("rotation", difference_orientation_normalised)
             rotations.append(difference_orientation_normalised)
             if sim_gt_velocity.stop_sim() and sim_gt_orientation.stop_sim():
                 break
 
-            print(difference_orientation_normalised)
             self.movable_camera.move_along_velocity_and_add_orientation(velocity, step * difference_orientation_normalised)
             self.pr.step()
 
@@ -128,14 +125,19 @@ class CameraRobot(object):
         x_target = target_position[0]
         y_target = target_position[1]
         target = np.array([x_target, y_target])
+        try:
+            robot = Shape("Sawyer").get_position()[:-1]
+        except:
+            robot = target
         distractor_positions = []
         for idx, d in enumerate(distractors):
             previous_distractors = distractors[:idx]
             # get random position within table dimensions
-            x = d.get_position()[0]
-            y = d.get_position()[1]
+            x = target[0]
+            y = target[1]
             # make sure obtained x is not within safe distance of target or previously set distractors
-            while np.linalg.norm(np.array([x, y]) - target) < dsp[idx] + 0.1 or \
+            while np.linalg.norm(np.array([x, y]) - target) < dsp[idx] or \
+                    np.linalg.norm(np.array([x, y]) - robot) < dsp[idx] or \
                     any(filter(lambda other_d: np.linalg.norm(np.array([x, y]) - np.array(other_d.get_position()[:2])) < dsp[idx], previous_distractors)):
                 x = CameraRobot.get_x_distractor()
                 y = CameraRobot.get_y_distractor()
@@ -169,14 +171,18 @@ class CameraRobot(object):
                     px, py = p
                     image[py, px] = np.array(colours[idx])
 
-    def run_controller_simulation(self, controller, offset, target, distractor_positions, scene, target_distance=0.01,
-                                  fixed_steps=-1):
+    def run_controller_simulation(self, controller, offset, target_position, scene, sim_gt_velocity, sim_gt_orientation, target_distance=0.01,
+                                  fixed_steps=-1, distractor_positions=None, break_early=False):
         # target is np array
         # set camera position and orientation
         offset_position, offset_orientation = np.split(offset, 2)
         self.movable_camera.set_initial_offset_position_and_orientation(offset_position, offset_orientation)
         # set distractor object positions
-        _ = scene.get_distractors()
+        dists = scene.get_distractors()
+        if distractor_positions is not None:
+            # scene 1 case
+            for idx, d in enumerate(dists):
+                d.set_position(distractor_positions[idx])
         self.pr.step()
 
         achieved = False
@@ -185,8 +191,6 @@ class CameraRobot(object):
         rotations = []
         min_distance = None
         # not generating
-        sim_gt_velocity = SimGTVelocityEstimator(target)
-        sim_gt_orientation = SimGTOrientationEstimator(target, self.TARGET_ORIENTATION)
         combined_errors = []
         velocity_errors = []
         orientation_errors = []
@@ -197,7 +201,7 @@ class CameraRobot(object):
             image = self.movable_camera.get_image()
             images.append(image)
             camera_position = self.movable_camera.get_position()
-            dist = np.linalg.norm(target - np.array(camera_position))
+            dist = np.linalg.norm(target_position - np.array(camera_position))
             min_distance = dist if min_distance is None else min(min_distance, dist)
 
             # when fixed steps are not taken into account, break when target distance is reached
@@ -207,6 +211,21 @@ class CameraRobot(object):
                     break
             else:
                 fixed_steps_distance = dist
+                if break_early:
+                    # disc insertion scene
+                    xy = np.array(camera_position)[:-1]
+                    target_xy = target_position[:-1]
+                    # radius of peg is 1.5cm, so disc center should be in that region
+                    # height of tip position should be within the peg, end height in all demonstrations is 0.62
+                    # but its okay to insert it fully
+                    print("Norm", np.linalg.norm(target_xy - xy))
+                    print("Camera height", camera_position[-1])
+                    if np.linalg.norm(target_xy - xy) < 0.015 and 0.6 <= camera_position[-1] < 0.63:
+                        achieved = True
+                        break
+                        # disc is outside of peg in xy (centers not close enough given size of disc) and below start of peg, so trajectory fails
+                    elif np.linalg.norm(target_xy - xy) > 0.01 and camera_position[-1] < 0.65:
+                        break
                 if i == fixed_steps:
                     # test episode has ended
                     break

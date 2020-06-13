@@ -267,6 +267,10 @@ class TipVelocityController(object):
         h, w, _c = image.shape
         # select region of interest (manual crop or RL agent)
         image, pixels = self.roi_estimator.crop(image)
+        if self.debug:
+            import matplotlib.pyplot as plt
+            plt.imshow(image[:, :, :3])
+            plt.show()
         # resizes image
         if not isinstance(image, torch.Tensor):
             # if image is a tensor, we assume resize has happened already

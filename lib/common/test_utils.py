@@ -6,14 +6,15 @@ from collections import OrderedDict
 
 import cv2
 import numpy as np
-from scipy import stats
 from matplotlib import pyplot as plt
+from scipy import stats
 
 from lib.cv.controller import IdentityCropper, ControllerType, TruePixelROI, CropDeviationSampler
 
 
 def get_scene_and_test_scene_configuration(model_name):
-    from lib.simulation.scenes import CameraScene5, CameraScene1, CameraScene4, CameraScene3, CameraScene2
+    from lib.simulation.scenes import CameraScene5, CameraScene1, CameraScene4, CameraScene3, CameraScene2, \
+        SawyerInsertDiscScene
     if "scene2" in model_name or "randist2" in model_name or "nodist2" in model_name:
         s = CameraScene2
         test = "test_demonstrations/scene2_test.json"
@@ -34,6 +35,10 @@ def get_scene_and_test_scene_configuration(model_name):
         s = CameraScene1
         test = "test_demonstrations/scene1_test.json"
         dist_config = "test_demonstrations/random1_test.json"
+    elif "disc" in model_name:
+        s = SawyerInsertDiscScene
+        test = ...
+        dist_config = "test_demonstrations/disc_test.json"
     else:
         raise ValueError("Unknown scene and test scene configuration")
 
@@ -57,7 +62,7 @@ class TestConfig(enum.Enum):
     RECURRENT_BASELINE = 13
 
 
-def get_testing_configs(camera_robot, target_cube):
+def get_testing_configs(camera_robot, pixel_target):
     return {
         TestConfig.BASELINE:
             {
@@ -76,7 +81,8 @@ def get_testing_configs(camera_robot, target_cube):
             },
         TestConfig.STN:
             {
-                "cropper": TruePixelROI(480, 640, camera_robot.get_movable_camera(), target_cube, add_spatial_maps=True),
+                "cropper": TruePixelROI(480, 640, camera_robot.get_movable_camera(), pixel_target,
+                                        add_spatial_maps=True),
                 "c_type": ControllerType.DEFAULT
             },
         TestConfig.DSAE_CHOOSE:
@@ -91,41 +97,41 @@ def get_testing_configs(camera_robot, target_cube):
             },
         TestConfig.ATTENTION_64:
             {
-                "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube),
+                "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), pixel_target),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
         TestConfig.ATTENTION_32:
             {
-                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube),
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), pixel_target),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
         TestConfig.ATTENTION_COORD_64:
             {
-                "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), target_cube,
+                "cropper": TruePixelROI(480 // 2, 640 // 2, camera_robot.get_movable_camera(), pixel_target,
                                         add_spatial_maps=True),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
         TestConfig.ATTENTION_COORD_32:
             {
-                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), pixel_target,
                                         add_spatial_maps=True),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
         TestConfig.RECURRENT_ATTENTION_COORD_32:
             {
-                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), pixel_target,
                                         add_spatial_maps=True),
                 "c_type": ControllerType.DEFAULT
             },
         TestConfig.ATTENTION_COORD_ROT_32:
             {
-                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), pixel_target,
                                         add_spatial_maps=True, add_r_map=True),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
         TestConfig.COORD_32_ST_100:
             {
-                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), target_cube,
+                "cropper": TruePixelROI(480 // 4, 640 // 4, camera_robot.get_movable_camera(), pixel_target,
                                         add_spatial_maps=True, crop_deviation_sampler=CropDeviationSampler(100)),
                 "c_type": ControllerType.TOP_LEFT_BOTTOM_RIGHT_PIXELS
             },
@@ -159,7 +165,7 @@ def get_latex(means, stds, display_all_values=True, display_std_means=False):
             if display_std_means:
                 res_latex += f"{_round(np.mean(np.array(list_std)))}$\pm${_round(np.std(np.array(list_std)))}"
             res_latex += " & "
-        if count % 5 == 0:
+        if count % 6 == 0:
             res_latex += "\n"
             count = 0
 
@@ -167,12 +173,15 @@ def get_latex(means, stds, display_all_values=True, display_std_means=False):
 
 
 def load_test(test_name):
+    achieved = None
     with open(test_name, "r") as f:
         content = json.loads(f.read())
         minimum_distances = content["min_distances"]
         fixed_step_distances = content["fixed_steps_distances"]
+        if "achieved" in content:
+            achieved = content["achieved"]
 
-    return minimum_distances, fixed_step_distances
+    return minimum_distances, fixed_step_distances, achieved
 
 
 def compute_95_interval(values):

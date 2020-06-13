@@ -27,14 +27,19 @@ if __name__ == '__main__':
 
         distance_values = []
         fixed_step_distance_values = []
+        achieved_values = []
 
-        minimum_distances, fixed_step_distances = load_test(test_name)
+        minimum_distances, fixed_step_distances, achieved = load_test(test_name)
 
         for i_str in minimum_distances:
             distance_values.append(minimum_distances[i_str])
 
         for i_str in fixed_step_distances:
             fixed_step_distance_values.append(fixed_step_distances[i_str])
+
+        if achieved is not None:
+            for i_str in achieved:
+                achieved_values.append(achieved[i_str])
 
         res_mmd_std = np.std(np.array(distance_values))
         add_value_to_test(std_minimum_distances, test_base_name, res_mmd_std)
@@ -50,7 +55,10 @@ if __name__ == '__main__':
             = get_achieved_and_target(distances, fixed_step_distances, special_distance)
 
         special_counts.append((test_name, special_distance_count))
-        add_value_to_test(mean_achieved, test_base_name, special_distance_count / 100)
+        if achieved is not None:
+            add_value_to_test(mean_achieved, test_base_name, sum(achieved_values) / 100)
+        else:
+            add_value_to_test(mean_achieved, test_base_name, special_distance_count / 100)
         achieved_plot.append((test_name, test_achieved))
 
     print(f"Count for distance {special_distance}: {special_counts}")
@@ -62,7 +70,6 @@ if __name__ == '__main__':
     # LaTeX
     res_mmd_latex = get_latex(mean_minimum_distances, std_minimum_distances)
     res_fsd_latex = get_latex(mean_fixed_step_distances, std_fixed_step_distances, display_all_values=False)
-    # TODO: add LATEX table for percentage < 3cm achieved
     res_achieved_latex = get_latex(mean_achieved, mean_achieved, display_all_values=False)
     print("Latex MMD:", res_mmd_latex)
     print("Latex FSD:", res_fsd_latex)
@@ -75,5 +82,5 @@ if __name__ == '__main__':
         "AttentionNetworktile_scene1scene1_08.test": "Attention Network Tile (64x48)",
         "FullImageNetwork_scene1scene1_08.test": "Full Image Network (128x96)"
     }
-
-    plot_achieved(achieved_plot, legend_names=legend_names)
+    legend_names = None
+    #plot_achieved(achieved_plot, legend_names=legend_names)

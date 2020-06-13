@@ -3,20 +3,21 @@ import shutil
 
 import numpy as np
 
-from lib.simulation.camera_robot import CameraRobot
-from lib.simulation.scenes import CameraScene1, CameraScene5, CameraScene4, CameraScene3
 from lib.common.utils import save_images_and_tip_velocities
+from lib.simulation.camera_robot import CameraRobot
+from lib.simulation.scenes import SawyerInsertDiscScene, CameraScene1
+from sawyer_camera_adapter import SawyerCameraAdapter, DiscOffsetGenerator
 
 if __name__ == "__main__":
 
-    seed = 4045
+    seed = 6000
     np.random.seed(seed)
 
-    with CameraScene5(headless=True, random_distractors=True) as (pr, scene):
+    with SawyerInsertDiscScene(headless=True, random_distractors=True) as (pr, scene):
 
         # Minimum number of training samples we want to generate
         # 5250
-        min_samples = 5250
+        min_samples = 1250
         # usually True, unless testing with simpler datasets
         discontinuity = True
         # count of number of training samples so far (image, tip velocity)
@@ -24,7 +25,7 @@ if __name__ == "__main__":
         counts = []
         # Number of the demonstration
         demonstration_num = 0
-        folder = "./randist5"
+        folder = "./blablarand"
         tip_velocity_file = "velocities.csv"
         rotations_file = "rotations.csv"
         metadata_file = "metadata.json"
@@ -32,20 +33,21 @@ if __name__ == "__main__":
         shutil.rmtree(folder, ignore_errors=True)
         os.mkdir(folder)
         os.chdir(folder)
-        robot = CameraRobot(pr, show_paths=False)
-        print("Position camera:", robot.movable_camera.get_position())
-        target_cube = scene.get_target()
-        target_cube_position = target_cube.get_position()
-        print("Target cube position -0.05:", target_cube_position)
-        target_above_cube = (np.array(target_cube_position) + np.array([0.0, 0.0, 0.05])).tolist()
+        # robot = CameraRobot(pr)
+        robot = CameraRobot(pr, movable=SawyerCameraAdapter(pr), offset_generator=DiscOffsetGenerator())
+        # print("Position camera:", robot.movable_camera.get_position())
+        target = scene.get_target()
         stop_demonstration = []
         while total_count < min_samples:
             print("{}/{} samples generated".format(total_count, min_samples))
             offset = robot.generate_offset() if total_count > 0 else np.zeros(robot.generate_offset().shape[0])
             print("Offset {}".format(offset))
+            sim_gt_velocity = scene.get_sim_gt_velocity(generating=True, discontinuity=discontinuity)
+            sim_gt_orientation = scene.get_sim_gt_orientation()
             result = robot.generate_image_simulation(
-                scene=scene, offset=offset, target_position=target_above_cube, target_object=target_cube,
-                randomise_distractors=True, discontinuity=discontinuity
+                scene=scene, offset=offset, target_position=target.get_target_for_distractor_point().get_position(), target_object=target,
+                randomise_distractors=True, sim_gt_velocity=sim_gt_velocity,
+                sim_gt_orientation=sim_gt_orientation
             )
             save_images_and_tip_velocities(
                 demonstration_num=demonstration_num,

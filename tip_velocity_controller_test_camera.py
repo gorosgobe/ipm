@@ -20,8 +20,10 @@ from lib.dsae.dsae_networks import TargetVectorDSAE_Decoder
 from lib.simulation.camera_robot import CameraRobot
 from lib.stn.stn_tvec_adapter import STNControllerAdapter
 from meta_networks import MetaAttentionNetworkCoord
+from sawyer_camera_adapter import SawyerCameraAdapter, DiscOffsetGenerator
 from soft.rnn_tvec_adapter import RNNTipVelocityControllerAdapter
-from stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, SpatialLocalisationRegressor
+from stn.stn import LocalisationParamRegressor, SpatialTransformerNetwork, SpatialLocalisationRegressor, \
+    STN_SamplingType
 
 
 def get_full_image_networks(scenes_trained, training_list, versions, prefix=""):
@@ -29,15 +31,16 @@ def get_full_image_networks(scenes_trained, training_list, versions, prefix=""):
     for s in scenes_trained:
         for v in versions:
             for tr in training_list:
+                # models_res.append(f"{prefix}FullImageNetwork_{s}_coord_{tr}_{v}")
                 models_res.append(f"{prefix}FullImageNetwork_{s}_{tr}_{v}")
-                models_res.append(f"{prefix}FullImageNetwork_{s}_coord_{tr}_{v}")
 
     for s in scenes_trained:
         for vers in versions:
             for tr in training_list:
                 for sc in ["32", "64"]:
                     for v in ["a", "coord"]:
-                        models_res.append(f"{prefix}FullImageNetwork_{s}_{v}_{sc}_{tr}_{vers}")
+                        # models_res.append(f"{prefix}FullImageNetwork_{s}_{v}_{sc}_{tr}_{vers}")
+                        pass
 
     return models_res, TestConfig.FULL_IMAGE
 
@@ -123,6 +126,7 @@ def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, im
 
     if rl_path is None:
         feature_provider = FeatureProvider(model=model, device=device)
+        print("DSAE encoder params", feature_provider.get_num_parameters())
     else:
         path = os.path.join("models/rl", rl_path)
         if is_sac:
@@ -138,6 +142,7 @@ def get_dsae_tve_model(dsae_path, action_predictor_path, latent_dimension, k, im
         path=os.path.join("models/", os.path.join(prefix, f"{action_predictor_path}.pt")),
         k=k
     )
+    print("Action predictor params", sum([p.numel() for p in action_predictor.parameters()]))
 
     dsae_tve_model = DSAETipVelocityEstimatorAdapter(feature_provider=feature_provider,
                                                      action_predictor=action_predictor)
@@ -152,9 +157,11 @@ def get_recurrent_tve_model(tve_prefix, tve_model_name):
     return RNNTipVelocityControllerAdapter.load(os.path.join("models", tve_prefix, f"{tve_model_name}.pt"))
 
 
-def get_dsae_chooser_tve_model(tve_prefix, tve_model_name, dsae_path, latent_dimension, is_bop=False, index_path=None):
+def get_dsae_chooser_tve_model(tve_prefix, tve_model_name, dsae_path, latent_dimension, is_bop=False, index_path=None,
+                               size=32):
     model = get_target_feature_provider_model(dsae_path=dsae_path, latent_dimension=latent_dimension)
     feature_provider = FeatureProvider(model=model, device=torch.device("cpu"))
+    print("Feature provider encoder parameters", feature_provider.get_num_parameters())
     if is_bop:
         info = CropSizeFeatureSearch.load_info(f"models/{tve_prefix}{tve_model_name}")
         best_parameters = info["best_parameters"]
@@ -170,7 +177,7 @@ def get_dsae_chooser_tve_model(tve_prefix, tve_model_name, dsae_path, latent_dim
     else:
         info = DSAE_ValFeatureChooser.load_info(f"models/{tve_prefix}{tve_model_name}")
         chooser_index = info["index"]
-        chooser_crop_size = (32, 24)
+        chooser_crop_size = (32, 24) if size == 32 else (64, 48)
 
     roi_cropper = DSAE_ChooserROI(
         chooser_index=chooser_index,
@@ -178,6 +185,7 @@ def get_dsae_chooser_tve_model(tve_prefix, tve_model_name, dsae_path, latent_dim
         feature_provider=feature_provider
     )
     tve = TipVelocityEstimator.load(f"models/{tve_prefix}{tve_model_name}_model.pt")
+    print("Model parameters", sum([p.numel() for p in tve.network.parameters()]))
     return tve, roi_cropper
 
 
@@ -192,7 +200,8 @@ def get_stn_tve_model(tve_prefix, tve_model_name, scale, size, sampling_type, ds
         localisation_param_regressor = SpatialLocalisationRegressor(
             dsae=dsae.encoder,
             latent_dimension=128,
-            scale=scale
+            scale=scale,
+            anneal="anneal" in tve_model_name
         )
     model = MetaAttentionNetworkCoord.create(*size)(track=True)
 
@@ -202,8 +211,9 @@ def get_stn_tve_model(tve_prefix, tve_model_name, scale, size, sampling_type, ds
         output_size=size,
         sampling_type=sampling_type
     )
+    print("Parameters", sum([p.numel() for p in stn.parameters()]))
 
-    info = torch.load(os.path.join("models", tve_prefix, tve_model_name), map_location=torch.device('cpu'))
+    info = torch.load(os.path.join("models", tve_prefix, f"{tve_model_name}.pt"), map_location=torch.device('cpu'))
     state = info["stn_state_dict"]
     stn.load_state_dict(state)
 
@@ -228,9 +238,9 @@ def get_full_recurrent_networks(scenes_trained, trains, versions):
     for s in scenes_trained:
         for tr in trains:
             for vs in versions:
-                models.append(f"LSTMNetwork_full_{s}_{tr}_{vs}")
-                models.append(f"LSTMNetwork_fullcoord_{s}_{tr}_{vs}")
-                models.append(f"LSTMNetwork_mask_{s}_{tr}_{vs}")
+                # models.append(f"LSTMNetwork_full_{s}_{tr}_{vs}")
+                # models.append(f"LSTMNetwork_fullcoord_{s}_{tr}_{vs}")
+                # models.append(f"LSTMNetwork_mask_{s}_{tr}_{vs}")
                 models.append(f"LSTMNetwork_context_{s}_{tr}_{vs}")
 
     return models, TestConfig.RECURRENT_FULL
@@ -246,6 +256,67 @@ def get_coordconv_recurrent_networks(scenes_trained, trains, versions):
     return models, TestConfig.RECURRENT_ATTENTION_COORD_32
 
 
+def get_dsae_chooser_networks(scenes_trained, trains, versions, dsae_prefix, size):
+    models = []
+    dsae_paths = []
+    for s in scenes_trained:
+        for tr in trains:
+            for v in versions:
+                models.append(f"choose_64_0_1_1_{s}_{tr}_{v}" if size == 64 else f"choose_64_0_1_1_32_{s}_{tr}_{v}")
+                dsae_paths.append(os.path.join(dsae_prefix, f"target_64_0_1_1_{s}_{tr}_v1"))
+
+    index_paths = [None] * len(models)
+    return models, TestConfig.DSAE_CHOOSE, dsae_paths, 128, False, index_paths
+
+
+def get_bop_chooser_networks(scenes_trained, trains, versions, dsae_prefix):
+    models = []
+    dsae_paths = []
+    index_paths = []
+    for s in scenes_trained:
+        for tr in trains:
+            for v in versions:
+                models.append(f"bop_64_0_1_1_32_{s}_{tr}_{v}")
+                index_paths.append(f"evaluation/chooser/choose_64_0_1_1_32_{s}_{tr}_{v}")
+                dsae_paths.append(os.path.join(dsae_prefix, f"target_64_0_1_1_{s}_{tr}_v1"))
+
+    return models, TestConfig.DSAE_CHOOSE, dsae_paths, 128, True, index_paths
+
+
+def get_meta_stn_networks(scenes_trained, trains, versions, scale_str, dsae_prefix, stn_type=""):
+    sizes = []
+    models = []
+    dsae_paths = []
+    scales = []
+    for s in scenes_trained:
+        for tr in trains:
+            for vs in versions:
+                for typ in ["_retrain"]:#["", "_retrain"]:
+                    model_name = f"final_meta_stn{stn_type}_040401_{scale_str}_{s}_{tr}_{vs}{typ}"
+                    models.append(model_name)
+                    if "dsae" not in model_name:
+                        dsae_paths.append(None)
+                    else:
+                        dsae_paths.append(os.path.join(dsae_prefix, f"target_64_0_1_1_{s}_{tr}_v1"))
+                    if "_05_" in model_name:
+                        scales.append(0.5)
+                        sizes.append((64, 48))
+                    elif "_025_" in model_name:
+                        scales.append(0.25)
+                        sizes.append((32, 24))
+                    else:
+                        raise ValueError("Unknown scale")
+
+    return models, TestConfig.STN, dsae_paths, scales, STN_SamplingType.LINEARISED, sizes
+
+def get_pos_networks(scenes_trained, trains, versions, pos_dim):
+    models = []
+    for s in scenes_trained:
+        for tr in trains:
+            for v in versions:
+                models.append(f"AttentionNetworkpos{pos_dim}_{s}_32_{tr}_{v}")
+    return models, TestConfig.ATTENTION_COORD_32
+
 if __name__ == "__main__":
 
     trainings = [
@@ -253,21 +324,43 @@ if __name__ == "__main__":
     ]
 
     scenes = [
-        "nodist1", "nodist2", "nodist3", "nodist4", "nodist5", "randist1", "randist2", "randist3", "randist4",
-        "randist5"
+        # "nodist1",
+        # "nodist2",
+        # "nodist3",
+        # "nodist4",
+        # "nodist5",
+        # "randist1",
+        # "randist2",
+        # "randist3",
+        # "randist4",
+        # "randist5"
+        "smalldisc",
+        "smalldiscrand"
     ]
 
     vs = ["v1", "v2", "v3"]
 
-    sizes = ["64", "32"]
-    prefix = "evaluation/soft_lstm/"
+    prefix = "disc/"
     # models, testing_config_name = get_full_image_networks(scenes, trainings, vs)
+    # models, testing_config_name = get_pos_networks(scenes, trainings, vs, pos_dim=5)
     # models, testing_config_name = get_baseline_networks(scenes, trainings, vs)
-    # models, testing_config_name = get_attention_networks(32, scenes, trainings, vs)
-    # models, testing_config_name = get_coord_attention_networks(64, scenes, trainings, vs)
-    # models, testing_config_name, dsae_paths, latent_dimension, k, rl_path, is_sac = get_dsae_networks(scenes, trainings,
-    #                                                                                                   vs)
-    models, testing_config_name = get_coordconv_recurrent_networks(scenes, trainings, vs)
+    # models, testing_config_name = get_attention_networks(64, scenes, trainings, vs)
+    models, testing_config_name = get_coord_attention_networks(32, scenes, trainings, vs)
+    # models, testing_config_name, dsae_paths, latent_dimension, k, rl_path, is_sac = get_dsae_networks(scenes, trainings, vs)
+    # models, testing_config_name = get_coordconv_recurrent_networks(scenes, trainings, vs)
+    # models, testing_config_name = get_full_recurrent_networks(scenes, trainings, vs)
+    dsae_prefix = "disc/dsae"
+    size = 32
+    # models, testing_config_name, dsae_paths, latent_dimension, is_bop, index_paths = get_dsae_chooser_networks(
+    #     scenes, trainings, vs, dsae_prefix, size=size
+    # )
+
+    # models, testing_config_name, dsae_paths, latent_dimension, is_bop, index_paths = get_bop_chooser_networks(
+    #     scenes, trainings, vs, dsae_prefix
+    # )
+    # models, testing_config_name, dsae_paths, scales, sampling_type, sizes = get_meta_stn_networks(
+    #     scenes, trainings, vs, "05", dsae_prefix, "_dsae_guided"
+    # )
     # for scene in scenes:
     #     for t in trainings:
     #         # for ty in types:
@@ -295,15 +388,14 @@ if __name__ == "__main__":
     #
     # ]
     # testing_config_name = TestConfig.STN
-    # prefix = "meta_stn/official/meta_stn_dsae_anneal/v3/"
+    # prefix = "meta_stn/official/meta_stn_dsae_guided/v1/"
     # models = [
-    #     "eval_meta_stn_dsae_anneal_025_bilinear_scene1scene1_v3.pt",
-    #     "eval_meta_stn_dsae_anneal_025_bilinear_scene1scene1_v3_retrain.pt",
+    #     "eval_meta_stn_dsae_guided_05_linearised_scene1scene1_v1_retrain"
     # ]
-    # scale = 0.25
-    # size = (32, 24)
-    # sampling_type = STN_SamplingType.DEFAULT_BILINEAR,
-    # dsae = "target_64_0_1_1_08_scene1scene1_v1.pt"
+    # scales = [0.5]
+    # sizes = [(64, 48)]
+    # sampling_type = STN_SamplingType.LINEARISED,
+    # dsae_paths = ["dsae/target_64_0_1_1_08_scene1scene1_v1"]
 
     # testing_config_name = TestConfig.RECURRENT_BASELINE
     # prefix = "soft_lstm/baseline/v3/"
@@ -331,13 +423,14 @@ if __name__ == "__main__":
     # is_sac = False
     # # is_sac = False
     for model_idx, model_name in enumerate(models):
-        s, test = get_scene_and_test_scene_configuration(model_name=model_name)
+        print("Model name", model_name)
+        s, test, dist_config = get_scene_and_test_scene_configuration(model_name=model_name)
         with s(headless=True, no_distractors=True) as (pr, scene):
-            camera_robot = CameraRobot(pr)
-            target_cube = scene.get_target()
-            target_above_cube = np.array(target_cube.get_position()) + np.array([0.0, 0.0, 0.05])
-
-            testing_configs = get_testing_configs(camera_robot=camera_robot, target_cube=target_cube)
+            # camera_robot = CameraRobot(pr)
+            camera_robot = CameraRobot(pr, movable=SawyerCameraAdapter(pr), offset_generator=DiscOffsetGenerator())
+            target = scene.get_target()
+            break_early = scene.is_break_early()
+            testing_configs = get_testing_configs(camera_robot=camera_robot, pixel_target=target.get_pixel_target())
             testing_config = testing_configs[testing_config_name]
 
             cropper = testing_config["cropper"]
@@ -362,26 +455,27 @@ if __name__ == "__main__":
                 tve_model, cropper = get_dsae_chooser_tve_model(
                     tve_prefix=prefix,
                     tve_model_name=model_name,
-                    dsae_path=dsae_path,
+                    dsae_path=dsae_paths[model_idx],
                     latent_dimension=latent_dimension,
                     is_bop=is_bop,
-                    index_path=index_path
+                    index_path=index_paths[model_idx],
+                    size=size
                 )
             elif testing_config_name == TestConfig.STN:
                 tve_model = get_stn_tve_model(
                     tve_prefix=prefix,
                     tve_model_name=model_name,
-                    scale=scale,
-                    size=size,
+                    scale=scales[model_idx],
+                    size=sizes[model_idx],
                     sampling_type=sampling_type,
-                    dsae=dsae
+                    dsae=dsae_paths[model_idx]
                 )
             else:
                 print("Default type policy!")
                 tve_model = get_default_tve_model(prefix, model_name)
             controller = TipVelocityController(
                 tve_model=tve_model,
-                target_object=target_cube,
+                target_object=target,
                 camera=camera_robot.get_movable_camera(),
                 roi_estimator=cropper,
                 controller_type=c_type
@@ -397,38 +491,47 @@ if __name__ == "__main__":
                 print("Parameters not directly available for this network...")
 
             test_name = "{}.test".format(model_name)
-            result_json = {"min_distances": {}, "errors": {}, "fixed_steps_distances": {}}
+            result_json = {"min_distances": {}, "errors": {}, "fixed_steps_distances": {}, }
+            if break_early:
+                result_json["achieved"] = {}
 
-            with open(test, "r") as f:
+            # with open(test, "r") as f:
+            #     content = f.read()
+            #     js_content = json.loads(content)
+            #     json_offset_list = js_content["offset"]
+            #     distractor_positions_list = js_content["distractor_positions"]
+
+            with open(dist_config, "r") as f:
                 content = f.read()
                 js_content = json.loads(content)
                 json_offset_list = js_content["offset"]
-                distractor_positions_list = js_content["distractor_positions"]
 
             achieved_count = 0
             count = 0
             for idx, offset in enumerate(json_offset_list):
                 print("Offset:", offset)
-                distractor_positions = distractor_positions_list[idx]
-                print("Distractor positions:", distractor_positions)
+                # distractor_positions = distractor_positions_list[idx]
+                # print("Distractor positions:", distractor_positions)
                 controller.start()
                 result = camera_robot.run_controller_simulation(
                     controller=controller,
                     offset=np.array(offset),
-                    target=target_above_cube,
-                    distractor_positions=distractor_positions,
+                    target_position=target.get_final_target().get_position(),
                     scene=scene,
-                    fixed_steps=scene.get_steps_per_demonstration()
+                    sim_gt_velocity=scene.get_sim_gt_velocity(),
+                    sim_gt_orientation=scene.get_sim_gt_orientation(),
+                    fixed_steps=scene.get_steps_per_demonstration(),
+                    break_early=break_early,
                 )
                 count += 1
-                for index, i in enumerate(result["images"]):
-                    save_image(i, "/home/pablo/Desktop/dsae-test-{}image{}.png".format(count, index))
+                # for index, i in enumerate(result["images"]):
+                #     save_image(i, "/home/pablo/Desktop/test-{}image{}.png".format(count, index))
                 # if testing_config_name == TestConfig.RECURRENT_FULL:
-                #     for index, i in enumerate(controller.get_model().get_np_attention_mapped_images()):
-                # #         save_image(i, "/home/pablo/Desktop/{}_attention-{}image{}.png".format(model_name, count, index))
+                #     for index, i in enumerate(controller.get_model().get_np_attention_mapped_images(lower_weight=True)):
+                #         save_image(i, "/home/pablo/Desktop/now_{}_attention-{}image{}.png".format(model_name, count, index))
                 # if testing_config_name == TestConfig.STN:
                 #     for index, i in enumerate(controller.get_model().get_images()):
-                #         save_image(i, "/home/pablo/Desktop/meta_stn/{}_stn-{}image{}.png".format(model_name, count, index))
+                #         save_image(i, "/home/pablo/Desktop/meta_stn/FINAL_{}_stn-{}image{}.png".format(model_name, count, index))
                 result_json["min_distances"][str(idx)] = result["min_distance"]
                 result_json["fixed_steps_distances"][str(idx)] = result["fixed_steps_distance"]
                 result_json["errors"][str(idx)] = dict(
@@ -436,8 +539,13 @@ if __name__ == "__main__":
                     velocity_errors=result["velocity_errors"],
                     orientation_errors=result["orientation_errors"]
                 )
+                if break_early:
+                    result_json["achieved"][str(idx)] = result["achieved"]
 
-                if result["achieved"]:
+                if result["fixed_steps_distance"] < 0.03 and not break_early:
+                    achieved_count += 1
+                elif break_early and result["achieved"]:
+                    print("Break early achieved!")
                     achieved_count += 1
 
                 print("Min distance: ", result["min_distance"])

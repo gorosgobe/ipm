@@ -2,6 +2,7 @@ import collections
 
 import numpy as np
 from pyrep.backend import sim
+from pyrep.objects.dummy import Dummy
 from pyrep.robots.arms.sawyer import Sawyer
 from pyrep.robots.end_effectors.baxter_gripper import BaxterGripper
 
@@ -24,7 +25,8 @@ class SawyerRobot(object):
     LOOK_DOWNWARDS_POSITION = {
         2: -1.45,
         4: 1.4,
-        6: 1.57
+        #6: 1.57
+        6: 1.65
     }
 
     def __init__(self, pr, move_to_initial_position=True, initial_close_gripper=False):
