@@ -21,7 +21,7 @@ if __name__ == '__main__':
     mean_achieved = OrderedDict()
 
     for test_idx in range(2, len(sys.argv)):
-        test_name = f"test_results/{sys.argv[test_idx]}"
+        test_name = f"evaluation_results/{sys.argv[test_idx]}"
         test_base_name = os.path.basename(test_name)
         print("Test name:", test_base_name, test_name)
 

@@ -335,18 +335,18 @@ if __name__ == "__main__":
         # "randist4",
         # "randist5"
         "smalldisc",
-        "smalldiscrand"
+        # "smalldiscrand"
     ]
 
-    vs = ["v1", "v2", "v3"]
+    vs = ["v2"]
 
-    prefix = "disc/"
+    prefix = "disc/dsae"
     # models, testing_config_name = get_full_image_networks(scenes, trainings, vs)
     # models, testing_config_name = get_pos_networks(scenes, trainings, vs, pos_dim=5)
     # models, testing_config_name = get_baseline_networks(scenes, trainings, vs)
     # models, testing_config_name = get_attention_networks(64, scenes, trainings, vs)
-    models, testing_config_name = get_coord_attention_networks(32, scenes, trainings, vs)
-    # models, testing_config_name, dsae_paths, latent_dimension, k, rl_path, is_sac = get_dsae_networks(scenes, trainings, vs)
+    # models, testing_config_name = get_coord_attention_networks(32, scenes, trainings, vs)
+    models, testing_config_name, dsae_paths, latent_dimension, k, rl_path, is_sac = get_dsae_networks(scenes, trainings, vs)
     # models, testing_config_name = get_coordconv_recurrent_networks(scenes, trainings, vs)
     # models, testing_config_name = get_full_recurrent_networks(scenes, trainings, vs)
     dsae_prefix = "disc/dsae"
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     #     scenes, trainings, vs, dsae_prefix
     # )
     # models, testing_config_name, dsae_paths, scales, sampling_type, sizes = get_meta_stn_networks(
-    #     scenes, trainings, vs, "05", dsae_prefix, "_dsae_guided"
+    #     scenes, trainings, vs, "025", dsae_prefix, "_dsae_guided"
     # )
     # for scene in scenes:
     #     for t in trainings:
@@ -425,7 +425,7 @@ if __name__ == "__main__":
     for model_idx, model_name in enumerate(models):
         print("Model name", model_name)
         s, test, dist_config = get_scene_and_test_scene_configuration(model_name=model_name)
-        with s(headless=True, no_distractors=True) as (pr, scene):
+        with s(headless=True, random_distractors=True, distractors_from=dist_config) as (pr, scene):
             # camera_robot = CameraRobot(pr)
             camera_robot = CameraRobot(pr, movable=SawyerCameraAdapter(pr), offset_generator=DiscOffsetGenerator())
             target = scene.get_target()
@@ -513,43 +513,46 @@ if __name__ == "__main__":
                 # distractor_positions = distractor_positions_list[idx]
                 # print("Distractor positions:", distractor_positions)
                 controller.start()
-                result = camera_robot.run_controller_simulation(
-                    controller=controller,
-                    offset=np.array(offset),
-                    target_position=target.get_final_target().get_position(),
-                    scene=scene,
-                    sim_gt_velocity=scene.get_sim_gt_velocity(),
-                    sim_gt_orientation=scene.get_sim_gt_orientation(),
-                    fixed_steps=scene.get_steps_per_demonstration(),
-                    break_early=break_early,
-                )
-                count += 1
-                # for index, i in enumerate(result["images"]):
-                #     save_image(i, "/home/pablo/Desktop/test-{}image{}.png".format(count, index))
-                # if testing_config_name == TestConfig.RECURRENT_FULL:
-                #     for index, i in enumerate(controller.get_model().get_np_attention_mapped_images(lower_weight=True)):
-                #         save_image(i, "/home/pablo/Desktop/now_{}_attention-{}image{}.png".format(model_name, count, index))
-                # if testing_config_name == TestConfig.STN:
-                #     for index, i in enumerate(controller.get_model().get_images()):
-                #         save_image(i, "/home/pablo/Desktop/meta_stn/FINAL_{}_stn-{}image{}.png".format(model_name, count, index))
-                result_json["min_distances"][str(idx)] = result["min_distance"]
-                result_json["fixed_steps_distances"][str(idx)] = result["fixed_steps_distance"]
-                result_json["errors"][str(idx)] = dict(
-                    combined_errors=result["combined_errors"],
-                    velocity_errors=result["velocity_errors"],
-                    orientation_errors=result["orientation_errors"]
-                )
-                if break_early:
-                    result_json["achieved"][str(idx)] = result["achieved"]
+                try:
+                    result = camera_robot.run_controller_simulation(
+                        controller=controller,
+                        offset=np.array(offset),
+                        target_position=target.get_final_target().get_position(),
+                        scene=scene,
+                        sim_gt_velocity=scene.get_sim_gt_velocity(),
+                        sim_gt_orientation=scene.get_sim_gt_orientation(),
+                        fixed_steps=scene.get_steps_per_demonstration(),
+                        break_early=break_early,
+                    )
+                    count += 1
+                    # for index, i in enumerate(result["images"]):
+                    #     save_image(i, "/home/pablo/Desktop/test-{}image{}.png".format(count, index))
+                    # if testing_config_name == TestConfig.RECURRENT_FULL:
+                    #     for index, i in enumerate(controller.get_model().get_np_attention_mapped_images(lower_weight=True)):
+                    #         save_image(i, "/home/pablo/Desktop/now_{}_attention-{}image{}.png".format(model_name, count, index))
+                    # if testing_config_name == TestConfig.STN:
+                    #     for index, i in enumerate(controller.get_model().get_images()):
+                    #         save_image(i, "/home/pablo/Desktop/meta_stn/FINAL_{}_stn-{}image{}.png".format(model_name, count, index))
+                    result_json["min_distances"][str(idx)] = result["min_distance"]
+                    result_json["fixed_steps_distances"][str(idx)] = result["fixed_steps_distance"]
+                    result_json["errors"][str(idx)] = dict(
+                        combined_errors=result["combined_errors"],
+                        velocity_errors=result["velocity_errors"],
+                        orientation_errors=result["orientation_errors"]
+                    )
+                    if break_early:
+                        result_json["achieved"][str(idx)] = result["achieved"]
 
-                if result["fixed_steps_distance"] < 0.03 and not break_early:
-                    achieved_count += 1
-                elif break_early and result["achieved"]:
-                    print("Break early achieved!")
-                    achieved_count += 1
+                    if result["fixed_steps_distance"] < 0.03 and not break_early:
+                        achieved_count += 1
+                    elif break_early and result["achieved"]:
+                        print("Break early achieved!")
+                        achieved_count += 1
 
-                print("Min distance: ", result["min_distance"])
-                print("Fixed step distance: ", result["fixed_steps_distance"])
+                    print("Min distance: ", result["min_distance"])
+                    print("Fixed step distance: ", result["fixed_steps_distance"])
+                except:
+                    result_json["achieved"][str(idx)] = False
                 print("Achieved: ", achieved_count / (idx + 1), "{}/{}".format(achieved_count, idx + 1))
 
             print("Achieved: ", achieved_count / len(json_offset_list))
