@@ -1,5 +1,7 @@
 # ipm
  Individual Project MEng Computing: "Imitation Learning with Visual Attention for Robot Control"
+
+ This project was awarded the **Winton Capital Applied Undergraduate Project Computing Prize**: an annual award from the Department of Computing at Imperial College London to a final year undergraduate student for an outstanding individual project in applied computing.
  
 # Structure
 **scripts/**: Scripts to run series of training runs automatically, with default parameters
